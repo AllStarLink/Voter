@@ -95,16 +95,16 @@
 #define	GPSLED 2
 #define CONNLED 3
 
-#define NOMINAL_INTERVAL 125000			// 125000us = 8.0 KHz
+#define NOMINAL_INTERVAL 20000000
 #define	LOCK_SECS 5		// 5 seconds of stability to determine lock
 
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 
-ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\r\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
-	gpsmsg3[] = "  Time now syncronized to GPS, audio sample interval is ", gpsmsg4[] = "ns\r\n", gpsmsg5[] = "  Lost GPS Time synchronization\r\n",
-	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\r\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\r\n",
-	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\r\n";
+ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
+	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
+	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
+	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -167,8 +167,6 @@ BYTE gps_nsat;
 BOOL gpssync;
 BOOL gotpps;
 DWORD gps_time;
-long nsec_interval;
-DWORD nsec_count;
 BYTE ppscount;
 DWORD last_interval;
 BYTE lockcnt;
@@ -210,8 +208,19 @@ IP_ADDR LastVoterAddr;
 IP_ADDR CurVoterAddr;
 WORD dnstimer;
 BOOL dnsdone;
+BOOL sendgps;
+DWORD timing_time;
+WORD timing_index;
+DWORD next_time;
+DWORD next_index;
+WORD samplecnt;
+BYTE last_adcsample;
+DWORD real_time;
+WORD last_samplecnt;
+DWORD digest;
+DWORD resp_digest;
+DWORD mydigest;
 
-DWORD digest = 0,resp_digest = 0,mydigest;
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[] = "867530910";
 
 #ifdef SILLY
@@ -732,7 +741,6 @@ BYTE IOExpOutA,IOExpOutB;
 
 void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 {
-long diff;
 
 	if (PORTAbits.RA4) // If PPS signal is asserted
 	{
@@ -740,56 +748,41 @@ long diff;
 		ppswarn = 0;
 		if ((gps_state == GPS_STATE_VALID) && (!gotpps))
 		{
-			TMR5 = 0;
+			TMR3 = 0;
 			gotpps = 1;
-			last_interval = nsec_interval = NOMINAL_INTERVAL;
 			lockcnt = 0;
-			nsec_count = 0;
-
+			samplecnt = 0;
 		}
 		else if (gotpps) 
 		{
-				if (ppscount >= 3)
+			real_time++;
+			if (ppscount >= 3)
+			{
+				last_samplecnt = samplecnt;
+				if ((samplecnt >= 7999) && (samplecnt <= 8001))
 				{
-					if ((nsec_count > 1990000000L) && (nsec_count < 2010000000L))
-						nsec_count -= 1000000000L;
-					if ((nsec_count > 990000000L) && (nsec_count < 1010000000L))
+					if (samplecnt < 8000)  // If we are short one, insert another
 					{
-						nsec_count -= (nsec_interval >> 1);
-						if (nsec_count >= 1000000000)
+						audio_buf[filling_buffer][fillindex++] = last_adcsample;
+						if (fillindex >= FRAME_SIZE)
 						{
-							diff = nsec_count - 1000000000;
-							nsec_interval -= diff >> 16;
+							filled = 1;
+							fillindex = 0;
+							filling_buffer ^= 1;
+							last_drainindex = txdrainindex;
+							timing_index = next_index;
+							timing_time = next_time;
 						}
-						else
-						{
-							diff = 1000000000 - nsec_count;
-							nsec_interval += diff >> 16;
-						}
-						if (((nsec_interval != last_interval) && (lockcnt < LOCK_SECS)) ||
-						 ((nsec_interval < (last_interval - 1)) || (nsec_interval > (last_interval + 1))))
-						{
-							lockcnt = 0;
-							last_interval = nsec_interval;
-						} else if (lockcnt <= LOCK_SECS) lockcnt++;
-						if (lockcnt >= LOCK_SECS) {
-							if (!gpssync) 
-							{
-								// Set for 40ms before actual time
-								system_time.vtime_sec = gps_time;
-								system_time.vtime_nsec = 960001000;
-							}
-							gpssync = 1;
-						}
-						else gpssync = 0;
-#ifdef	SILLY
-						sillyval = nsec_count;
-						silly = 1;
-#endif
 					}
+					if ((!gpssync) && (gps_state == GPS_STATE_VALID))
+					{
+						system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+						gpssync = 1;
+					}
+				}
 		    } else ppscount++;
-			nsec_count = 0;
 		}
+		samplecnt = 0;
 	}
 	IFS1bits.CNIF = 0;
 }
@@ -809,20 +802,28 @@ WORD index;
 	}
 	else
 	{
-		audio_buf[filling_buffer][fillindex++] = 
-			ulawtable[index];
-		nsec_count += nsec_interval;
-		if (fillindex >= FRAME_SIZE)
+		if (fillindex == 0)
 		{
-			filled = 1;
-			fillindex = 0;
-			filling_buffer ^= 1;
-			last_drainindex = txdrainindex;
+			next_index = samplecnt;
+			next_time = real_time;	
+		}
+		last_adcsample = ulawtable[index];
+		if (samplecnt++ < 8000)
+		{
+			audio_buf[filling_buffer][fillindex++] = last_adcsample;
+			if (fillindex >= FRAME_SIZE)
+			{
+				filled = 1;
+				fillindex = 0;
+				filling_buffer ^= 1;
+				last_drainindex = txdrainindex;
+				timing_index = next_index;
+				timing_time = next_time;
+			}
 		}
 		AD1CHS0 = adcindex + 2;
 		sqlcount++;
 		// Output Tx sample
-//		DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++ & 7]];
 		DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
 		txaudio[txdrainindex++] = 0xff;
 		if (txdrainindex >= AppConfig.TxBufferLength)
@@ -1054,8 +1055,7 @@ int     i,l,inquo;
 }
 
 #define	memclr(x,y) memset(x,0,y)
-#define ARPIsTxReady()      MACIsTxReady()
-
+#define ARPIsTxReady()      MACIsTxReady() 
 WORD htons(WORD x)
 {
 	WORD y;
@@ -1152,24 +1152,13 @@ void process_gps(void)
 int n;
 char *strs[30],gpgga[] = "$GPGGA",
 	gpgsv[] = "$GPGSV", gprmc[] = "$GPRMC";
-BYTE buf[20];
 	
-#ifdef	SILLY1
-	if (silly)
-	{
-		silly = 0;
-		printf("%lu\n",sillyval);
-	}
-#endif
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
 	if (gpssync && (gps_state == GPS_STATE_VALID))
 	{
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime());
 		printf(gpsmsg3);
-		ultoa(nsec_interval,buf);
-		printf((char *)buf);
-		printf(gpsmsg4);
 	}
 	if ((!gpssync) && (gps_state == GPS_STATE_SYNCED))
 	{
@@ -1259,10 +1248,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	mysystem_time = system_time;
 
 	if (filled) {
-//TESTBIT ^= 1;
-		filled = 0;
 		if (gpssync)
 		{
+			system_time.vtime_sec = timing_time;
+			system_time.vtime_nsec = timing_index * 125000;
 			BOOL tosend = (connected && (cor || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if (((!connected) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -1283,13 +1272,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	             //Send contents of transmit buffer, and free buffer
 	            UDPFlush();
 			}
-			system_time.vtime_nsec += nsec_interval * FRAME_SIZE;
-			if (system_time.vtime_nsec > 1000000000)
-			{
-				system_time.vtime_nsec -= 1000000000;
-				system_time.vtime_sec++;
-			}
 		}
+		filled = 0;
 	}
 	if (connected && gps_packet.lat[0])
 	{
@@ -1312,6 +1296,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	            UDPFlush();
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
+			sendgps = 0;
 	}
 	if (gpssync && UDPIsGetReady(*udpSocketUser)) {
 		n = 0;
@@ -1584,12 +1569,8 @@ void main_processing_loop(void)
 		if (connected && (!ptt)) ToggleLED(CONNLED);
 		if (gps_state == GPS_STATE_VALID) ToggleLED(GPSLED);
 #ifdef	SILLY
-	if (!gpssync)
-	{
-		printf("%lu %lu\n",nsec_interval,sillyval);
-	}
+		printf("%lu\n",sillyval);
 #endif
-
        }
 
        // This task performs normal stack task including checking
@@ -1777,7 +1758,7 @@ int main(void)
 	BYTE sel;
 	time_t t;
 
-    static ROM char signon[] = "\r\nVOTER Client System verson 0.4  3/12/2011, Jim Dixon WB6NIL\r\n";
+    static ROM char signon[] = "\r\nVOTER Client System verson 0.5  3/16/2011, Jim Dixon WB6NIL\r\n";
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d)\n"
@@ -1832,7 +1813,7 @@ int main(void)
 		"COR: %d\n"
 		"PTT: %d\n"
 		"RSSI: %d\n"
-		"Sample Period (ns): %ld\n"
+		"Current Samples / Sec.: %d\n"
 		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL pot %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
@@ -1847,8 +1828,6 @@ int main(void)
 	gps_nsat = 0;
 	gotpps = 0;
 	gpssync = 0;
-	nsec_interval = NOMINAL_INTERVAL;
-	nsec_count = 0;
 	ppscount = 0;
 	rssi = 0;
 	adcother = 0;
@@ -1878,6 +1857,17 @@ int main(void)
 	memset(&CurVoterAddr,0,sizeof(CurVoterAddr));
 	dnstimer = 0;
 	dnsdone = 0;
+	timing_time = 0;		// Time (whole secs) at beginning of next packet to be sent out
+	timing_index = 0;		// Index at beginning of next packet to be sent out
+	next_time = 0;			// Time (whole secs) samppled at begnning of current ADC frame
+	next_index = 0;			// Index at beginning of current ADC frame
+	samplecnt = 0;			// Index of ADC relative to PPS pulse
+	last_adcsample = 0;		// Last mulaw sample from ADC (so can be repeated if falls short)
+	real_time = 0;			// Actual time (whole secs)
+	last_samplecnt = 0;		// Last sample count (for display purposes)
+	digest = 0;	
+	resp_digest = 0;
+	mydigest = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -2267,7 +2257,7 @@ __builtin_nop();
 					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
 					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3],
 					AppConfig.Flags.bIsDHCPEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
-					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,wascor,ptt,rssi,nsec_interval,
+					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,wascor,ptt,rssi,last_samplecnt,
 					AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
@@ -2321,12 +2311,12 @@ static void InitializeBoard(void)
 //_________________________________________________________________
 	DISABLE_INTERRUPTS();
 
-	T5CON = 0x10;			//TMR5 divide Fosc by 8
-	PR5 = 299;				//Set to period of 300
-	T5CONbits.TON = 1;		//Turn it on
+	T3CON = 0x10;			//TMR3 divide Fosc by 8
+	PR3 = 299;				//Set to period of 300
+	T3CONbits.TON = 1;		//Turn it on
 
 	AD1PCFGL = 0xFFE2;				// Enable AN0, AN2-AN4 as analog 
-	AD1CON1 = 0x8484;			// TMR Sample Start, 12 bit mode (on parts with a 12bit A/D)
+	AD1CON1 = 0x8444;			// TMR Sample Start, 12 bit mode (on parts with a 12bit A/D)
 	AD1CON2 = 0x0;			// AVdd, AVss, int every conversion, MUXA only, no scan
 	AD1CON3 = 0x1003;			// 16 Tad auto-sample, Tad = 3*Tcy
 	AD1CON1bits.ADON = 1;		// Turn On
