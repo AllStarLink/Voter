@@ -208,7 +208,6 @@ IP_ADDR LastVoterAddr;
 IP_ADDR CurVoterAddr;
 WORD dnstimer;
 BOOL dnsdone;
-BOOL sendgps;
 DWORD timing_time;
 WORD timing_index;
 DWORD next_time;
@@ -220,6 +219,7 @@ WORD last_samplecnt;
 DWORD digest;
 DWORD resp_digest;
 DWORD mydigest;
+BYTE frames_this_second;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[] = "867530910";
 
@@ -752,10 +752,12 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 			gotpps = 1;
 			lockcnt = 0;
 			samplecnt = 0;
+			frames_this_second = 0;
 		}
 		else if (gotpps) 
 		{
 			real_time++;
+			frames_this_second = 0;
 			if (ppscount >= 3)
 			{
 				last_samplecnt = samplecnt;
@@ -776,7 +778,7 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 					}
 					if ((!gpssync) && (gps_state == GPS_STATE_VALID))
 					{
-						system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+						system_time.vtime_sec = timing_time = real_time = gps_time + 2;
 						gpssync = 1;
 					}
 				}
@@ -804,6 +806,12 @@ WORD index;
 	{
 		if (fillindex == 0)
 		{
+			if (frames_this_second++ >= 50)  // If PPS pulse missed, make up for it
+			{
+				real_time++;
+				samplecnt -= 8000;
+				frames_this_second -= 50;
+			}
 			next_index = samplecnt;
 			next_time = real_time;	
 		}
@@ -980,8 +988,8 @@ void SetPTT(BOOL val)
 BYTE oldout;
 
 	oldout = IOExpOutA;
-	IOExpOutA &= ~0x10;
-	if (val) IOExpOutA |= 0x10;
+	IOExpOutA &= ~0x20;
+	if (val) IOExpOutA |= 0x20;
 	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
 }
 
@@ -1296,7 +1304,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	            UDPFlush();
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
-			sendgps = 0;
 	}
 	if (gpssync && UDPIsGetReady(*udpSocketUser)) {
 		n = 0;
@@ -1758,7 +1765,7 @@ int main(void)
 	BYTE sel;
 	time_t t;
 
-    static ROM char signon[] = "\r\nVOTER Client System verson 0.5  3/16/2011, Jim Dixon WB6NIL\r\n";
+    static ROM char signon[] = "\r\nVOTER Client System verson 0.6  3/21/2011, Jim Dixon WB6NIL\r\n";
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d)\n"
@@ -1865,9 +1872,11 @@ int main(void)
 	last_adcsample = 0;		// Last mulaw sample from ADC (so can be repeated if falls short)
 	real_time = 0;			// Actual time (whole secs)
 	last_samplecnt = 0;		// Last sample count (for display purposes)
+	frames_this_second = 0;	// Number of frames completed in this current second
 	digest = 0;	
 	resp_digest = 0;
 	mydigest = 0;
+
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -1887,6 +1896,7 @@ int main(void)
 		U1MODE = 0x8000;			// Set UARTEN.  Note: this must be done before setting UTXEN
 
 		U1STA = 0x0400;		// UTXEN set
+
 		#define CLOSEST_U1BRG_VALUE ((GetPeripheralClock()+8ul*BAUD_RATE1)/16/BAUD_RATE1-1)
 		#define BAUD_ACTUAL1 (GetPeripheralClock()/16/(CLOSEST_U1BRG_VALUE+1))
 
@@ -1901,8 +1911,10 @@ int main(void)
 		U1BRG = CLOSEST_U1BRG_VALUE;
 
 		U2MODE = 0x8000;			// Set UARTEN.  Note: this must be done before setting UTXEN
+		U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
 
 		U2STA = 0x0400;		// UTXEN set
+		U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
 		#define CLOSEST_U2BRG_VALUE ((GetPeripheralClock()+8ul*AppConfig.GPSBaudRate)/16/AppConfig.GPSBaudRate-1)
 		U2BRG = CLOSEST_U2BRG_VALUE;
 
