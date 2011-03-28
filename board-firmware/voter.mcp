@@ -64,6 +64,7 @@ file_036=.
 file_037=.
 file_038=.
 file_039=.
+file_040=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -105,6 +106,7 @@ file_036=no
 file_037=no
 file_038=no
 file_039=no
+file_040=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -146,6 +148,7 @@ file_036=no
 file_037=no
 file_038=no
 file_039=no
+file_040=no
 [FILE_INFO]
 file_000=src\TCPIP Stack\ARP.c
 file_001=src\TCPIP Stack\Delay.c
@@ -187,6 +190,7 @@ file_036=src\TCPIP Stack\XEEPROM.h
 file_037=src\TCPIP Stack\Telnet.h
 file_038=src\TCPIP Stack\TCP.h
 file_039=src\TCPIP Stack\DynDNS.h
+file_040=src\p33FJ128GP802.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
@@ -202,5 +206,5 @@ format=0
 [CUSTOM_BUILD]
 Pre-Build=
 Pre-BuildEnabled=1
-Post-Build=
+Post-Build=XTEA Voter.hex
 Post-BuildEnabled=1
