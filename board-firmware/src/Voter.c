@@ -79,6 +79,7 @@
 #define PPS_MAX_TIME (2400 * 8) // 2400 ms PPS Timeout
 #define	GPS_WARN_TIME (1200 * 8) // 1200ms GPS Warning Time
 #define GPS_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
+#define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 
 
 // Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
@@ -120,6 +121,8 @@ typedef struct {
 
 #define OPTION_FLAG_FLATAUDIO 1	// Send Flat Audio
 #define	OPTION_FLAG_SENDALWAYS 2	// Send Audio always
+#define OPTION_FLAG_NOCTCSSFILTER 4 // Do not filter CTCSS
+#define	OPTION_FLAG_MASTERTIMING 8  // Master Timing Source (do not delay sending audio packet)
 
 unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
 BYTE mwp;
@@ -144,7 +147,7 @@ extern BOOL write_eeprom_cali;			// Flag to write calibration values back to EEP
 extern BYTE noise_gain;			// Noise gain sent to digital pot
 extern WORD caldiode;
 
-void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf);
+void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
 
 /////////////////////////////////////////////////
@@ -778,7 +781,7 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 					}
 					if ((!gpssync) && (gps_state == GPS_STATE_VALID))
 					{
-						system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+						system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
 						gpssync = 1;
 					}
 				}
@@ -1205,6 +1208,8 @@ static ROM char gpgga[] = "$GPGGA",
 		tm.tm_mon = twoascii(strs[9] + 2);
 		tm.tm_year = twoascii(strs[9] + 4) + 100;
 		gps_time = (DWORD) mktime(&tm);
+		if (AppConfig.GPSTimeOffset < 0) gps_time -= (DWORD) -AppConfig.GPSTimeOffset;
+		else if (AppConfig.GPSTimeOffset > 0) gps_time += AppConfig.GPSTimeOffset;
 		return;
 	}
 
@@ -1261,7 +1266,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
 
-	if (filled) {
+	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
+	{
 		if (gpssync)
 		{
 			system_time.vtime_sec = timing_time;
@@ -1529,7 +1535,7 @@ void main_processing_loop(void)
 		if (sqlcount++ >= 64)
 		{
 			sqlcount = 0;
-			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF);
+			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
 			if (cor && (!wascor))
 			{
 				vnoise32 = adcothers[ADCSQNOISE] << 3;
@@ -1541,6 +1547,7 @@ void main_processing_loop(void)
 			if (mynoise < NOISE_SLOW_THRESHOLD) mynoise = vnoise32; 
 			rssi = rssitable[mynoise >> 3];
 			if ((rssi < 1) && (cor)) rssi = 1;
+			if (!AppConfig.SqlNoiseGain) rssi = 0;
 			wascor = cor;
 			if (write_eeprom_cali)
 			{
@@ -1778,7 +1785,7 @@ int main(void)
 	BYTE sel;
 	time_t t;
 
-    static ROM char signon[] = "\r\nVOTER Client System verson 0.7  4/7/2011, Jim Dixon WB6NIL\r\n";
+    static ROM char signon[] = "\r\nVOTER Client System verson 0.8  4/7/2011, Jim Dixon WB6NIL\r\n";
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d)\n"
@@ -1798,14 +1805,15 @@ int main(void)
 		"15 - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"16 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"17 - GPS Baud Rate (%lu),  "
-		"18 - Telnet Port (%d)\n"
-		"19 - Telnet Username (%s),  "
-		"20 - Telnet Password (%s)\n"
-		"21 - DynDNS Enable (%d),   "
-		"22 - DynDNS Username (%s)\n"
-		"23 - DynDNS Password (%s)\n"
-		"24 - DynDNS Host (%s)\n"
-		"25 - Debug Level (%d),   "
+		"18 - Time Offset (%ld),  "
+		"19 - Telnet Port (%d)\n"
+		"20 - Telnet Username (%s),  "
+		"21 - Telnet Password (%s)\n"
+		"22 - DynDNS Enable (%d),   "
+		"23 - DynDNS Username (%s)\n"
+		"24 - DynDNS Password (%s)\n"
+		"25 - DynDNS Host (%s)\n"
+		"26 - Debug Level (%d),   "
 		"98 - View Status,  "
 		"99 - Save Values to EEPROM\n"
 		"q - Disconnect Remote Console Session, r = reset system (reboot)\n\n",
@@ -2012,6 +2020,7 @@ __builtin_nop();
 		char cmdstr[50],ok;
 		unsigned int i1,i2,i3,i4,x;
 		unsigned long l;
+		long sl;
 
 		printf(menu,AppConfig.SerialNumber,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
 			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3],AppConfig.DefaultMask.v[0],
@@ -2022,6 +2031,7 @@ __builtin_nop();
 			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3],AppConfig.Flags.bIsDHCPEnabled,
 			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
 			AppConfig.TxBufferLength,AppConfig.TxBufferDelay,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
+			AppConfig.GPSTimeOffset,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
 			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.DebugLevel);
 
@@ -2203,15 +2213,21 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
-
-			case 18: // Telnet Port
+			case 18: // GPS Time Offset (secs)
+				if ((sscanf(cmdstr,"%ld",&sl) == 1) && (sl >= -9999) && (sl <= 9999))
+				{
+					AppConfig.GPSTimeOffset = sl;
+					ok = 1;
+				}
+				break;
+			case 19: // Telnet Port
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
 					AppConfig.TelnetPort = i1;
 					ok = 1;
 				}
 				break;
-			case 19: // Telnet Username
+			case 20: // Telnet Username
 				x = strlen(cmdstr);
 				if ((x > 2) && (x < sizeof(AppConfig.TelnetUsername)))
 				{
@@ -2220,7 +2236,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
-			case 20: // Telnet Password
+			case 21: // Telnet Password
 				x = strlen(cmdstr);
 				if ((x > 2) && (x < sizeof(AppConfig.TelnetPassword)))
 				{
@@ -2229,7 +2245,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
-			case 21: // DynDNS Enable
+			case 22: // DynDNS Enable
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
 					AppConfig.DynDNSEnable = i1;
@@ -2237,7 +2253,7 @@ __builtin_nop();
 					SetDynDNS();
 				}
 				break;
-			case 22: // DynDNS Username
+			case 23: // DynDNS Username
 				x = strlen(cmdstr);
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSUsername)))
 				{
@@ -2247,7 +2263,7 @@ __builtin_nop();
 					SetDynDNS();
 				}
 				break;
-			case 23: // DynDNS Password
+			case 24: // DynDNS Password
 				x = strlen(cmdstr);
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSPassword)))
 				{
@@ -2257,7 +2273,7 @@ __builtin_nop();
 					SetDynDNS();
 				}
 				break;
-			case 24: // DynDNS Host
+			case 25: // DynDNS Host
 				x = strlen(cmdstr);
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSHost)))
 				{
@@ -2267,7 +2283,7 @@ __builtin_nop();
 					SetDynDNS();
 				}
 				break;
-			case 25: // Debug Level
+			case 26: // Debug Level
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
 				{
 					AppConfig.DebugLevel = i1;

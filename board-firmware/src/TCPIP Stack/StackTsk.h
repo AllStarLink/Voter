@@ -132,6 +132,7 @@ typedef struct __attribute__((__packed__))
 	BYTE DynDNSUsername[20];
 	BYTE DynDNSPassword[20];
 	BYTE DynDNSHost[50];
+	long GPSTimeOffset;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

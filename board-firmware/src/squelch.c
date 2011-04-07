@@ -125,7 +125,7 @@ void init_squelch(void)
 	mavnoise32 = CALNOISE;
 }
 
-void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf)
+void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled)
 {
 
 	BYTE x;
@@ -301,7 +301,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf)
 				break;
 
 			case OPEN:
-				cor = 1;
+				if (iscaled) cor = 1;
 				sqled = 1;
 				if(!fastslow){
 					sqstate = OPEN_FAST; // Fast squelch mode
@@ -316,7 +316,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf)
 
 
 			case TAIL:
-				cor = 1;
+				if (iscaled) cor = 1;
 				sqled = 1;
 				if(!looptimer){
 					if(mavnoise32 < sqposp){ // Go back to slow mode
@@ -333,7 +333,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf)
 
 		
 			case OPEN_FAST:
-				cor = 1;
+				if (iscaled) cor = 1;
 				sqled = 1;
 				if(fastslow > FASTSLOWTHRESH){
 					sqstate = OPEN;
