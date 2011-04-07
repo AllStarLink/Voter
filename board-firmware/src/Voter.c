@@ -219,9 +219,9 @@ WORD last_samplecnt;
 DWORD digest;
 DWORD resp_digest;
 DWORD mydigest;
-BYTE frames_this_second;
+BOOL sendgps;
 
-char their_challenge[VOTER_CHALLENGE_LEN],challenge[] = "867530910";
+char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -752,17 +752,17 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 			gotpps = 1;
 			lockcnt = 0;
 			samplecnt = 0;
-			frames_this_second = 0;
+			fillindex = 0;
 		}
 		else if (gotpps) 
 		{
-			real_time++;
-			frames_this_second = 0;
 			if (ppscount >= 3)
 			{
-				last_samplecnt = samplecnt;
 				if ((samplecnt >= 7999) && (samplecnt <= 8001))
 				{
+					last_samplecnt = samplecnt;
+					sendgps = 1;
+					real_time++;
 					if (samplecnt < 8000)  // If we are short one, insert another
 					{
 						audio_buf[filling_buffer][fillindex++] = last_adcsample;
@@ -778,9 +778,14 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 					}
 					if ((!gpssync) && (gps_state == GPS_STATE_VALID))
 					{
-						system_time.vtime_sec = timing_time = real_time = gps_time + 2;
+						system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 						gpssync = 1;
 					}
+				}
+				else
+				{
+					gpssync = 0;
+					ppscount = 0;
 				}
 		    } else ppscount++;
 		}
@@ -794,50 +799,47 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 WORD index;
 
 	index = ADC1BUF0;
-	if (adcother)
+	if (gotpps)
 	{
-		adcothers[adcindex++] = index >> 2;
-		if(adcindex >= ADCOTHERS) adcindex = 0;
-		AD1CHS0 = 0;
-		if (gotpps) ppstimer++;
-		if (gps_state != GPS_STATE_IDLE) gpstimer++;
-	}
-	else
-	{
-		if (fillindex == 0)
+		if (adcother)
 		{
-			if (frames_this_second++ >= 50)  // If PPS pulse missed, make up for it
-			{
-				real_time++;
-				samplecnt -= 8000;
-				frames_this_second -= 50;
-			}
-			next_index = samplecnt;
-			next_time = real_time;	
+			adcothers[adcindex++] = index >> 2;
+			if(adcindex >= ADCOTHERS) adcindex = 0;
+			AD1CHS0 = 0;
+			if (gotpps) ppstimer++;
+			if (gps_state != GPS_STATE_IDLE) gpstimer++;
 		}
-		last_adcsample = ulawtable[index];
-		if (samplecnt++ < 8000)
+		else
 		{
-			audio_buf[filling_buffer][fillindex++] = last_adcsample;
-			if (fillindex >= FRAME_SIZE)
+			if (fillindex == 0)
 			{
-				filled = 1;
-				fillindex = 0;
-				filling_buffer ^= 1;
-				last_drainindex = txdrainindex;
-				timing_index = next_index;
-				timing_time = next_time;
+				next_index = samplecnt;
+				next_time = real_time;
 			}
+			last_adcsample = ulawtable[index];
+			if (samplecnt++ < 8000)
+			{
+				audio_buf[filling_buffer][fillindex++] = last_adcsample;
+				if (fillindex >= FRAME_SIZE)
+				{
+					filled = 1;
+					fillindex = 0;
+					filling_buffer ^= 1;
+					last_drainindex = txdrainindex;
+					timing_index = next_index;
+					timing_time = next_time;
+				}
+			}
+			AD1CHS0 = adcindex + 2;
+			sqlcount++;
+			// Output Tx sample
+			DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
+			txaudio[txdrainindex++] = 0xff;
+			if (txdrainindex >= AppConfig.TxBufferLength)
+				txdrainindex = 0;
 		}
-		AD1CHS0 = adcindex + 2;
-		sqlcount++;
-		// Output Tx sample
-		DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
-		txaudio[txdrainindex++] = 0xff;
-		if (txdrainindex >= AppConfig.TxBufferLength)
-			txdrainindex = 0;
+		adcother ^= 1;
 	}
-	adcother ^= 1;
 	IFS0bits.AD1IF = 0;
 }
 
@@ -1148,9 +1150,12 @@ static char *logtime(void)
 {
 time_t	t;
 static char str[50];
+static ROM char notime[] = "<System Time Not Set>",
+	logtemplate[] = "%m/%d/%Y %H:%M:%S";
 
 	t = system_time.vtime_sec;
-	strftime(str,sizeof(str) - 1,"%m/%d/%Y %H:%M:%S",gmtime(&t));
+	if (t == 0) return((char *)notime);
+	strftime(str,sizeof(str) - 1,(char *)logtemplate,gmtime(&t));
 	sprintf(str + strlen(str),".%03lu",system_time.vtime_nsec / 1000000L);
 	return(str);
 }
@@ -1158,7 +1163,8 @@ static char str[50];
 void process_gps(void)
 {
 int n;
-char *strs[30],gpgga[] = "$GPGGA",
+char *strs[30];
+static ROM char gpgga[] = "$GPGGA",
 	gpgsv[] = "$GPGSV", gprmc[] = "$GPRMC";
 	
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
@@ -1275,7 +1281,14 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	            if (tosend)
 				{
 					UDPPut(rssi);
-					for(i = 0; i < FRAME_SIZE; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
+					if ((rssi > 0) && cor)
+					{
+						for(i = 0; i < FRAME_SIZE; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
+					}
+					else
+					{
+						for(i = 0; i < FRAME_SIZE; i++) UDPPut(0xff);
+					}
 				}
 	             //Send contents of transmit buffer, and free buffer
 	            UDPFlush();
@@ -1283,12 +1296,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		}
 		filled = 0;
 	}
-	if (connected && gps_packet.lat[0])
+	if (connected && sendgps && gps_packet.lat[0])
 	{
 	        if (UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-				gps_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
-				gps_packet.vph.curtime.vtime_nsec = htonl(system_time.vtime_nsec);
+				gps_packet.vph.curtime.vtime_sec = htonl(real_time);
+				gps_packet.vph.curtime.vtime_nsec = htonl(0);
 				strcpy((char *)gps_packet.vph.challenge,challenge);
 				gps_packet.vph.digest = htonl(resp_digest);
 				gps_packet.vph.payload_type = htons(2);
@@ -1302,6 +1315,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				cp = (BYTE *) gps_packet.elev;
 				for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
 	            UDPFlush();
+				sendgps = 0;
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
 	}
@@ -1433,7 +1447,6 @@ void main_processing_loop(void)
 				}
 			}
 	}
-
       if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
         case SM_UDP_SEND_ARP:
             if (ARPIsTxReady()) {
@@ -1765,7 +1778,7 @@ int main(void)
 	BYTE sel;
 	time_t t;
 
-    static ROM char signon[] = "\r\nVOTER Client System verson 0.6  3/21/2011, Jim Dixon WB6NIL\r\n";
+    static ROM char signon[] = "\r\nVOTER Client System verson 0.7  4/7/2011, Jim Dixon WB6NIL\r\n";
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d)\n"
@@ -1872,7 +1885,6 @@ int main(void)
 	last_adcsample = 0;		// Last mulaw sample from ADC (so can be repeated if falls short)
 	real_time = 0;			// Actual time (whole secs)
 	last_samplecnt = 0;		// Last sample count (for display purposes)
-	frames_this_second = 0;	// Number of frames completed in this current second
 	digest = 0;	
 	resp_digest = 0;
 	mydigest = 0;
@@ -1973,6 +1985,7 @@ int main(void)
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
+	sprintf(challenge,"%lu",GenerateRandomDWORD() % 1000000000ul);
 
 	// Now that all items are initialized, begin the co-operative
 	// multitasking loop.  This infinite loop will continuously 
@@ -2372,11 +2385,12 @@ static void InitializeBoard(void)
 	SPIFlashInit();
 #endif
 
-
-
 	CNEN1bits.CN0IE = 1;
 	IEC1bits.CNIE = 1;
 	IPC4bits.CNIP = 7;
+
+	INTCON1bits.NSTDIS = 1;
+
 	ENABLE_INTERRUPTS();
 
 }
