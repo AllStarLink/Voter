@@ -223,6 +223,7 @@ DWORD digest;
 DWORD resp_digest;
 DWORD mydigest;
 BOOL sendgps;
+BYTE dnsnotify;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -420,18 +421,6 @@ static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
 {
         long oldcrc32;
 
-#if 0
-        oldcrc32 = (long)0xFFFFFFFF;
-        while((buf != NULL) && (*buf != 0))
-        {
-                oldcrc32 = crc_32_tab[(oldcrc32 ^ (long)*buf++) & 0xff] ^ (long)(oldcrc32 >> 8);
-        }
-        while((buf1 != NULL) && (*buf1 != 0))
-        {
-                oldcrc32 = crc_32_tab[(oldcrc32 ^ (long)*buf1++) & 0xff] ^ (long)(oldcrc32 >> 8);
-        }
-        return ~oldcrc32;
-#endif
         oldcrc32 = 0xFFFFFFFF;
         while(buf && *buf)
         {
@@ -1404,7 +1393,11 @@ void main_processing_loop(void)
 {
 
 	static ROM char  cfgwritten[] = "Squelch calibration saved, noise gain = ",diodewritten[] = "Diode calibration saved, value (hex) = ",
-		dnschanged[] = "%s  Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "%s  Warning: Unable to resolve DNS for Voter Host %s\n";
+		dnschanged[] = " Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n";
+		
+	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
+			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
+			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
 	static DWORD t = 0;
 
 	//UDP State machine
@@ -1432,23 +1425,26 @@ void main_processing_loop(void)
 			}
 			else
 			{
+
 				if ((!dnsdone) && (DNSIsResolved(&MyVoterAddr)))
 				{
 					if (DNSEndUsage())
 					{
 						if (memcmp(&LastVoterAddr,&MyVoterAddr,sizeof(IP_ADDR)))
 						{
+
 							if (udpSocketUser != INVALID_UDP_SOCKET) UDPClose(udpSocketUser);
 	   						memclr(&udpServerNode, sizeof(udpServerNode));
 							udpServerNode.IPAddr = MyVoterAddr;
 							udpSocketUser = UDPOpen(AppConfig.MyPort, &udpServerNode, AppConfig.VoterServerPort);
 							smUdp = SM_UDP_SEND_ARP;
-							printf(dnschanged,logtime(),MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+							dnsnotify = 1;
 							CurVoterAddr = MyVoterAddr;
 						}
 						LastVoterAddr = MyVoterAddr;
 					} 
-					else printf(dnsfailed,logtime(),AppConfig.VoterServerFQDN);
+					else dnsnotify = 2;
+
 					dnsdone = 1;
 				}
 			}
@@ -1556,7 +1552,7 @@ void main_processing_loop(void)
 				if (!WVF) AppConfig.SqlDiode = caldiode;
 				SaveAppConfig();
 				printf(cfgwritten);
-				printf("%d\r\n",noise_gain);
+				printf("%d\n",noise_gain);
 				if (!WVF)
 				{
 					printf(diodewritten);
@@ -1608,26 +1604,40 @@ void main_processing_loop(void)
        // This tasks invokes each of the core stack application tasks
        StackApplications();
 
+		if (!inread) return;
+
        // If the local IP address has changed (ex: due to DHCP lease change)
        // write the new IP address to the LCD display, UART, and Announce 
        // service
 	if(dwLastIP != AppConfig.MyIPAddr.Val)
 	{
 		dwLastIP = AppConfig.MyIPAddr.Val;
+
 		
-		printf((ROM char*)"\r\nIP Configuration Info: \r\n");
+		printf(ipinfo);
 		if (AppConfig.Flags.bIsDHCPEnabled)
-			printf((ROM char *)"Configured With DHCP\r\n");
+			printf(ipwithdhcp);
 		else
-			printf((ROM char *)"Static IP Configuration\r\n");
-		printf("IP Address: %d.%d.%d.%d\n",AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
-		printf("Subnet Mask: %d.%d.%d.%d\n",AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
-		printf("Gateway Addr: %d.%d.%d.%d\n",AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+			printf(ipwithstatic);
+		printf(ipipaddr,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+		printf(ipsubnet,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
+		printf(ipgateway,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
 
 		#if defined(STACK_USE_ANNOUNCE)
 			AnnounceIP();
 		#endif
 	}
+	if (dnsnotify == 1)
+	{
+		printf(logtime());
+		printf(dnschanged,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+	}
+	else if (dnsnotify == 2) 
+	{
+		printf(logtime());
+		printf(dnsfailed,AppConfig.VoterServerFQDN);
+	}
+	dnsnotify = 0;
 }
 
 int write(int handle, void *buffer, unsigned int len)
@@ -1785,7 +1795,7 @@ int main(void)
 	BYTE sel;
 	time_t t;
 
-    static ROM char signon[] = "\r\nVOTER Client System verson 0.8  4/7/2011, Jim Dixon WB6NIL\r\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.9  4/8/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d)\n"
@@ -2303,6 +2313,7 @@ __builtin_nop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				printf(paktc);
+				fflush(stdout);
 				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				continue;
 			case 99:
