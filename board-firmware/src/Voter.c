@@ -1322,7 +1322,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	            if (tosend)
 				{
 
-					if ((rssi > 0) && cor)
+					if ((rssi > 0) && cor && HasCTCSS())
 					{
 						UDPPut(rssi);
 						for(i = 0; i < FRAME_SIZE; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
@@ -1902,7 +1902,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.12  4/20/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.13  4/20/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
