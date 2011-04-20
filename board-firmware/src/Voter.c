@@ -1900,8 +1900,8 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.10  4/20/2011, Jim Dixon WB6NIL\n",
-			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                 v -- 3KHz        v -- 5KHz\n";;
+    static ROM char signon[] = "\nVOTER Client System verson 0.11  4/20/2011, Jim Dixon WB6NIL\n",
+			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d),  "

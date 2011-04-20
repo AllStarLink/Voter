@@ -231,9 +231,9 @@ section                    address   length (PC units)   length (bytes) (dec)
 .text                       0x6574              0x6e38          0xa554  (42324)
 .dinit                      0xd3ac               0x61a           0x927  (2343)
 .text                       0xd9c6              0x1e88          0x2dcc  (11724)
-.const                     0x12d7e              0x2a82          0x3fc3  (16323)
+.const                     0x12d7c              0x2a84          0x3fc6  (16326)
 
-                     Total program memory used (bytes):        0x16638  (91704) 81%
+                     Total program memory used (bytes):        0x1663b  (91707) 81%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -775,15 +775,15 @@ External Symbols in Program Memory (by address):
                   0x00f804                  _TickGetDiv64K
                   0x00f828                  _TickConvertToMilliseconds
                   0x00f83a                  __T1Interrupt
-                  0x012d7e                  _ulawtabletx
-                  0x012f7e                  _ulawtable
-                  0x013f7e                  _gpsmsg8
-                  0x013fad                  _gpsmsg7
-                  0x013fd6                  _gpsmsg6
-                  0x014005                  _gpsmsg5
-                  0x014026                  _gpsmsg3
-                  0x014045                  _gpsmsg2
-                  0x01407a                  _gpsmsg1
+                  0x012d7c                  _ulawtabletx
+                  0x012f7c                  _ulawtable
+                  0x013f7c                  _gpsmsg8
+                  0x013fab                  _gpsmsg7
+                  0x013fd4                  _gpsmsg6
+                  0x014003                  _gpsmsg5
+                  0x014024                  _gpsmsg3
+                  0x014043                  _gpsmsg2
+                  0x014078                  _gpsmsg1
                   0x0155ae                  _ddnsServiceHosts
                   0x0157d6                  _TCPSocketInitializer
                   0xf80004                  __FGS.sec
@@ -1027,13 +1027,13 @@ External Symbols in Program Memory (by name):
                   0x00e604                  _getsUART
                   0x00e772                  _getsUART2
                   0x0040ce                  _gmtime
-                  0x01407a                  _gpsmsg1
-                  0x014045                  _gpsmsg2
-                  0x014026                  _gpsmsg3
-                  0x014005                  _gpsmsg5
-                  0x013fd6                  _gpsmsg6
-                  0x013fad                  _gpsmsg7
-                  0x013f7e                  _gpsmsg8
+                  0x014078                  _gpsmsg1
+                  0x014043                  _gpsmsg2
+                  0x014024                  _gpsmsg3
+                  0x014003                  _gpsmsg5
+                  0x013fd4                  _gpsmsg6
+                  0x013fab                  _gpsmsg7
+                  0x013f7c                  _gpsmsg8
                   0x00c852                  _hexatob
                   0x006ab0                  _htonl
                   0x006a88                  _htons
@@ -1074,8 +1074,8 @@ External Symbols in Program Memory (by name):
                   0x00c92c                  _swaps
                   0x00349c                  _tolower
                   0x00c7b0                  _uitoa
-                  0x012f7e                  _ulawtable
-                  0x012d7e                  _ulawtabletx
+                  0x012f7c                  _ulawtable
+                  0x012d7c                  _ulawtabletx
                   0x00653a                  _ungetc
                   0x004f9c                  _vfprintf
                   0x008b34                  _write
@@ -3066,17 +3066,17 @@ __c30_signature
 .heap               0x3f22        0x200
  .heap              0x3f22        0x200 heap
 
-.const              0xad7e       0x2a82 load address 0x012d7e  
- .const             0xad7e       0x27f2 Voter.o
-                    0xad7e                  ulawtabletx
-                    0xaf7e                  ulawtable
-                    0xbf7e                  gpsmsg8
-                    0xbfad                  gpsmsg7
-                    0xbfd6                  gpsmsg6
-                    0xc005                  gpsmsg5
-                    0xc026                  gpsmsg3
-                    0xc045                  gpsmsg2
-                    0xc07a                  gpsmsg1
+.const              0xad7c       0x2a84 load address 0x012d7c  
+ .const             0xad7c       0x27f4 Voter.o
+                    0xad7c                  ulawtabletx
+                    0xaf7c                  ulawtable
+                    0xbf7c                  gpsmsg8
+                    0xbfab                  gpsmsg7
+                    0xbfd4                  gpsmsg6
+                    0xc003                  gpsmsg5
+                    0xc024                  gpsmsg3
+                    0xc043                  gpsmsg2
+                    0xc078                  gpsmsg1
  .const             0xd570        0x1a0 DynDNS.o
                     0xd5ae                  ddnsServiceHosts
  .const             0xd710         0xc6 Telnet.o
