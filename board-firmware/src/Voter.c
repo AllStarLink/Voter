@@ -59,6 +59,8 @@
 #define WVF JP10				// Short on pwrup to initialize default values
 #define CAL JP9						// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
 									// this is shorted also calibrates the temp. conpensation diode (at room temp.)
+#define	LEVDISP JP11			// Short to change GPS/CONNECT LED's to be audio level display97:
+
 #define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
 #define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
 
@@ -80,6 +82,8 @@
 #define	GPS_WARN_TIME (1200 * 8) // 1200ms GPS Warning Time
 #define GPS_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
+#define	NCOLS 75
+#define	LEVDISP_FACTOR 25
 
 
 // Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
@@ -224,6 +228,13 @@ DWORD resp_digest;
 DWORD mydigest;
 BOOL sendgps;
 BYTE dnsnotify;
+long discfactor;
+long discounterl;
+long discounteru;
+short amax;
+short amin;
+WORD apeak;
+BOOL indisplay;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -789,6 +800,8 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
 WORD index;
+long accum;
+short saccum;
 
 	index = ADC1BUF0;
 	if (gotpps)
@@ -809,6 +822,30 @@ WORD index;
 				next_time = real_time;
 			}
 			last_adcsample = ulawtable[index];
+			// Make 16 bit number from 12 bit ADC sample
+			saccum = index;
+			saccum -= 2048;
+			accum = saccum * 16;
+            if (accum > amax)
+            {
+                 amax = accum;
+                 discounteru = discfactor;
+            }
+            else if (--discounteru <= 0)
+            {
+                 discounteru = discfactor;
+                 amax = (long)((amax * 32700) / 32768L);
+            }
+            if (accum < amin)
+            {
+                 amin = accum;
+                 discounterl = discfactor;
+            }
+            else if (--discounterl <= 0)
+            {
+                 discounterl = discfactor;
+                 amin = (long)((amin * 32700) / 32768L);
+            }
 			if (samplecnt++ < 8000)
 			{
 				audio_buf[filling_buffer][fillindex++] = last_adcsample;
@@ -820,6 +857,7 @@ WORD index;
 					last_drainindex = txdrainindex;
 					timing_index = next_index;
 					timing_time = next_time;
+					apeak = (long)(amax - amin) / 2;
 				}
 			}
 			AD1CHS0 = adcindex + 2;
@@ -999,6 +1037,13 @@ BYTE oldout;
 	if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
 }
 
+BOOL HasCTCSS(void)
+{
+	if (!AppConfig.ExternalCTCSS) return (1);
+	if ((AppConfig.ExternalCTCSS == 1) && CTCSSIN) return (1);
+	if ((AppConfig.ExternalCTCSS == 2) && (!CTCSSIN)) return(1);
+	return (0);
+}
 
 /*
 * Break up a delimited string into a table of substrings
@@ -1255,13 +1300,14 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
 
+
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
 		if (gpssync)
 		{
 			system_time.vtime_sec = timing_time;
 			system_time.vtime_nsec = timing_index * 125000;
-			BOOL tosend = (connected && (cor || (option_flags & OPTION_FLAG_SENDALWAYS)));
+			BOOL tosend = (connected && ((cor && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if (((!connected) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
@@ -1398,7 +1444,10 @@ void main_processing_loop(void)
 	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
 			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
 			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
-	static DWORD t = 0;
+	static DWORD t = 0, tdisp = 0;
+	long meas,thresh;
+	WORD i,mypeak;
+	static BYTE dispcnt = 0;
 
 	//UDP State machine
 	#define SM_UDP_SEND_ARP     0
@@ -1528,7 +1577,7 @@ void main_processing_loop(void)
 	
 		process_gps();
 	
-		if (sqlcount++ >= 64)
+		if (gotpps && (sqlcount++ >= 64))
 		{
 			sqlcount = 0;
 			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
@@ -1559,7 +1608,7 @@ void main_processing_loop(void)
 					printf("%d\n",caldiode);
 				}
 			}
-			SetLED(SQLED,sqled);
+			if (!CAL) SetLED(SQLED,sqled);
 		}
 	
 		if (ptt && (TickConvertToMilliseconds(TickGet() - lastrxtick) > 60ul))
@@ -1574,14 +1623,44 @@ void main_processing_loop(void)
 		}
 	}
 
-	if ((!connected) && (!ptt))
-		SetLED(CONNLED,0);
-	else if (connected && ptt)
-		SetLED(CONNLED,1);
-	if (gps_state == GPS_STATE_SYNCED)
-		SetLED(GPSLED,1);
-	else if (gps_state != GPS_STATE_VALID)
-		SetLED(GPSLED,0);
+	if (LEVDISP)
+	{
+
+		if ((!connected) && (!ptt))
+			SetLED(CONNLED,0);
+		else if (connected && ptt)
+			SetLED(CONNLED,1);
+		if (gps_state == GPS_STATE_SYNCED)
+			SetLED(GPSLED,1);
+		else if (gps_state != GPS_STATE_VALID)
+			SetLED(GPSLED,0);
+	}
+	else
+	{
+		if (cor && HasCTCSS())
+		{
+			mypeak = apeak / (7200 / LEVDISP_FACTOR);
+			if (mypeak < dispcnt) SetLED(GPSLED,1);
+			else SetLED(GPSLED,0);
+			if (mypeak > (dispcnt + LEVDISP_FACTOR)) SetLED(CONNLED,1);
+			else SetLED(CONNLED,0);
+		}
+		else
+		{
+			SetLED(GPSLED,0);
+			SetLED(CONNLED,0);
+		}
+		dispcnt++;
+		if (dispcnt > LEVDISP_FACTOR) dispcnt = 0;
+	}
+
+	if (CAL)
+	{	
+		if (wascor && HasCTCSS())
+			SetLED(SQLED,1);
+		else if (!wascor)
+			SetLED(SQLED,0);
+	}
 
        // Blink LEDs as appropriate
        if(TickGet() - t >= TICK_SECOND / 2ul)
@@ -1589,8 +1668,12 @@ void main_processing_loop(void)
 		if (dnstimer) dnstimer--;
         t = TickGet();
 		ToggleLED(SYSLED);
-		if (connected && (!ptt)) ToggleLED(CONNLED);
-		if (gps_state == GPS_STATE_VALID) ToggleLED(GPSLED);
+		if (LEVDISP)
+		{
+			if (connected && (!ptt)) ToggleLED(CONNLED);
+			if (gps_state == GPS_STATE_VALID) ToggleLED(GPSLED);
+		}
+		if (CAL && (wascor && (!HasCTCSS()))) ToggleLED(SQLED);
 #ifdef	SILLY
 		printf("%lu\n",sillyval);
 #endif
@@ -1605,6 +1688,27 @@ void main_processing_loop(void)
        StackApplications();
 
 		if (!inread) return;
+
+       if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
+	   {
+        	tdisp = TickGet();
+			if (cor && HasCTCSS())
+				meas = apeak;
+			else
+				meas = 0;
+			putchar('|');
+            for(i = 0; i < NCOLS; i++)
+            {
+                    thresh = (meas * (long)NCOLS) / 16384;
+                    if (i < thresh) putchar('=');
+                    else if (i == thresh) putchar('>');
+                    else putchar(' ');
+            }
+			putchar('|');
+			putchar('\r');
+			fflush(stdout);
+			amin = amax = 0;
+		}
 
        // If the local IP address has changed (ex: due to DHCP lease change)
        // write the new IP address to the LCD display, UART, and Announce 
@@ -1794,11 +1898,13 @@ int main(void)
 
 	BYTE sel;
 	time_t t;
+	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.9  4/8/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.10  4/20/2011, Jim Dixon WB6NIL\n",
+			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                 v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
-		"1  - Serial # (%d)\n"
+		"1  - Serial # (%d),  "
 		"2  - (Static) IP Address (%d.%d.%d.%d)\n"
 		"3  - (Static) Netmask (%d.%d.%d.%d)\n"
 		"4  - (Static) Gateway (%d.%d.%d.%d)\n"
@@ -1823,11 +1929,13 @@ int main(void)
 		"23 - DynDNS Username (%s)\n"
 		"24 - DynDNS Password (%s)\n"
 		"25 - DynDNS Host (%s)\n"
-		"26 - Debug Level (%d),   "
-		"98 - View Status,  "
+		"26 - External CTCSS (0=Ignore, 1=Non-Inverted, 2=Inverted) (%d)\n"
+		"27 - Debug Level (%d), "
+		"97 - RX Level, "
+		"98 - Status, "
 		"99 - Save Values to EEPROM\n"
 		"q - Disconnect Remote Console Session, r = reset system (reboot)\n\n",
-		entsel[] = "Enter Selection (1-17) : ";
+		entsel[] = "Enter Selection (1-27,97-99,r,q) : ";
 
 
 
@@ -1849,9 +1957,11 @@ int main(void)
 		"GPS Lock: %d\n"
 		"Connected: %d\n"
 		"COR: %d\n"
+		"EXT CTCSS IN: %d\n"
 		"PTT: %d\n"
 		"RSSI: %d\n"
 		"Current Samples / Sec.: %d\n"
+		"Current Peak Audio Level: %u\n"
 		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL pot %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
@@ -1906,7 +2016,13 @@ int main(void)
 	digest = 0;	
 	resp_digest = 0;
 	mydigest = 0;
-
+	discfactor = 1000;
+	discounterl = 0;
+	discounteru = 0;
+	amax = 0;
+	amin = 0;
+	apeak = 0;
+	indisplay = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -2043,7 +2159,7 @@ __builtin_nop();
 			AppConfig.TxBufferLength,AppConfig.TxBufferDelay,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
 			AppConfig.GPSTimeOffset,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
-			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.DebugLevel);
+			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.DebugLevel);
 
 		aborted = 0;
 		while(!aborted)
@@ -2065,7 +2181,7 @@ __builtin_nop();
 				Reset();
 		}
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 25))
+		if ((sel >= 1) && (sel <= 27))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -2293,13 +2409,28 @@ __builtin_nop();
 					SetDynDNS();
 				}
 				break;
-			case 26: // Debug Level
+			case 26: // EXT CTCSS
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.ExternalCTCSS = i1;
+					ok = 1;
+				}
+				break;
+			case 27: // Debug Level
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
 				{
 					AppConfig.DebugLevel = i1;
 					ok = 1;
 				}
 				break;
+			case 97: // Display RX Level Quasi-Graphically  
+			 	putchar(' ');
+		      	for(i = 0; i < NCOLS; i++) putchar(' ');
+		        printf(rxvoicestr);
+				indisplay = 1;
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				indisplay = 0;
+				continue;
 			case 98:
 				t = system_time.vtime_sec;
 				printf(oprdata,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
@@ -2308,7 +2439,7 @@ __builtin_nop();
 					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
 					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3],
 					AppConfig.Flags.bIsDHCPEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
-					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,wascor,ptt,rssi,last_samplecnt,
+					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,wascor,CTCSSIN ? 1 : 0,ptt,rssi,last_samplecnt,apeak,
 					AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
