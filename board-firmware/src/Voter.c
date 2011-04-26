@@ -1581,9 +1581,12 @@ void main_processing_loop(void)
 	
 		if (gotpps && (sqlcount++ >= 64))
 		{
+			BOOL qualcor;
+
 			sqlcount = 0;
 			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
-			if (cor && (!wascor))
+			qualcor = (cor && HasCTCSS());	
+			if (qualcor && (!wascor))
 			{
 				vnoise32 = adcothers[ADCSQNOISE] << 3;
 				vnoise256 = (DWORD)adcothers[ADCSQNOISE] << 3;
@@ -1593,9 +1596,9 @@ void main_processing_loop(void)
 			mynoise = (WORD) vnoise256;
 			if (mynoise < NOISE_SLOW_THRESHOLD) mynoise = vnoise32; 
 			rssi = rssitable[mynoise >> 3];
-			if ((rssi < 1) && (cor)) rssi = 1;
+			if ((rssi < 1) && (qualcor)) rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssi = 0;
-			wascor = cor;
+			wascor = qualcor;
 			if (write_eeprom_cali)
 			{
 				write_eeprom_cali = 0;
@@ -1902,7 +1905,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.13  4/20/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.14  4/25/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
