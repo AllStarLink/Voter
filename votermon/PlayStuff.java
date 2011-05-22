@@ -106,61 +106,63 @@ public class PlayStuff extends Thread {
         long totalBytesRead = 0;
         byte[] buf = new byte[320];
         byte[] outbuf = new byte[320];
+        byte[] b = new byte[1];
         String clientstr = "";
         try {
-            while ((nBytesRead != -1) && (stopit == false)){
-                nBytesRead = skt.getInputStream().read(buf, 0, buf.length);
-                totalBytesRead += nBytesRead;
+            while (stopit == false){
+                 if (skt.getInputStream().read(b) != 1) break;
+                 buf[nBytesRead++] = b[0];
+                 if (nBytesRead < 320) continue;
+                 totalBytesRead += nBytesRead;
+                 nBytesRead = 0;
 
-                if (nBytesRead == 320) {
-                      if (buf[168] == 0) {
-                          auline.drain();
-                          auline.stop();
-                          running = false;
-                          MyView.DoClients();
-                          continue;
-                      }
-                      if (running == false) {
-                          auline.start();
-                          running = true;
-                      }
-                      for(i = 0; i < 160; i++)
-                      {
-                          int lin = ulawToLinear(buf[i + 8]);
-                          outbuf[i * 2] = (byte)(lin & 0xff);
-                          outbuf[(i * 2) + 1] = (byte)((lin & 0xff00) >> 8);
-                      }
-                      auline.write((byte[])outbuf, 0, outbuf.length);
-                      while(((auline.getBufferSize() - auline.available()) > 512) && (stopit == false)) {
-                        yield();
-                      }
-                      timesec = (long)(buf[0] & 255);
-                      timesec += (long)((buf[1] & 255) << 8);
-                      timesec += (long)((buf[2] & 255) << 16);
-                      timesec += (long)((buf[3] & 255) << 24);
-                      timensec = (long)(buf[4] & 255);
-                      timensec += (long)((buf[5] & 255) << 8);
-                      timensec += (long)((buf[6] & 255) << 16);
-                      timensec += (long)((buf[7] & 255) << 24);
-                      clientstr = "";
-                      for(i = 168; (i < 320) && (buf[i] != 0); i++) {
-                          char c = (char)buf[i];
-                          clientstr += Character.toString(c);
-                      }
-                      String clients[] = clientstr.split(",");
-                      int nclients = clients.length - 1;
-                      if (nclients <= 0) continue;
-                      int rssi[] = new int[nclients];
-                      String name[] = new String[nclients];
-                      for(i = 0; i < nclients; i++)
-                      {
-                          String foo[] = clients[i + 1].split("=");
-                          if (foo.length < 2) continue;
-                          name[i] = foo[0];
-                          rssi[i] = Integer.parseInt(foo[1]);
-                      }
-                      MyView.DoClients(nclients,clients[0],name,rssi);
-                   }
+                 if (buf[168] == 0) {
+                      auline.drain();
+                      auline.stop();
+                      running = false;
+                      MyView.DoClients();
+                      continue;
+                  }
+                  if (running == false) {
+                      auline.start();
+                      running = true;
+                  }
+                  for(i = 0; i < 160; i++)
+                  {
+                      int lin = ulawToLinear(buf[i + 8]);
+                      outbuf[i * 2] = (byte)(lin & 0xff);
+                      outbuf[(i * 2) + 1] = (byte)((lin & 0xff00) >> 8);
+                  }
+                  auline.write((byte[])outbuf, 0, outbuf.length);
+                  while(((auline.getBufferSize() - auline.available()) > 128) && (stopit == false)) {
+                    yield();
+                  }
+                  timesec = (long)(buf[0] & 255);
+                  timesec += (long)((buf[1] & 255) << 8);
+                  timesec += (long)((buf[2] & 255) << 16);
+                  timesec += (long)((buf[3] & 255) << 24);
+                  timensec = (long)(buf[4] & 255);
+                  timensec += (long)((buf[5] & 255) << 8);
+                  timensec += (long)((buf[6] & 255) << 16);
+                  timensec += (long)((buf[7] & 255) << 24);
+                  clientstr = "";
+                  for(i = 168; (i < 320) && (buf[i] != 0); i++) {
+                      char c = (char)buf[i];
+                      clientstr += Character.toString(c);
+                  }
+                  String clients[] = clientstr.split(",");
+                  int nclients = clients.length - 1;
+                  if (nclients <= 0) continue;
+                  int rssi[] = new int[nclients];
+                  String name[] = new String[nclients];
+                  for(i = 0; i < nclients; i++)
+                  {
+                      String foo[] = clients[i + 1].split("=");
+                      if (foo.length < 2) continue;
+                      name[i] = foo[0];
+                      rssi[i] = Integer.parseInt(foo[1]);
+                  }
+                  MyView.DoClients(nclients,clients[0],name,rssi);
             }
         } catch (IOException e) {
             e.printStackTrace();

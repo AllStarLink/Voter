@@ -62,8 +62,8 @@ unsigned long long lasttime = 0;
 #pragma pack(push)
 #pragma pack(1)
 typedef struct {
-	unsigned long vtime_sec;
-	unsigned long  vtime_nsec;
+	uint32_t vtime_sec;
+	uint32_t  vtime_nsec;
 } VTIME;
 
 typedef struct {
@@ -87,9 +87,9 @@ int tvdiff_ms(struct timeval end, struct timeval start)
 /* the main body of the program */
 int main(int argc,char *argv[])
 {
-int	c,i,j,n,s,ss,recvlen,isdaemon = 1;
-unsigned long long thistime;
-socklen_t fromlen,u;
+int	c,i,j,n,s,ss,isdaemon = 1;
+uint64_t thistime;
+socklen_t recvlen,fromlen,u;
 VOTER_STREAM buf;
 struct sockaddr_in sin,myaddr,clientaddr;
 struct linger set_linger;
@@ -238,8 +238,8 @@ struct timeval lastrx = {0,0},now;
 				(struct sockaddr *)&sin,&fromlen);
 			if (recvlen < 1) break;
 			if (recvlen != 320) continue;
-			thistime = ((unsigned long long)buf.curtime.vtime_sec << 32) + buf.curtime.vtime_nsec;
-			if (thistime <= lasttime) continue;
+			thistime = ((uint64_t)buf.curtime.vtime_sec << 32) + buf.curtime.vtime_nsec;
+			if (thistime <= lasttime) continue; 
 			lasttime = thistime;
 			lastrx = now;
 			for(i = 0; i < MAXCLIENTS; i++)
@@ -261,6 +261,7 @@ struct timeval lastrx = {0,0},now;
 				continue;
 			}
 
+//			fcntl(s,F_SETFL,O_NONBLOCK);
 		        /* if you want to get the clients address in ASCII at this point, use  
 				inet_ntoa(clientaddr.sin_addr) */
 
