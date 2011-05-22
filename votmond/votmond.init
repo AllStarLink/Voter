@@ -1,0 +1,29 @@
+#! /bin/sh
+
+# chkconfig: 2345 55 25
+# description: votmond daemon
+# processname: votmond
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# See how we were called.
+case "$1" in
+  start)
+	echo -n "Starting votmond: "
+	( while true; do /usr/sbin/votmond -f; sleep 2; done; ) > /dev/null 2>&1 &
+	success
+	echo
+	;;
+  stop)
+	echo -n "Stopping votmond: "
+	killall votmond > /dev/null 2>&1
+	success
+	echo
+	;;
+  *)
+	echo $"Usage: $prog {start|stop)"
+	exit 1
+esac
+
+exit 0
