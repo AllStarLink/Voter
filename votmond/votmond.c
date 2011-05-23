@@ -38,6 +38,7 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netdb.h>
 #include <string.h>
 #include <sys/select.h>
@@ -261,7 +262,10 @@ struct timeval lastrx = {0,0},now;
 				continue;
 			}
 
-//			fcntl(s,F_SETFL,O_NONBLOCK);
+			fcntl(s,F_SETFL,O_NONBLOCK);
+			i = 1;
+			/* disable TCP Tinygram Avoidance (Nagle Algorithm) */ 
+			setsockopt(s,IPPROTO_TCP,TCP_NODELAY,(char *) &i, sizeof(int));
 		        /* if you want to get the clients address in ASCII at this point, use  
 				inet_ntoa(clientaddr.sin_addr) */
 
