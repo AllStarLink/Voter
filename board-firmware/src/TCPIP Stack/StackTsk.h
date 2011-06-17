@@ -134,6 +134,7 @@ typedef struct __attribute__((__packed__))
 	BYTE DynDNSHost[50];
 	long GPSTimeOffset;
 	BYTE ExternalCTCSS;
+	BYTE GPSType;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

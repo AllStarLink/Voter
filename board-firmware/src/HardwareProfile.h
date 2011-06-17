@@ -57,6 +57,10 @@
 
 extern char dummy_loc;
 
+#if defined __dsPIC33FJ128GP804__
+#define SMT_BOARD
+#endif
+
 // Set configuration fuses (but only once)
 #if defined(THIS_IS_STACK_APPLICATION)
 
@@ -79,15 +83,27 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 #define GetInstructionClock()	(GetSystemClock()/2)
 #define GetPeripheralClock()	GetInstructionClock()
 
+#if defined(SMT_BOARD)
 
-#define	SPISel(x) { _LATB3 = 0; _LATB4 = 0; LATB |= x; }
-#define SPICS_ENC 0x18
-#define	SPICS_POT 8
-#define	SPICS_IOEXP 0x10
-#define	SPICS_EEPROM 0
-#define	SPICS_IDLE SPICS_POT
-#define	SPICS_POT_IDLE SPICS_IOEXP
+	#define	SPISel(x) { _LATC0 = 1; _LATC1= 1; _LATC2 = 1; LATC |= x; }
+	#define SPICS_ENC 6
+	#define	SPICS_POT 3
+	#define	SPICS_EEPROM 5
+	#define	SPICS_IDLE 7
+	#define	SPICS_POT_IDLE 7
 
+#else
+
+	#define	SPISel(x) { _LATB3 = 0; _LATB4 = 0; LATB |= x; }
+	#define SPICS_ENC 0x18
+	#define	SPICS_POT 8
+	#define	SPICS_IOEXP 0x10
+	#define	SPICS_EEPROM 0
+	#define	SPICS_IDLE SPICS_POT
+	#define	SPICS_POT_IDLE SPICS_IOEXP
+
+#endif
+	
 #define UARTTX_TRIS			dummy_loc
 #define UARTTX_IO			dummy_loc
 #define UARTRX_TRIS			dummy_loc
@@ -136,6 +152,7 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 #define IOEXP_SPICON2		(SPI1CON2)
 #define IOEXP_SPISTAT		(SPI1STAT)
 #define IOEXP_SPISTATbits	(SPI1STATbits)
+
 
 #define	DISABLE_INTERRUPTS() __builtin_disi(0x3FFF)
 #define	ENABLE_INTERRUPTS() __builtin_disi(0)

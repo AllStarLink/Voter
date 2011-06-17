@@ -29,46 +29,71 @@
 // Include all headers for any enabled TCPIP Stack functions
 #include "TCPIP Stack/TCPIP.h"
 
-#define	IOEXP_IODIRA 0
-#define	IOEXP_IODIRB 1
-#define IOEXP_IOPOLA 2
-#define	IOEXP_IOPOLB 3
-#define	IOEXP_GPINTENA 4
-#define	IOEXP_GPINTENB 5
-#define	IOEXP_DEFVALA 6
-#define	IOEXP_DEFVALB 7
-#define IOEXP_INTCONA 8
-#define	IOEXP_INTCONB 9
-#define	IOEXP_IOCON 10
-#define	IOEXP_GPPUA 12
-#define	IOEXP_GPPUB 13
-#define	IOEXP_INTFA 14
-#define	IOEXP_INTFB 15
-#define	IOEXP_INTCAPA 16
-#define IOEXP_INTCAPB 17
-#define	IOEXP_GPIOA 18
-#define	IOEXP_GPIOB 19
-#define	IOEXP_OLATA 20
-#define	IOEXP_OLATB 21
+#if defined(SMT_BOARD)
 
-#define	CTCSSIN	(inputs1 & 0x10)
-#define	JP8	(inputs1 & 0x40)
-#define	JP9	(inputs1 & 0x80)
-#define	JP10 (inputs2 & 1)
-#define	JP11 (inputs2 & 2)
+	#define	CTCSSIN	_RA7
+	#define	JP8	_RA8
+	#define	JP9	_RA9
+	#define	JP10 _RA10
+	#define	JP11 _RB9
+	
+	#define	INITIALIZE JP8 // Short JP8 on powerup to initialize EEPROM
+	#define	INITIALIZE_WVF JP10  // Short on powerup while JP8 is shorted to also initialize Diode VF
+	
+	#define TESTBIT _LATB8
+
+#else
+
+	#define	IOEXP_IODIRA 0
+	#define	IOEXP_IODIRB 1
+	#define IOEXP_IOPOLA 2
+	#define	IOEXP_IOPOLB 3
+	#define	IOEXP_GPINTENA 4
+	#define	IOEXP_GPINTENB 5
+	#define	IOEXP_DEFVALA 6
+	#define	IOEXP_DEFVALB 7
+	#define IOEXP_INTCONA 8
+	#define	IOEXP_INTCONB 9
+	#define	IOEXP_IOCON 10
+	#define	IOEXP_GPPUA 12
+	#define	IOEXP_GPPUB 13
+	#define	IOEXP_INTFA 14
+	#define	IOEXP_INTFB 15
+	#define	IOEXP_INTCAPA 16
+	#define IOEXP_INTCAPB 17
+	#define	IOEXP_GPIOA 18
+	#define	IOEXP_GPIOB 19
+	#define	IOEXP_OLATA 20
+	#define	IOEXP_OLATB 21
+	
+	#define	CTCSSIN	(inputs1 & 0x10)
+	#define	JP8	(inputs1 & 0x40)
+	#define	JP9	(inputs1 & 0x80)
+	#define	JP10 (inputs2 & 1)
+	#define	JP11 (inputs2 & 2)
+	
+	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
+	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
+	
+	#define TESTBIT _LATA1
+
+#endif
+
 #define WVF JP10				// Short on pwrup to initialize default values
 #define CAL JP9						// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
 									// this is shorted also calibrates the temp. conpensation diode (at room temp.)
 #define	LEVDISP JP11			// Short to change GPS/CONNECT LED's to be audio level display97:
 
-#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
-#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
+#define SYSLED 0
+#define	SQLED 1
+#define	GPSLED 2
+#define CONNLED 3
 
 #define	BAUD_RATE1 57600
 #define	BAUD_RATE2 4800
 
 #define	FRAME_SIZE 160
-#define	MAX_BUFLEN 8000 // 1 second of buffer
+#define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
 #define	DEFAULT_TX_BUFFER_LENGTH 2400 // 300ms of Buffer
 #define	VOTER_CHALLENGE_LEN 10
 #define	ADCOTHERS 3
@@ -84,6 +109,7 @@
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
+#define	TSIP_FACTOR 57.295779513082320876798154814105
 
 
 // Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
@@ -94,22 +120,19 @@
 // sufficient for voting descisions.
 
 
-#define TESTBIT _LATA1
-#define SYSLED 0
-#define	SQLED 1
-#define	GPSLED 2
-#define CONNLED 3
+
 
 #define NOMINAL_INTERVAL 20000000
 #define	LOCK_SECS 5		// 5 seconds of stability to determine lock
 
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
+enum {GPS_NORMAL,GPS_TRIMBLE} ;
 
 ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
 	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
 	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
-	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n";
+	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -167,8 +190,9 @@ BOOL filled;
 BYTE audio_buf[2][FRAME_SIZE];
 BOOL connected;
 BYTE rssi;
-BYTE gps_buf[80];
+BYTE gps_buf[160];
 BYTE gps_bufindex;
+BYTE TSIPwasdle;
 BYTE gps_state;
 BYTE gps_nsat;
 BOOL gpssync;
@@ -184,6 +208,7 @@ BYTE sqlcount;
 WORD vnoise32;
 DWORD vnoise256;
 BOOL wascor;
+BOOL lastcor;
 BYTE option_flags;
 static struct {
 	VOTER_PACKET_HEADER vph;
@@ -900,142 +925,178 @@ void __attribute__((interrupt, auto_psv)) _MathError(void)
    Nop();
 }
 
-#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+#if defined(SMT_BOARD)
 
-#define ClearSPIDoneFlag()
-static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
-{
-    while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
-}
+	void SetLED(BYTE led,BOOL val)
+	{
+	BYTE mask;
+	
+		mask = 1 << (led + 10);
+		LATB &= ~mask;
+		if (!val) LATB |= mask;
+	}
+	
+	void ToggleLED(BYTE led)
+	{
+	BYTE mask;
 
-#define SPI_ON_BIT          (IOEXP_SPISTATbits.SPIEN)
+		mask = 1 << (led + 10);
+		LATB ^= mask;
+	}
+	
+	void SetPTT(BOOL val)
+	{
+		_LATB4 = val;	
+	}
+	
+	void SetAudioSrc(void)
+	{
+		if (option_flags & 1)_LATB2 = 1;
+		else _LATB2 = 0;
+		if (!(option_flags & 4)) _LATB3 = 1;
+		else _LATB3 = 0;
+	}
 
-void IOExp_Write(BYTE reg,BYTE val)
-{
+#else
 
-    volatile BYTE vDummy;
-    BYTE vSPIONSave;
-    WORD SPICON1Save;
+	#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+	
+	#define ClearSPIDoneFlag()
+	static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
+	{
+	    while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
+	}
+	
+	#define SPI_ON_BIT          (IOEXP_SPISTATbits.SPIEN)
+	
+	void IOExp_Write(BYTE reg,BYTE val)
+	{
+	
+	    volatile BYTE vDummy;
+	    BYTE vSPIONSave;
+	    WORD SPICON1Save;
+	
+	    // Save SPI state
+	    SPICON1Save = IOEXP_SPICON1;
+	    vSPIONSave = SPI_ON_BIT;
+	
+	    // Configure SPI
+	    SPI_ON_BIT = 0;
+	    IOEXP_SPICON1 = PROPER_SPICON1;
+	    SPI_ON_BIT = 1;
+	
+	    SPISel(SPICS_IOEXP);
+	    IOEXP_SSPBUF = 0x40;
+	    WaitForDataByte();
+	    vDummy = IOEXP_SSPBUF;
+	    IOEXP_SSPBUF = reg;
+	    WaitForDataByte();
+	    vDummy = IOEXP_SSPBUF;
+	
+	    IOEXP_SSPBUF = val;
+	    WaitForDataByte();
+	    vDummy = IOEXP_SSPBUF;
+	    SPISel(SPICS_IDLE);
+	    // Restore SPI State
+	    SPI_ON_BIT = 0;
+	    IOEXP_SPICON1 = SPICON1Save;
+	    SPI_ON_BIT = vSPIONSave;
+	
+		ClearSPIDoneFlag();
+	}
+	
+	BYTE IOExp_Read(BYTE reg)
+	{
+	
+	    volatile BYTE vDummy,retv;
+	    BYTE vSPIONSave;
+	    WORD SPICON1Save;
+	
+	    // Save SPI state
+	    SPICON1Save = IOEXP_SPICON1;
+	    vSPIONSave = SPI_ON_BIT;
+	
+	    // Configure SPI
+	    SPI_ON_BIT = 0;
+	    IOEXP_SPICON1 = PROPER_SPICON1;
+	    SPI_ON_BIT = 1;
+	
+	    SPISel(SPICS_IOEXP);
+	    IOEXP_SSPBUF = 0x41;
+	    WaitForDataByte();
+	    vDummy = IOEXP_SSPBUF;
+	    IOEXP_SSPBUF = reg;
+	    WaitForDataByte();
+	    vDummy = IOEXP_SSPBUF;
+		IOEXP_SSPBUF = 0;
+	    WaitForDataByte();
+	    retv = IOEXP_SSPBUF;
+	
+	    SPISel(SPICS_IDLE);
+	    // Restore SPI State
+	    SPI_ON_BIT = 0;
+	    IOEXP_SPICON1 = SPICON1Save;
+	    SPI_ON_BIT = vSPIONSave;
+	
+		ClearSPIDoneFlag();
+		return retv;
+	}
+	
+	void IOExpInit(void)
+	{
+		IOExp_Write(IOEXP_IOCON,0x20);
+		IOExp_Write(IOEXP_IODIRA,0xD0);
+		IOExp_Write(IOEXP_IODIRB,0xf3);
+		IOExpOutA = 0xDF;
+		IOExp_Write(IOEXP_OLATA,IOExpOutA);
+		IOExpOutB = 0xF3;
+		IOExp_Write(IOEXP_OLATB,IOExpOutB);
+	}
+	
+	void SetLED(BYTE led,BOOL val)
+	{
+	BYTE mask,oldout;
+	
+		oldout = IOExpOutA;
+		mask = 1 << led;
+		IOExpOutA &= ~mask;
+		if (!val) IOExpOutA |= mask;
+		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+	}
+	
+	void ToggleLED(BYTE led)
+	{
+	BYTE mask,oldout;
+	
+		oldout = IOExpOutA;
+		mask = 1 << led;
+		IOExpOutA ^= mask;
+		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+	}
+	
+	void SetPTT(BOOL val)
+	{
+	BYTE oldout;
+	
+		oldout = IOExpOutA;
+		IOExpOutA &= ~0x20;
+		if (val) IOExpOutA |= 0x20;
+		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+	}
+	
+	void SetAudioSrc(void)
+	{
+	BYTE oldout;
+	
+	
+		oldout = IOExpOutB;
+		IOExpOutB &= ~0x0c;
+		if (option_flags & 1) IOExpOutB |= 8;
+		if (!(option_flags & 4)) IOExpOutB |= 4;
+		if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
+	}
 
-    // Save SPI state
-    SPICON1Save = IOEXP_SPICON1;
-    vSPIONSave = SPI_ON_BIT;
-
-    // Configure SPI
-    SPI_ON_BIT = 0;
-    IOEXP_SPICON1 = PROPER_SPICON1;
-    SPI_ON_BIT = 1;
-
-    SPISel(SPICS_IOEXP);
-    IOEXP_SSPBUF = 0x40;
-    WaitForDataByte();
-    vDummy = IOEXP_SSPBUF;
-    IOEXP_SSPBUF = reg;
-    WaitForDataByte();
-    vDummy = IOEXP_SSPBUF;
-
-    IOEXP_SSPBUF = val;
-    WaitForDataByte();
-    vDummy = IOEXP_SSPBUF;
-    SPISel(SPICS_IDLE);
-    // Restore SPI State
-    SPI_ON_BIT = 0;
-    IOEXP_SPICON1 = SPICON1Save;
-    SPI_ON_BIT = vSPIONSave;
-
-	ClearSPIDoneFlag();
-}
-
-BYTE IOExp_Read(BYTE reg)
-{
-
-    volatile BYTE vDummy,retv;
-    BYTE vSPIONSave;
-    WORD SPICON1Save;
-
-    // Save SPI state
-    SPICON1Save = IOEXP_SPICON1;
-    vSPIONSave = SPI_ON_BIT;
-
-    // Configure SPI
-    SPI_ON_BIT = 0;
-    IOEXP_SPICON1 = PROPER_SPICON1;
-    SPI_ON_BIT = 1;
-
-    SPISel(SPICS_IOEXP);
-    IOEXP_SSPBUF = 0x41;
-    WaitForDataByte();
-    vDummy = IOEXP_SSPBUF;
-    IOEXP_SSPBUF = reg;
-    WaitForDataByte();
-    vDummy = IOEXP_SSPBUF;
-	IOEXP_SSPBUF = 0;
-    WaitForDataByte();
-    retv = IOEXP_SSPBUF;
-
-    SPISel(SPICS_IDLE);
-    // Restore SPI State
-    SPI_ON_BIT = 0;
-    IOEXP_SPICON1 = SPICON1Save;
-    SPI_ON_BIT = vSPIONSave;
-
-	ClearSPIDoneFlag();
-	return retv;
-}
-
-void IOExpInit(void)
-{
-	IOExp_Write(IOEXP_IOCON,0x20);
-	IOExp_Write(IOEXP_IODIRA,0xD0);
-	IOExp_Write(IOEXP_IODIRB,0xf3);
-	IOExpOutA = 0xDF;
-	IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	IOExpOutB = 0xF3;
-	IOExp_Write(IOEXP_OLATB,IOExpOutB);
-}
-
-void SetLED(BYTE led,BOOL val)
-{
-BYTE mask,oldout;
-
-	oldout = IOExpOutA;
-	mask = 1 << led;
-	IOExpOutA &= ~mask;
-	if (!val) IOExpOutA |= mask;
-	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-}
-
-void ToggleLED(BYTE led)
-{
-BYTE mask,oldout;
-
-	oldout = IOExpOutA;
-	mask = 1 << led;
-	IOExpOutA ^= mask;
-	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-}
-
-void SetPTT(BOOL val)
-{
-BYTE oldout;
-
-	oldout = IOExpOutA;
-	IOExpOutA &= ~0x20;
-	if (val) IOExpOutA |= 0x20;
-	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-}
-
-void SetAudioSrc(void)
-{
-BYTE oldout;
-
-
-	oldout = IOExpOutB;
-	IOExpOutB &= ~0x0c;
-	if (option_flags & 1) IOExpOutB |= 8;
-	if (!(option_flags & 4)) IOExpOutB |= 4;
-	if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
-}
+#endif
 
 BOOL HasCTCSS(void)
 {
@@ -1174,6 +1235,43 @@ BYTE	c;
 		return 0;
 }
 
+BOOL getTSIPPacket(void)
+{
+BYTE     c;
+
+		if (!DataRdyUART2()) return 0;
+		c = ReadUART2();
+        if (gps_bufindex == 0)
+        {
+                TSIPwasdle = 0;
+                if (c == 16)
+                {
+                        TSIPwasdle = 1;
+                        gps_bufindex++;
+                }
+                return 0;
+        }
+        if (gps_bufindex > sizeof(gps_buf))
+        {
+                gps_bufindex = 0;
+                return 0;
+        }
+        if ((c == 16) && (!TSIPwasdle))
+        {
+                TSIPwasdle = 1;
+                return 0;
+        }
+        else if (TSIPwasdle && (c == 3))
+        {
+                gps_bufindex = 0;
+                return 1;
+        }
+        TSIPwasdle = 0;
+        gps_buf[gps_bufindex - 1] = c;
+		gps_bufindex++;
+        return 0;
+}
+
 static DWORD twoascii(char *s)
 {
 DWORD rv;
@@ -1203,6 +1301,9 @@ int n;
 char *strs[30];
 static ROM char gpgga[] = "$GPGGA",
 	gpgsv[] = "$GPGSV", gprmc[] = "$GPRMC";
+
+// Please see doubleify.c for explanation of this poo-poo
+extern float doubleify(BYTE *p);
 	
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
 	if (gpssync && (gps_state == GPS_STATE_VALID))
@@ -1221,70 +1322,164 @@ static ROM char gpgga[] = "$GPGGA",
 		digest = 0;
 		their_challenge[0] = 0;
 	}
-	if (!getGPSStr()) return;
-	n = explode_string((char *)gps_buf,strs,30,',','\"');
-	if (n < 1) return;
-	if (!strcmp(strs[0],gpgsv))
+	if (AppConfig.GPSType == GPS_NORMAL)
 	{
-		if (n >= 4) gps_nsat = atoi(strs[3]);
-		return;
-	}
-	if (!strcmp(strs[0],gprmc))
-	{
-		struct tm tm;
-
-		if (n < 10) return;
-		memset(&tm,0,sizeof(tm));
-		tm.tm_sec = twoascii(strs[1] + 4);
-		tm.tm_min = twoascii(strs[1] + 2);
-		tm.tm_hour = twoascii(strs[1]);
-		tm.tm_mday = twoascii(strs[9]);
-		tm.tm_mon = twoascii(strs[9] + 2);
-		tm.tm_year = twoascii(strs[9] + 4) + 100;
-		gps_time = (DWORD) mktime(&tm);
-		if (AppConfig.GPSTimeOffset < 0) gps_time -= (DWORD) -AppConfig.GPSTimeOffset;
-		else if (AppConfig.GPSTimeOffset > 0) gps_time += AppConfig.GPSTimeOffset;
-		return;
-	}
-
-	if (n < 7) return;
-	if (strcmp(strs[0],gpgga)) return;
-	gpswarn = 0;
-	gpstimer = 0;
-	if (gps_state == GPS_STATE_IDLE)
-	{
-		gps_state = GPS_STATE_RECEIVED;
-		gpstimer = 0;
+		if (!getGPSStr()) return;
+		n = explode_string((char *)gps_buf,strs,30,',','\"');
+		if (n < 1) return;
+		if (!strcmp(strs[0],gpgsv))
+		{
+			if (n >= 4) gps_nsat = atoi(strs[3]);
+			return;
+		}
+		if (!strcmp(strs[0],gprmc))
+		{
+			struct tm tm;
+	
+			if (n < 10) return;
+			memset(&tm,0,sizeof(tm));
+			tm.tm_sec = twoascii(strs[1] + 4);
+			tm.tm_min = twoascii(strs[1] + 2);
+			tm.tm_hour = twoascii(strs[1]);
+			tm.tm_mday = twoascii(strs[9]);
+			tm.tm_mon = twoascii(strs[9] + 2);
+			tm.tm_year = twoascii(strs[9] + 4) + 100;
+			gps_time = (DWORD) mktime(&tm);
+			if (AppConfig.GPSTimeOffset < 0) gps_time -= (DWORD) -AppConfig.GPSTimeOffset;
+			else if (AppConfig.GPSTimeOffset > 0) gps_time += AppConfig.GPSTimeOffset;
+			return;
+		}
+	
+		if (n < 7) return;
+		if (strcmp(strs[0],gpgga)) return;
 		gpswarn = 0;
-		printf(gpsmsg1);
+		gpstimer = 0;
+		if (gps_state == GPS_STATE_IDLE)
+		{
+			gps_state = GPS_STATE_RECEIVED;
+			gpstimer = 0;
+			gpswarn = 0;
+			printf(gpsmsg1);
+		}
+		n = atoi(strs[6]);
+		if ((n < 1) || (n > 2)) 
+		{
+			if (gps_state == GPS_STATE_RECEIVED) return;
+			gps_state = GPS_STATE_IDLE;
+			printf(logtime());
+			printf(gpsmsg6);
+			connected = 0;
+			resp_digest = 0;
+			digest = 0;
+			their_challenge[0] = 0;
+			gpssync = 0;
+			gotpps = 0;
+		}
+		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
+		{
+			gps_state = GPS_STATE_VALID;
+	
+			printf(gpsmsg2);
+			printf("%d\n",gps_nsat);
+		}
+		memclr(&gps_packet,sizeof(gps_packet));
+		strncpy(gps_packet.lat,strs[2],7);
+		gps_packet.lat[7] = *strs[3];
+		strncpy(gps_packet.lon,strs[4],8);
+		gps_packet.lon[8] = *strs[5];
+		strncpy(gps_packet.elev,strs[9],5);
 	}
-	n = atoi(strs[6]);
-	if ((n < 1) || (n > 2)) 
+	else /* is a Trimble Thunderbolt */
 	{
-		if (gps_state == GPS_STATE_RECEIVED) return;
-		gps_state = GPS_STATE_IDLE;
-		printf(logtime());
-		printf(gpsmsg6);
-		connected = 0;
-		resp_digest = 0;
-		digest = 0;
-		their_challenge[0] = 0;
-		gpssync = 0;
-		gotpps = 0;
-	}
-	if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
-	{
-		gps_state = GPS_STATE_VALID;
+		if (!getTSIPPacket()) return;
+		if (gps_buf[0] != 0x8f) return;
+		if (gps_buf[1] == 0xab) 
+		{
+			struct tm tm;
+			WORD w;
+	
+			memset(&tm,0,sizeof(tm));
+			tm.tm_sec = gps_buf[11];
+			tm.tm_min = gps_buf[12];
+			tm.tm_hour = gps_buf[13];
+			tm.tm_mday = gps_buf[14];
+			tm.tm_mon = gps_buf[15];
+			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
+			tm.tm_year = w - 1900;
+			gps_time = (DWORD) mktime(&tm);
+			if (AppConfig.GPSTimeOffset < 0) gps_time -= (DWORD) -AppConfig.GPSTimeOffset;
+			else if (AppConfig.GPSTimeOffset > 0) gps_time += AppConfig.GPSTimeOffset;
+			return;
+		}
+		if (gps_buf[1] == 0xac)
+		{
+			BOOL happy;
+			int x,y;
+			float f;
 
-		printf(gpsmsg2);
-		printf("%d\n",gps_nsat);
+			happy = 1;
+			if (gps_buf[13] || gps_buf[14]) happy = 0;
+			if (gps_buf[9] || gps_buf[10]) happy = 0;
+			if ((gps_buf[12] & 0x1f) | gps_buf[11]) happy = 0;
+			gpswarn = 0;
+			gpstimer = 0;
+			if (gps_state == GPS_STATE_IDLE)
+			{
+				gps_state = GPS_STATE_RECEIVED;
+				gpstimer = 0;
+				gpswarn = 0;
+				printf(gpsmsg1);
+			}
+			if (!happy)
+			{
+				if (gps_state == GPS_STATE_RECEIVED) return;
+				gps_state = GPS_STATE_IDLE;
+				printf(logtime());
+				printf(gpsmsg6);
+				connected = 0;
+				resp_digest = 0;
+				digest = 0;
+				their_challenge[0] = 0;
+				gpssync = 0;
+				gotpps = 0;
+			}
+			gps_nsat = 3;
+			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
+			{
+				gps_state = GPS_STATE_VALID;
+		
+				printf(gpsmsg9);
+
+			}
+			memclr(&gps_packet,sizeof(gps_packet));
+			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
+			x = (int) f;
+			f -= (float) x;
+			if (f < 0.0) f = -f;
+			f *= 60.0;
+			y = (int) f;
+			f -= (float) y;
+			if (f < 0.0) f = -f;
+			if (x < 0)
+				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
+			else
+				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
+			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
+			x = (int) f;
+			f -= (float) x;
+			if (f < 0.0) f = -f;
+			f *= 60.0;
+			y = (int) f;
+			f -= (float) y;
+			if (f < 0.0) f = -f;
+			if (x < 0)
+				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
+			else
+				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
+			sprintf(gps_packet.elev,"%3.1f",(double)doubleify(gps_buf + 53));
+			return;
+		}
 	}
-	memclr(&gps_packet,sizeof(gps_packet));
-	strncpy(gps_packet.lat,strs[2],7);
-	gps_packet.lat[7] = *strs[3];
-	strncpy(gps_packet.lon,strs[4],8);
-	gps_packet.lon[8] = *strs[5];
-	strncpy(gps_packet.elev,strs[9],5);
 	return;
 }
 
@@ -1573,9 +1768,12 @@ void main_processing_loop(void)
 				gotpps = 0;
 			}
 		}
+
+#if !defined(SMT_BOARD)
 	
 		inputs1 = IOExp_Read(IOEXP_GPIOA);
 		inputs2 = IOExp_Read(IOEXP_GPIOB);
+#endif
 	
 		process_gps();
 	
@@ -1599,6 +1797,7 @@ void main_processing_loop(void)
 			if ((rssi < 1) && (qualcor)) rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssi = 0;
 			wascor = qualcor;
+			lastcor = cor;
 			if (write_eeprom_cali)
 			{
 				write_eeprom_cali = 0;
@@ -1630,11 +1829,7 @@ void main_processing_loop(void)
 
 	if (LEVDISP)
 	{
-
-		if ((!connected) && (!ptt))
-			SetLED(CONNLED,0);
-		else if (connected && ptt)
-			SetLED(CONNLED,1);
+		SetLED(CONNLED,connected);
 		if (gps_state == GPS_STATE_SYNCED)
 			SetLED(GPSLED,1);
 		else if (gps_state != GPS_STATE_VALID)
@@ -1661,9 +1856,9 @@ void main_processing_loop(void)
 
 	if (CAL)
 	{	
-		if (wascor && HasCTCSS())
+		if (lastcor && HasCTCSS())
 			SetLED(SQLED,1);
-		else if (!wascor)
+		else if (!lastcor)
 			SetLED(SQLED,0);
 	}
 
@@ -1675,10 +1870,9 @@ void main_processing_loop(void)
 		ToggleLED(SYSLED);
 		if (LEVDISP)
 		{
-			if (connected && (!ptt)) ToggleLED(CONNLED);
 			if (gps_state == GPS_STATE_VALID) ToggleLED(GPSLED);
 		}
-		if (CAL && (wascor && (!HasCTCSS()))) ToggleLED(SQLED);
+		if (CAL && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 #ifdef	SILLY
 		printf("%lu\n",sillyval);
 #endif
@@ -1905,7 +2099,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.14  4/25/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.17  6/16/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -1922,11 +2116,11 @@ int main(void)
 		"11 - Client Password (%s),   "
 		"12 - Host Password (%s)\n"
 		"13 - Tx Buffer Length (%d),   "
-		"14 - Tx Buffer Delay (%d)\n"
+		"14 - GPS Type (0=Normal, 1=Trimble) (%d)\n"
 		"15 - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"16 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"17 - GPS Baud Rate (%lu),  "
-		"18 - Time Offset (%ld),  "
+		"18 - RFU,  "
 		"19 - Telnet Port (%d)\n"
 		"20 - Telnet Username (%s),  "
 		"21 - Telnet Password (%s)\n"
@@ -1977,6 +2171,7 @@ int main(void)
 	connected = 0;
 	memclr((char *)audio_buf,FRAME_SIZE * 2);
 	gps_bufindex = 0;
+	TSIPwasdle = 0;
 	gps_state = GPS_STATE_IDLE;
 	gps_nsat = 0;
 	gotpps = 0;
@@ -1988,6 +2183,7 @@ int main(void)
 	memclr(adcothers,sizeof(adcothers));
 	sqlcount = 0;
 	wascor = 0;
+	lastcor = 0;
 	vnoise32 = 0;
 	vnoise256 = 0;
 	option_flags = 0;
@@ -2151,7 +2347,6 @@ __builtin_nop();
 		char cmdstr[50],ok;
 		unsigned int i1,i2,i3,i4,x;
 		unsigned long l;
-		long sl;
 
 		printf(menu,AppConfig.SerialNumber,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
 			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3],AppConfig.DefaultMask.v[0],
@@ -2161,8 +2356,7 @@ __builtin_nop();
 			AppConfig.DefaultPrimaryDNSServer.v[3],AppConfig.DefaultSecondaryDNSServer.v[0],AppConfig.DefaultSecondaryDNSServer.v[1],
 			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3],AppConfig.Flags.bIsDHCPEnabled,
 			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
-			AppConfig.TxBufferLength,AppConfig.TxBufferDelay,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
-			AppConfig.GPSTimeOffset,
+			AppConfig.TxBufferLength,AppConfig.GPSType,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
 			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.DebugLevel);
 
@@ -2310,16 +2504,31 @@ __builtin_nop();
 				}
 				break;
 			case 13: // Tx Buffer Length
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= MAX_BUFLEN))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 320) && (i1 <= MAX_BUFLEN))
 				{
 					AppConfig.TxBufferLength = i1;
+					AppConfig.TxBufferDelay = i1 - 160;
 					ok = 1;
 				}
 				break;
-			case 14: // Tx Buffer Delay
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= (MAX_BUFLEN - FRAME_SIZE)))
+			case 14: // GPS Type
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NORMAL) && (i1 <= GPS_TRIMBLE))
 				{
-					AppConfig.TxBufferDelay = i1;
+					if ((AppConfig.GPSType != GPS_TRIMBLE) && 
+						(i1 == GPS_TRIMBLE))
+					{
+						AppConfig.GPSBaudRate = 9600;
+						AppConfig.PPSPolarity = 0;
+						AppConfig.GPSPolarity = 0;
+					}
+					if ((AppConfig.GPSType == GPS_TRIMBLE) && 
+						(i1 != GPS_TRIMBLE))
+					{
+						AppConfig.GPSBaudRate = 4800;
+						AppConfig.PPSPolarity = 0;
+						AppConfig.GPSPolarity = 0;
+					}
+					AppConfig.GPSType = i1;
 					ok = 1;
 				}
 				break;
@@ -2341,13 +2550,6 @@ __builtin_nop();
 				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >= 300L) && (l <= 230400L))
 				{
 					AppConfig.GPSBaudRate = l;
-					ok = 1;
-				}
-				break;
-			case 18: // GPS Time Offset (secs)
-				if ((sscanf(cmdstr,"%ld",&sl) == 1) && (sl >= -9999) && (sl <= 9999))
-				{
-					AppConfig.GPSTimeOffset = sl;
 					ok = 1;
 				}
 				break;
@@ -2444,7 +2646,7 @@ __builtin_nop();
 					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
 					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3],
 					AppConfig.Flags.bIsDHCPEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
-					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,wascor,CTCSSIN ? 1 : 0,ptt,rssi,last_samplecnt,apeak,
+					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor,CTCSSIN ? 1 : 0,ptt,rssi,last_samplecnt,apeak,
 					AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
@@ -2519,6 +2721,31 @@ static void InitializeBoard(void)
 	IFS4bits.DAC1LIF = 0;
 	DAC1CONbits.DACEN = 1;
 
+#if defined(SMT_BOARD)
+
+	PORTA=0;	
+	PORTB=0;
+	PORTC=7;	
+	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers */
+	TRISA = 0xFFFF;	 
+	//RB0-1 are Analog, RB2-3 are audio select, RB4 is PTT, RB5-6 are Programming Pins, RB7 is INT0 (Ethenet INT)
+	//RB8 is Test Pin, RB9 is JP11, RB10-13 are LEDs, RB14-15 are DAC outputs
+	TRISB = 0x02E3;	
+	//RC0-RC2 are CS pins, RC4 is RP20/SDO, RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
+	TRISC = 0xFD48;
+
+	__builtin_write_OSCCONL(OSCCON & ~0x40); //clear the bit 6 of OSCCONL to unlock pin re-map
+	_U1RXR = 22;	// RP22 is UART1 RX
+	_RP23R = 3;		// RP23 is UART1 TX (U1TX) 3
+	_U2RXR = 24;	// RP24 is UART2 RX
+	_RP25R = 5;		// RP25 is UART2 TX (U2TX) 5 
+	_SDI1R = 19;	// RP19 is SPI1 MISO
+	_RP21R = 8;		// RP21 is SPI1 CLK (SCK1OUT) 8
+	_RP20R = 7;		// RP20 is SPI1 MOSI (SDO1) 7
+	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to lock pin re-map
+
+#else
+
 	PORTA=0;	//Initialize LED pin data to off state
 	PORTB=0;	//Initialize LED pin data to off state
 	// RA4 is CN0/PPS Pulse
@@ -2537,6 +2764,8 @@ static void InitializeBoard(void)
 	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to lock pin re-map
 
 	IOExpInit();
+
+#endif
 
 #if defined(SPIRAM_CS_TRIS)
 	SPIRAMInit();

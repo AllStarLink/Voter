@@ -65,6 +65,7 @@ file_037=.
 file_038=.
 file_039=.
 file_040=.
+file_041=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -107,6 +108,7 @@ file_037=no
 file_038=no
 file_039=no
 file_040=no
+file_041=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -149,6 +151,7 @@ file_037=no
 file_038=no
 file_039=no
 file_040=no
+file_041=no
 [FILE_INFO]
 file_000=src\TCPIP Stack\ARP.c
 file_001=src\TCPIP Stack\Delay.c
@@ -168,37 +171,44 @@ file_014=src\TCPIP Stack\Telnet.c
 file_015=src\TCPIP Stack\TCP.c
 file_016=src\TCPIP Stack\DynDNS.c
 file_017=src\Voter.c
-file_018=src\HardwareProfile.h
-file_019=src\TCPIPConfig.h
-file_020=src\TCPIP Stack\StackTsk.h
-file_021=src\TCPIP Stack\UART.h
-file_022=src\TCPIP Stack\TCPIP.h
-file_023=src\TCPIP Stack\ARP.h
-file_024=src\TCPIP Stack\Delay.h
-file_025=src\TCPIP Stack\DHCP.h
-file_026=src\TCPIP Stack\DNS.h
-file_027=src\TCPIP Stack\ENC28J60.h
-file_028=src\TCPIP Stack\Helpers.h
-file_029=src\TCPIP Stack\IP.h
-file_030=src\TCPIP Stack\MAC.h
-file_031=src\TCPIP Stack\Random.h
-file_032=src\TCPIP Stack\Reboot.h
-file_033=src\TCPIP Stack\regdef.h
-file_034=src\TCPIP Stack\Tick.h
-file_035=src\TCPIP Stack\UDP.h
-file_036=src\TCPIP Stack\XEEPROM.h
-file_037=src\TCPIP Stack\Telnet.h
-file_038=src\TCPIP Stack\TCP.h
-file_039=src\TCPIP Stack\DynDNS.h
-file_040=src\p33FJ128GP802.gld
+file_018=src\doubleify.c
+file_019=src\HardwareProfile.h
+file_020=src\TCPIPConfig.h
+file_021=src\TCPIP Stack\StackTsk.h
+file_022=src\TCPIP Stack\UART.h
+file_023=src\TCPIP Stack\TCPIP.h
+file_024=src\TCPIP Stack\ARP.h
+file_025=src\TCPIP Stack\Delay.h
+file_026=src\TCPIP Stack\DHCP.h
+file_027=src\TCPIP Stack\DNS.h
+file_028=src\TCPIP Stack\ENC28J60.h
+file_029=src\TCPIP Stack\Helpers.h
+file_030=src\TCPIP Stack\IP.h
+file_031=src\TCPIP Stack\MAC.h
+file_032=src\TCPIP Stack\Random.h
+file_033=src\TCPIP Stack\Reboot.h
+file_034=src\TCPIP Stack\regdef.h
+file_035=src\TCPIP Stack\Tick.h
+file_036=src\TCPIP Stack\UDP.h
+file_037=src\TCPIP Stack\XEEPROM.h
+file_038=src\TCPIP Stack\Telnet.h
+file_039=src\TCPIP Stack\TCP.h
+file_040=src\TCPIP Stack\DynDNS.h
+file_041=src\p33FJ128GP802.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
 [TOOL_SETTINGS]
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}=-g
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall -msmall-code -mlarge-data -O3 -funroll-loops -fomit-frame-pointer -mpa
-TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=--heap=512 -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=--heap=1024 -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
+TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}018=-g
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}018=-g -fno-short-double -Wall -msmall-code -mlarge-data -O3 -funroll-loops -fomit-frame-pointer -mpa
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}018=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
+TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}018=
+[ACTIVE_FILE_SETTINGS]
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}018_active=yes
 [INSTRUMENTED_TRACE]
 enable=0
 transport=0
