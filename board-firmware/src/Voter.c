@@ -1345,8 +1345,6 @@ extern float doubleify(BYTE *p);
 			tm.tm_mon = twoascii(strs[9] + 2);
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 			gps_time = (DWORD) mktime(&tm);
-			if (AppConfig.GPSTimeOffset < 0) gps_time -= (DWORD) -AppConfig.GPSTimeOffset;
-			else if (AppConfig.GPSTimeOffset > 0) gps_time += AppConfig.GPSTimeOffset;
 			return;
 		}
 	
@@ -1407,8 +1405,6 @@ extern float doubleify(BYTE *p);
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
 			gps_time = (DWORD) mktime(&tm);
-			if (AppConfig.GPSTimeOffset < 0) gps_time -= (DWORD) -AppConfig.GPSTimeOffset;
-			else if (AppConfig.GPSTimeOffset > 0) gps_time += AppConfig.GPSTimeOffset;
 			return;
 		}
 		if (gps_buf[1] == 0xac)
@@ -2099,7 +2095,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.17  6/16/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.18  6/17/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2116,7 +2112,7 @@ int main(void)
 		"11 - Client Password (%s),   "
 		"12 - Host Password (%s)\n"
 		"13 - Tx Buffer Length (%d),   "
-		"14 - GPS Type (0=Normal, 1=Trimble) (%d)\n"
+		"14 - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"15 - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"16 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"17 - GPS Baud Rate (%lu),  "
