@@ -85,12 +85,12 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 #if defined(SMT_BOARD)
 
-	#define	SPISel(x) { _LATC0 = 1; _LATC1= 1; _LATC2 = 1; LATC |= x; }
-	#define SPICS_ENC 6
-	#define	SPICS_POT 3
-	#define	SPICS_EEPROM 5
-	#define	SPICS_IDLE 7
-	#define	SPICS_POT_IDLE 7
+	#define	SPISel(x) { _LATC0 = 1; _LATC1= 1; _LATC2 = 1; LATC ^= x; }
+	#define SPICS_ENC 1
+	#define	SPICS_POT 4
+	#define	SPICS_EEPROM 2
+	#define	SPICS_IDLE 0
+	#define	SPICS_POT_IDLE 0
 
 #else
 

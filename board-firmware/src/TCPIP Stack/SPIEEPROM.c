@@ -79,6 +79,22 @@
 //      other hardware, the other code should clear the EEPROM_SPI_IF when it is
 //      done using the SPI.
 
+#if defined(SMT_BOARD)
+
+// SPI Serial EEPROM buffer size.  To enhance performance while
+// cooperatively sharing the SPI bus with other peripherals, bytes
+// read and written to the memory are locally buffered. Legal
+// sizes are 1 to the EEPROM page size.
+#define EEPROM_BUFFER_SIZE              (16)
+
+// Must be the EEPROM write page size, or any binary power of 2 divisor.  If 
+// using a smaller number, make sure it is at least EEPROM_BUFFER_SIZE big for 
+// max performance.  Microchip 25LC256 uses 64 byte page size, 25LC1024 uses 
+// 256 byte page size, so 64 is compatible with both.
+#define EEPROM_PAGE_SIZE				(16)
+
+#else
+
 // SPI Serial EEPROM buffer size.  To enhance performance while
 // cooperatively sharing the SPI bus with other peripherals, bytes
 // read and written to the memory are locally buffered. Legal
@@ -89,7 +105,11 @@
 // using a smaller number, make sure it is at least EEPROM_BUFFER_SIZE big for 
 // max performance.  Microchip 25LC256 uses 64 byte page size, 25LC1024 uses 
 // 256 byte page size, so 64 is compatible with both.
-#define EEPROM_PAGE_SIZE				(64)
+#define EEPROM_PAGE_SIZE				(32)
+
+#endif
+
+
 
 // EEPROM SPI opcodes
 #define OPCODE_READ    0x03    // Read data from memory array beginning at selected address
@@ -475,6 +495,7 @@ static void DoWrite(void)
     DWORD SPICON1Save;
     #endif
 
+
     // Save SPI state
     SPICON1Save = EEPROM_SPICON1;
     vSPIONSave = SPI_ON_BIT;
@@ -533,11 +554,11 @@ static void DoWrite(void)
     EEPROM_SPICON1 = SPICON1Save;
     SPI_ON_BIT = vSPIONSave;
 
-
     // Wait for write to complete
     while( XEEIsBusy() );
 
 	ClearSPIDoneFlag();
+
 }
 
 

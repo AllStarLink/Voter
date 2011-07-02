@@ -829,17 +829,17 @@ long accum;
 short saccum;
 
 	index = ADC1BUF0;
-	if (gotpps)
+	if (adcother)
 	{
-		if (adcother)
-		{
-			adcothers[adcindex++] = index >> 2;
-			if(adcindex >= ADCOTHERS) adcindex = 0;
-			AD1CHS0 = 0;
-			if (gotpps) ppstimer++;
-			if (gps_state != GPS_STATE_IDLE) gpstimer++;
-		}
-		else
+		adcothers[adcindex++] = index >> 2;
+		if(adcindex >= ADCOTHERS) adcindex = 0;
+		AD1CHS0 = 0;
+		if (gotpps) ppstimer++;
+		if (gps_state != GPS_STATE_IDLE) gpstimer++;
+	}
+	else
+	{
+		if (gotpps)
 		{
 			if (fillindex == 0)
 			{
@@ -851,26 +851,26 @@ short saccum;
 			saccum = index;
 			saccum -= 2048;
 			accum = saccum * 16;
-            if (accum > amax)
-            {
-                 amax = accum;
-                 discounteru = discfactor;
-            }
-            else if (--discounteru <= 0)
-            {
-                 discounteru = discfactor;
-                 amax = (long)((amax * 32700) / 32768L);
-            }
-            if (accum < amin)
-            {
-                 amin = accum;
-                 discounterl = discfactor;
-            }
-            else if (--discounterl <= 0)
-            {
-                 discounterl = discfactor;
-                 amin = (long)((amin * 32700) / 32768L);
-            }
+	           if (accum > amax)
+	           {
+	                amax = accum;
+	                discounteru = discfactor;
+	           }
+	           else if (--discounteru <= 0)
+	           {
+	                discounteru = discfactor;
+	                amax = (long)((amax * 32700) / 32768L);
+	           }
+	           if (accum < amin)
+	           {
+	                amin = accum;
+	                discounterl = discfactor;
+	           }
+	           else if (--discounterl <= 0)
+	           {
+	                discounterl = discfactor;
+	                amin = (long)((amin * 32700) / 32768L);
+	           }
 			if (samplecnt++ < 8000)
 			{
 				audio_buf[filling_buffer][fillindex++] = last_adcsample;
@@ -885,16 +885,20 @@ short saccum;
 					apeak = (long)(amax - amin) / 2;
 				}
 			}
-			AD1CHS0 = adcindex + 2;
-			sqlcount++;
 			// Output Tx sample
 			DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
 			txaudio[txdrainindex++] = 0xff;
 			if (txdrainindex >= AppConfig.TxBufferLength)
 				txdrainindex = 0;
 		}
-		adcother ^= 1;
+#if defined(SMT_BOARD)
+		AD1CHS0 = adcindex + 1;
+#else
+		AD1CHS0 = adcindex + 2;
+#endif
+		sqlcount++;
 	}
+	adcother ^= 1;
 	IFS0bits.AD1IF = 0;
 }
 
@@ -927,21 +931,17 @@ void __attribute__((interrupt, auto_psv)) _MathError(void)
 
 #if defined(SMT_BOARD)
 
+ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
+
 	void SetLED(BYTE led,BOOL val)
 	{
-	BYTE mask;
-	
-		mask = 1 << (led + 10);
-		LATB &= ~mask;
-		if (!val) LATB |= mask;
+		LATB &= ~ledmask[led];
+		if (!val) LATB |= ledmask[led];
 	}
 	
 	void ToggleLED(BYTE led)
 	{
-	BYTE mask;
-
-		mask = 1 << (led + 10);
-		LATB ^= mask;
+		LATB ^= ledmask[led];
 	}
 	
 	void SetPTT(BOOL val)
@@ -2095,7 +2095,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.18  6/17/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.19  7/1/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2221,8 +2221,11 @@ int main(void)
 	apeak = 0;
 	indisplay = 0;
 
+
 	// Initialize application specific hardware
 	InitializeBoard();
+
+	RCONbits.SWDTEN = 0;
 
 	// Initialize stack-related hardware components that may be 
 	// required by the UART configuration routines
@@ -2230,8 +2233,10 @@ int main(void)
 
 	SetLED(SYSLED,1);
 
+
 	// Initialize Stack and application related NV variables into AppConfig.
 	InitAppConfig();
+
 
 	// UART
 	#if defined(STACK_USE_UART)
@@ -2314,6 +2319,7 @@ int main(void)
 
 	init_squelch();
 
+
 	udpSocketUser = INVALID_UDP_SOCKET;
 
 	sprintf(challenge,"%lu",GenerateRandomDWORD() % 1000000000ul);
@@ -2330,6 +2336,7 @@ int main(void)
     // If a task needs very long time to do its job, it must be broken
     // down into smaller pieces so that other tasks can have CPU time.
 __builtin_nop();
+
 
 	printf(signon);
 
@@ -2360,6 +2367,7 @@ __builtin_nop();
 		while(!aborted)
 		{
 			printf(entsel);
+			memset(cmdstr,0,sizeof(cmdstr));
 			if (!fgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
@@ -2701,7 +2709,12 @@ static void InitializeBoard(void)
 	PR3 = 299;				//Set to period of 300
 	T3CONbits.TON = 1;		//Turn it on
 
+#if defined(SMT_BOARD)
+	AD1PCFGL = 0xFFF0;				// Enable AN0-AN3 as analog 
+#else
 	AD1PCFGL = 0xFFE2;				// Enable AN0, AN2-AN4 as analog 
+#endif
+
 	AD1CON1 = 0x8444;			// TMR Sample Start, 12 bit mode (on parts with a 12bit A/D)
 	AD1CON2 = 0x0;			// AVdd, AVss, int every conversion, MUXA only, no scan
 	AD1CON3 = 0x1003;			// 16 Tad auto-sample, Tad = 3*Tcy
@@ -2720,7 +2733,7 @@ static void InitializeBoard(void)
 #if defined(SMT_BOARD)
 
 	PORTA=0;	
-	PORTB=0;
+	PORTB=0x3c00;
 	PORTC=7;	
 	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers */
 	TRISA = 0xFFFF;	 
@@ -2853,6 +2866,7 @@ static void InitAppConfig(void)
 	strcpy((char *)AppConfig.DynDNSPassword,"radios42");
 	strcpy((char *)AppConfig.DynDNSHost,"voter-test.dyndns.org");
 
+
 	#if defined(EEPROM_CS_TRIS)
 	{
 		BYTE c;
@@ -2863,7 +2877,7 @@ static void InitAppConfig(void)
 		// will get overwritten.  The AppConfig() structure has been changed,
 		// resulting in parameter misalignment if still using old EEPROM
 		// contents.
-		XEEReadArray(0x0000, &c, 1);
+		XEEReadArray(0x0000, &c, 1);/*SaveAppConfig(); */
 	    if(c == 0x60u)
 		    XEEReadArray(0x0001, (BYTE*)&AppConfig, sizeof(AppConfig));
 	    else
@@ -2894,6 +2908,7 @@ static void InitAppConfig(void)
 #if defined(EEPROM_CS_TRIS) || defined(SPIFLASH_CS_TRIS)
 void SaveAppConfig(void)
 {
+
 	#if defined(EEPROM_CS_TRIS)
 	    XEEBeginWrite(0x0000);
 	    XEEWrite(0x60);
