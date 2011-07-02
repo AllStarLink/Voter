@@ -951,10 +951,10 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	
 	void SetAudioSrc(void)
 	{
-		if (option_flags & 1)_LATB2 = 1;
-		else _LATB2 = 0;
-		if (!(option_flags & 4)) _LATB3 = 1;
+		if (option_flags & 1)_LATB3 = 1;
 		else _LATB3 = 0;
+		if (!(option_flags & 4)) _LATB2 = 1;
+		else _LATB2 = 0;
 	}
 
 #else
@@ -2095,7 +2095,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.19  7/1/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.20  7/2/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
