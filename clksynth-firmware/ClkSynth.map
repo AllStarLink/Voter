@@ -34,10 +34,10 @@ Machine type is 16F1823
 startup.obj     end_init                              1        1        2        0       0
                 reset_vec                             0        0        1        0       0
 ClkSynth.obj    config                             8007     8007        1    1000E       0
-                text61                              797      797       17      F2E       0
-                maintext                            7AE      7AE       52      F5C       0
+                text61                              792      792       17      F24       0
+                maintext                            7A9      7A9       57      F52       0
                 cstackCOMMON                         70       70        6       70       1
-                cinit                               795      795        2      F2A       0
+                cinit                               790      790        2      F20       0
 
 TOTAL           Name                               Link     Load   Length     Space
         CLASS   CONST          
@@ -45,9 +45,9 @@ TOTAL           Name                               Link     Load   Length     Sp
         CLASS   CODE           
                 end_init                              1        1        2         0
                 reset_vec                             0        0        1         0
-                text61                              797      797       17         0
-                maintext                            7AE      7AE       52         0
-                cinit                               795      795        2         0
+                text61                              792      792       17         0
+                maintext                            7A9      7A9       57         0
+                cinit                               790      790        2         0
 
         CLASS   STRCODE        
 
@@ -206,9 +206,9 @@ SEGMENTS        Name                           Load    Length   Top    Selector 
 
                 reset_vec                      000000  000003  000003         0       0  CODE        2
                 cstackCOMMON                   000070  000006  000076        70       1  COMMON      1
-                cinit                          000795  000002  000797       F2A       0  CODE        2
-                text61                         000797  000017  0007AE       F2E       0  CODE        2
-                maintext                       0007AE  000052  000800       F5C       0  CODE        2
+                cinit                          000790  000002  000792       F20       0  CODE        2
+                text61                         000792  000017  0007A9       F24       0  CODE        2
+                maintext                       0007A9  000057  000800       F52       0  CODE        2
                 config                         008007  000001  008008     1000E       0  CONFIG      2
 
 
@@ -218,12 +218,12 @@ UNUSED ADDRESS RANGES
         BANK0            00020-0006F              50           1
         BANK1            000A0-000BF              20           1
         BIGRAM           02000-0206F              70           1
-        CODE             00003-00794             792           2
+        CODE             00003-0078F             78D           2
         COMMON           00076-0007D               8           1
         CONFIG           08008-08008               1           2
-        CONST            00003-00794             100           2
+        CONST            00003-0078F             100           2
         EEDATA           0F000-0F0FF             100           2
-        ENTRY            00003-00794             100           2
+        ENTRY            00003-0078F             100           2
         IDLOC            08000-08003               4           2
         RAM              00020-0006F              50           1
                          000A0-000BF              20
@@ -259,8 +259,8 @@ UNUSED ADDRESS RANGES
         SFR7             00380-003EF              70           1
         SFR8             00400-0046F              70           1
         SFR9             00480-004EF              70           1
-        STRCODE          00003-00794             792           2
-        STRING           00003-00794             100           2
+        STRCODE          00003-0078F             78D           2
+        STRING           00003-0078F             100           2
 
                                   Symbol Table
 
@@ -454,19 +454,19 @@ __S0                  (abs)        08008
 __S1                  (abs)        00076
 __S2                  (abs)        00000
 __end_of_main         maintext     00800
-__end_of_write_spi    text61       007AE
+__end_of_write_spi    text61       007A9
 __pcstackCOMMON       cstackCOMMON 00070
-__pmaintext           maintext     007AE
+__pmaintext           maintext     007A9
 __ptext60             text60       00000
-__ptext61             text61       00797
+__ptext61             text61       00792
 __ptext62             text62       00000
 __size_of_main        (abs)        00000
 __size_of_write_spi   (abs)        00000
 _exit                 init         00001
-_main                 maintext     007AE
-_write_spi            text61       00797
+_main                 maintext     007A9
+_write_spi            text61       00792
 btemp                 (abs)        0007E
-end_of_initialization cinit        00795
+end_of_initialization cinit        00790
 intlevel0             functab      00000
 intlevel1             functab      00000
 intlevel2             functab      00000
@@ -476,7 +476,7 @@ intlevel5             functab      00000
 main@i                cstackCOMMON 00074
 reset_vec             reset_vec    00000
 start                 init         00001
-start_initialization  cinit        00795
+start_initialization  cinit        00790
 write_spi@dummy       cstackCOMMON 00071
 write_spi@val         cstackCOMMON 00072
 wtemp0                (abs)        0007E

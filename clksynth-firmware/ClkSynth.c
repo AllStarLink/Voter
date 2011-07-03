@@ -7,7 +7,7 @@
 #include <pic.h>
 #include <pic16f1823.h>
 
-__CONFIG(0x0FF4);
+__CONFIG(0x0EB4);
 
 #define TESTBIT LATC5
 #define STROBE LATC3
@@ -31,6 +31,7 @@ unsigned char dummy;
 void main(void) {
 unsigned short i;
 
+	CLRWDT();
 	TRISA = 0; 
 	TRISC = 0;
 	LATA = 0x30;
@@ -42,6 +43,7 @@ unsigned short i;
 	STROBE = 0;
 	PDTS = 1;
 	SSP1CON1 |= 0x20;
+	write_spi(0x00);  // write extra byte of 0 to clear poo out of register
 	write_spi(0x10);
 	write_spi(0x0e);
 	write_spi(0x03);
