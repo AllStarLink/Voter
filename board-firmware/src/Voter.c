@@ -20,11 +20,47 @@
 *   along with this project.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/***********************************************************
+For IMA ADPCM Codec:
+
+Copyright 1992 by Stichting Mathematisch Centrum, Amsterdam, The
+Netherlands.
+
+                        All Rights Reserved
+
+Permission to use, copy, modify, and distribute this software and its 
+documentation for any purpose and without fee is hereby granted, 
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in 
+supporting documentation, and that the names of Stichting Mathematisch
+Centrum or CWI not be used in advertising or publicity pertaining to
+distribution of the software without specific, written prior permission.
+
+STICHTING MATHEMATISCH CENTRUM DISCLAIMS ALL WARRANTIES WITH REGARD TO
+THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS, IN NO EVENT SHALL STICHTING MATHEMATISCH CENTRUM BE LIABLE
+FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+*******************************************************************
+Note: It would have been nicer to (1) use G.726 rather than this
+ancient version of ADPCM, but G.726 was a bit too computationally
+complex for this hardware platform, and (2) *not* to have to transcode
+the tx audio into mulaw before outputting it, but there is no room in
+RAM for signed linear audio of the necessary buffer size; sigh!
+
+******************************************************************/
+
 #define THIS_IS_STACK_APPLICATION
 
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
+
+/* Un-comment this to generate digital milliwatt level on output */
+/* #define DMWDIAG */
 
 // Include all headers for any enabled TCPIP Stack functions
 #include "TCPIP Stack/TCPIP.h"
@@ -93,6 +129,7 @@
 #define	BAUD_RATE2 4800
 
 #define	FRAME_SIZE 160
+#define	ADPCM_FRAME_SIZE 83
 #define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
 #define	DEFAULT_TX_BUFFER_LENGTH 2400 // 300ms of Buffer
 #define	VOTER_CHALLENGE_LEN 10
@@ -104,12 +141,16 @@
 #define DEFAULT_VOTER_PORT 667
 #define	PPS_WARN_TIME (1200 * 8) // 1200ms PPS Warning Time
 #define PPS_MAX_TIME (2400 * 8) // 2400 ms PPS Timeout
-#define	GPS_WARN_TIME (1200 * 8) // 1200ms GPS Warning Time
-#define GPS_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
+#define	GPS_NMEA_WARN_TIME (1200 * 8) // 1200 ms GPS Warning Time
+#define GPS_NMEA_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
+#define	GPS_TSIP_WARN_TIME (5000ul * 8ul) // 5000 ms GPS Warning Time
+#define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
+#define	ULAW_SILENCE 0xff
+#define	ADPCM_SILENCE 0
 
 
 // Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
@@ -127,7 +168,8 @@
 
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
-enum {GPS_NORMAL,GPS_TRIMBLE} ;
+enum {GPS_NMEA,GPS_TSIP} ;
+enum {CODEC_ULAW,CODEC_ADPCM} ;
 
 ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
 	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
@@ -150,9 +192,12 @@ typedef struct {
 #define	OPTION_FLAG_SENDALWAYS 2	// Send Audio always
 #define OPTION_FLAG_NOCTCSSFILTER 4 // Do not filter CTCSS
 #define	OPTION_FLAG_MASTERTIMING 8  // Master Timing Source (do not delay sending audio packet)
+#define	OPTION_FLAG_ADPCM 16 // Use ADPCM rather then ULAW
 
+#ifdef DMWDIAG
 unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
 BYTE mwp;
+#endif
 
 VTIME system_time;
 
@@ -226,7 +271,7 @@ WORD last_drainindex;
 BYTE txaudio[MAX_BUFLEN];
 DWORD lastrxtick;
 BOOL ptt;
-WORD gpstimer;
+DWORD gpstimer;
 WORD ppstimer;
 BOOL gpswarn;
 BOOL ppswarn;
@@ -245,7 +290,7 @@ WORD timing_index;
 DWORD next_time;
 DWORD next_index;
 WORD samplecnt;
-BYTE last_adcsample;
+WORD last_adcsample;
 DWORD real_time;
 WORD last_samplecnt;
 DWORD digest;
@@ -260,6 +305,15 @@ short amax;
 short amin;
 WORD apeak;
 BOOL indisplay;
+short enc_valprev;	/* Previous output value */
+char enc_index;		/* Index into stepsize table */
+short enc_prev_valprev;	/* Previous output value */
+char enc_prev_index;	/* Index into stepsize table */
+BYTE enc_lastdelta;
+BYTE dec_buffer[FRAME_SIZE];
+short dec_valprev;	/* Previous output value */
+char dec_index;		/* Index into stepsize table */
+
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -764,11 +818,40 @@ ROM short ulawtabletx[] = {
 56,48,40,32,24,16,8,0
 };
 
+/* Intel ADPCM step variation table */
+ROM static int indexTable[16] = {
+    -1, -1, -1, -1, 2, 4, 6, 8,
+    -1, -1, -1, -1, 2, 4, 6, 8,
+};
+
+ROM static int stepsizeTable[89] = {
+    7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
+    19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
+    50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
+    130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
+    337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
+    876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
+    2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358,
+    5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899,
+    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
+};
+
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB;
 
 void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 {
+
+//Stuff for ADPCM encode
+int val;			/* Current input sample value */
+int sign;			/* Current adpcm sign bit */
+BYTE delta;			/* Current adpcm output value */
+int diff;			/* Difference between val and valprev */
+int step;			/* Stepsize */
+int vpdiff;			/* Current change to valpred */
+long valpred;		/* Predicted output value */
+int adpcm_index;
+BYTE *cp;
 
 	if (PORTAbits.RA4) // If PPS signal is asserted
 	{
@@ -793,9 +876,93 @@ void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 					real_time++;
 					if (samplecnt < 8000)  // If we are short one, insert another
 					{
-						audio_buf[filling_buffer][fillindex++] = last_adcsample;
+						if (option_flags & OPTION_FLAG_ADPCM)
+						{
+							val = last_adcsample;
+							val -= 2048;
+							val *= 16;
+							adpcm_index = enc_index;
+							valpred = enc_valprev;
+						    step = stepsizeTable[adpcm_index];
+							
+							/* Step 1 - compute difference with previous value */
+							diff = val - valpred;
+							sign = (diff < 0) ? 8 : 0;
+							if ( sign ) diff = (-diff);
+						
+							/* Step 2 - Divide and clamp */
+							/* Note:
+							** This code *approximately* computes:
+							**    delta = diff*4/step;
+							**    vpdiff = (delta+0.5)*step/4;
+							** but in shift step bits are dropped. The net result of this is
+							** that even if you have fast mul/div hardware you cannot put it to
+							** good use since the fixup would be too expensive.
+							*/
+							delta = 0;
+							vpdiff = (step >> 3);
+							
+							if ( diff >= step ) {
+							    delta = 4;
+							    diff -= step;
+							    vpdiff += step;
+							}
+							step >>= 1;
+							if ( diff >= step  ) {
+							    delta |= 2;
+							    diff -= step;
+							    vpdiff += step;
+							}
+							step >>= 1;
+							if ( diff >= step ) {
+							    delta |= 1;
+							    vpdiff += step;
+							}
+						
+							/* Step 3 - Update previous value */
+							if ( sign )
+							  valpred -= vpdiff;
+							else
+							  valpred += vpdiff;
+						
+							/* Step 4 - Clamp previous value to 16 bits */
+							if ( valpred > 32767 )
+							  valpred = 32767;
+							else if ( valpred < -32768 )
+							  valpred = -32768;
+						
+							/* Step 5 - Assemble value, update index and step values */
+							delta |= sign;
+							
+							adpcm_index += indexTable[delta];
+							if ( adpcm_index < 0 ) adpcm_index = 0;
+							if ( adpcm_index > 88 ) adpcm_index = 88;
+							enc_valprev = valpred;
+							enc_index = adpcm_index;
+							if (fillindex & 1)
+							{
+								audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
+							}
+							else
+							{
+								enc_lastdelta = delta;
+							}
+						}
+						else  // is ULAW
+						{
+							audio_buf[filling_buffer][fillindex++] = ulawtable[last_adcsample];
+						}
 						if (fillindex >= FRAME_SIZE)
 						{
+							if (option_flags & OPTION_FLAG_ADPCM)
+							{
+								cp = &audio_buf[filling_buffer][fillindex >> 1];
+								*cp++ = (enc_prev_valprev & 0xff00) >> 8;
+								*cp++ = enc_prev_valprev & 0xff;
+								*cp = enc_index;
+								enc_prev_valprev = enc_valprev;
+								enc_prev_index = enc_index;
+							}
 							filled = 1;
 							fillindex = 0;
 							filling_buffer ^= 1;
@@ -828,6 +995,17 @@ WORD index;
 long accum;
 short saccum;
 
+//Stuff for ADPCM encode
+int val;			/* Current input sample value */
+int sign;			/* Current adpcm sign bit */
+BYTE delta;			/* Current adpcm output value */
+int diff;			/* Difference between val and valprev */
+int step;			/* Stepsize */
+int vpdiff;			/* Current change to valpred */
+long valpred;		/* Predicted output value */
+int adpcm_index;
+BYTE *cp;
+
 	index = ADC1BUF0;
 	if (adcother)
 	{
@@ -846,7 +1024,7 @@ short saccum;
 				next_index = samplecnt;
 				next_time = real_time;
 			}
-			last_adcsample = ulawtable[index];
+			last_adcsample = index;
 			// Make 16 bit number from 12 bit ADC sample
 			saccum = index;
 			saccum -= 2048;
@@ -873,9 +1051,95 @@ short saccum;
 	           }
 			if (samplecnt++ < 8000)
 			{
-				audio_buf[filling_buffer][fillindex++] = last_adcsample;
+				if (option_flags & OPTION_FLAG_ADPCM)
+				{
+					val = index;
+					val -= 2048;
+					val *= 16;
+
+					adpcm_index = enc_index;
+					valpred = enc_valprev;
+				    step = stepsizeTable[adpcm_index];
+					
+					/* Step 1 - compute difference with previous value */
+					diff = val - valpred;
+					sign = (diff < 0) ? 8 : 0;
+					if ( sign ) diff = (-diff);
+				
+					/* Step 2 - Divide and clamp */
+					/* Note:
+					** This code *approximately* computes:
+					**    delta = diff*4/step;
+					**    vpdiff = (delta+0.5)*step/4;
+					** but in shift step bits are dropped. The net result of this is
+					** that even if you have fast mul/div hardware you cannot put it to
+					** good use since the fixup would be too expensive.
+					*/
+					delta = 0;
+					vpdiff = (step >> 3);
+					
+					if ( diff >= step ) {
+					    delta = 4;
+					    diff -= step;
+					    vpdiff += step;
+					}
+					step >>= 1;
+					if ( diff >= step  ) {
+					    delta |= 2;
+					    diff -= step;
+					    vpdiff += step;
+					}
+					step >>= 1;
+					if ( diff >= step ) {
+					    delta |= 1;
+					    vpdiff += step;
+					}
+				
+					/* Step 3 - Update previous value */
+					if ( sign )
+					  valpred -= vpdiff;
+					else
+					  valpred += vpdiff;
+				
+					/* Step 4 - Clamp previous value to 16 bits */
+					if ( valpred > 32767 )
+					  valpred = 32767;
+					else if ( valpred < -32768 )
+					  valpred = -32768;
+				
+					/* Step 5 - Assemble value, update index and step values */
+					delta |= sign;
+					
+					adpcm_index += indexTable[delta];
+					if ( adpcm_index < 0 ) adpcm_index = 0;
+					if ( adpcm_index > 88 ) adpcm_index = 88;
+					enc_valprev = valpred;
+					enc_index = adpcm_index;
+					if (fillindex & 1)
+					{
+						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
+					}
+					else
+					{
+						enc_lastdelta = delta;
+					}
+					fillindex++;
+				}
+				else  // is ULAW
+				{
+					audio_buf[filling_buffer][fillindex++] = ulawtable[index];
+				}
 				if (fillindex >= FRAME_SIZE)
 				{
+					if (option_flags & OPTION_FLAG_ADPCM)
+					{
+						cp = &audio_buf[filling_buffer][fillindex >> 1];
+						*cp++ = (enc_prev_valprev & 0xff00) >> 8;
+						*cp++ = enc_prev_valprev & 0xff;
+						*cp = enc_prev_index;
+						enc_prev_valprev = enc_valprev;
+						enc_prev_index = enc_index;
+					}
 					filled = 1;
 					fillindex = 0;
 					filling_buffer ^= 1;
@@ -886,8 +1150,13 @@ short saccum;
 				}
 			}
 			// Output Tx sample
+#ifdef	DMWDIAG
+			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
+			if (mwp > 7) mwp = 0;
+#else
 			DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
-			txaudio[txdrainindex++] = 0xff;
+#endif
+			txaudio[txdrainindex++] = ULAW_SILENCE;
 			if (txdrainindex >= AppConfig.TxBufferLength)
 				txdrainindex = 0;
 		}
@@ -1322,7 +1591,7 @@ extern float doubleify(BYTE *p);
 		digest = 0;
 		their_challenge[0] = 0;
 	}
-	if (AppConfig.GPSType == GPS_NORMAL)
+	if (AppConfig.GPSType == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
@@ -1479,18 +1748,96 @@ extern float doubleify(BYTE *p);
 	return;
 }
 
+void adpcm_decoder(BYTE *indata)
+{
+    BYTE *inp;		/* Input buffer pointer */
+    int sign;			/* Current adpcm sign bit */
+    BYTE delta;			/* Current adpcm output value */
+    int step;			/* Stepsize */
+    long valpred;		/* Predicted value */
+    int vpdiff;			/* Current change to valpred */
+    int index;			/* Current step change index */
+    BYTE inputbuffer;		/* place to keep next 4-bit value */
+    BOOL bufferstep;		/* toggle between inputbuffer/input */
+	WORD w;
+	BYTE i;
+	long vout;
+
+    inp = indata;
+
+    valpred = dec_valprev;
+    index = dec_index;
+    step = stepsizeTable[index];
+
+    bufferstep = 0;
+    inputbuffer = 0;
+
+   
+    for ( i = 0; i < FRAME_SIZE; i++) {
+	
+		/* Step 1 - get the delta value */
+		if ( bufferstep ) {
+		    delta = inputbuffer & 0xf;
+		} else {
+		    inputbuffer = *inp++;
+		    delta = (inputbuffer >> 4) & 0xf;
+		}
+		bufferstep = !bufferstep;
+	
+		/* Step 2 - Find new index value (for later) */
+		index += indexTable[delta];
+		if ( index < 0 ) index = 0;
+		if ( index > 88 ) index = 88;
+	
+		/* Step 3 - Separate sign and magnitude */
+		sign = delta & 8;
+		delta = delta & 7;
+	
+		/* Step 4 - Compute difference and new predicted value */
+		/*
+		** Computes 'vpdiff = (delta+0.5)*step/4', but see comment
+		** in adpcm_coder.
+		*/
+		vpdiff = step >> 3;
+		if ( delta & 4 ) vpdiff += step;
+		if ( delta & 2 ) vpdiff += step >> 1;
+		if ( delta & 1 ) vpdiff += step >> 2;
+	
+		if ( sign )
+		  valpred -= vpdiff;
+		else
+		  valpred += vpdiff;
+	
+		/* Step 5 - clamp output value */
+		if ( valpred > 32767 )
+		  valpred = 32767;
+		else if ( valpred < -32768 )
+		  valpred = -32768;
+	
+		/* Step 6 - Update step value */
+		step = stepsizeTable[index];
+	
+		/* Step 7 - Output value */
+		vout = valpred + 32768;
+		w = (vout  & 0xffff) >> 4;
+		dec_buffer[i] = ulawtable[w];
+    }
+
+    dec_valprev = valpred;
+    dec_index = index;
+}
+
 
 void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
 
-	BYTE n,c,i,*cp;
+	BYTE n,c,i,j,*cp;
 
 	WORD mytxindex;
 	VTIME mysystem_time;
 
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
-
 
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
@@ -1506,22 +1853,24 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				audio_packet.vph.curtime.vtime_nsec = htonl(system_time.vtime_nsec);
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
-				if (tosend) audio_packet.vph.payload_type = htons(1);
+				if (tosend) audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? 3 : 1);
 				i = 0;
 				cp = (BYTE *) &audio_packet;
 				for(i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) UDPPut(*cp++);
+				j = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE;
+				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 	            if (tosend)
 				{
 
 					if ((rssi > 0) && cor && HasCTCSS())
 					{
 						UDPPut(rssi);
-						for(i = 0; i < FRAME_SIZE; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
+						for(i = 0; i < j; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
 					}
 					else
 					{
 						UDPPut(0);
-						for(i = 0; i < FRAME_SIZE; i++) UDPPut(0xff);
+						for(i = 0; i < j; i++) UDPPut(c);
 					}
 				}
 	             //Send contents of transmit buffer, and free buffer
@@ -1591,7 +1940,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				else
 				{
 					connected = 1;
-					if (ntohs(audio_packet.vph.payload_type) == 1)
+					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
 						short mydiff;
@@ -1600,8 +1949,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 						index += (ndiff / 125000);
 						if (ndiff < 0) index--; // Pure Math is cool, but fixed-point introduces some STRANGE stuff!!
-						index -= (FRAME_SIZE * 6);
-						index += AppConfig.TxBufferDelay;
+						index -= FRAME_SIZE;
+						index += AppConfig.TxBufferLength - FRAME_SIZE;
                         /* if in bounds */
                         if ((index > 0) && (index < (AppConfig.TxBufferLength - FRAME_SIZE)))
                         {
@@ -1610,15 +1959,35 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
 							mydiff = AppConfig.TxBufferLength;
 					  		mydiff -= ((short)index + FRAME_SIZE);
-                            if (mydiff >= 0)
-                            {
-                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
-                             }
-                            else
-                            {
-                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
-                                    memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
-                            }
+
+							if (ntohs(audio_packet.vph.payload_type) == 3)
+							{
+								dec_valprev = (audio_packet.audio[80] << 8) + audio_packet.audio[81];
+								dec_index = audio_packet.audio[82];
+								adpcm_decoder(audio_packet.audio);
+	                            if (mydiff >= 0)
+	                            {
+	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE);
+	                             }
+	                            else
+	                            {
+	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE + mydiff);
+	                                    memcpy(txaudio,dec_buffer + (FRAME_SIZE + mydiff),-mydiff);
+	                            }
+
+							}
+							else
+							{
+	                            if (mydiff >= 0)
+	                            {
+	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
+	                             }
+	                            else
+	                            {
+	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
+	                                    memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
+	                            }
+							}
                         }
 					}
 				}
@@ -1724,13 +2093,13 @@ void main_processing_loop(void)
 
 		if (gps_state != GPS_STATE_IDLE)
 		{
-			if ((!gpswarn) && (gpstimer > GPS_WARN_TIME))
+			if ((!gpswarn) && (gpstimer > ((AppConfig.GPSType == GPS_TSIP) ? GPS_TSIP_WARN_TIME : GPS_NMEA_WARN_TIME)))
 			{
 				gpswarn = 1;
 				printf(logtime());
 				printf(gpsmsg7);
 			}
-			if (gpstimer > GPS_MAX_TIME)
+			if (gpstimer >((AppConfig.GPSType == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME))
 			{
 				printf(logtime());
 				printf(gpsmsg6);
@@ -1745,7 +2114,7 @@ void main_processing_loop(void)
 		}
 		if (gotpps)
 		{
-			if ((!ppswarn) && (ppstimer > GPS_WARN_TIME))
+			if ((!ppswarn) && (ppstimer > PPS_WARN_TIME))
 			{
 				ppswarn = 1;
 				printf(logtime());
@@ -2095,7 +2464,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.20  7/2/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.21  7/5/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2207,7 +2576,7 @@ int main(void)
 	next_time = 0;			// Time (whole secs) samppled at begnning of current ADC frame
 	next_index = 0;			// Index at beginning of current ADC frame
 	samplecnt = 0;			// Index of ADC relative to PPS pulse
-	last_adcsample = 0;		// Last mulaw sample from ADC (so can be repeated if falls short)
+	last_adcsample = 2048;	// Last mulaw sample from ADC (so can be repeated if falls short)
 	real_time = 0;			// Actual time (whole secs)
 	last_samplecnt = 0;		// Last sample count (for display purposes)
 	digest = 0;	
@@ -2220,7 +2589,14 @@ int main(void)
 	amin = 0;
 	apeak = 0;
 	indisplay = 0;
-
+    dec_valprev = 0;
+    dec_index = 0;
+    enc_valprev = 0;
+    enc_index = 0;
+    enc_prev_valprev = 0;
+    enc_prev_index = 0;
+	enc_lastdelta = 0;
+	memset(dec_buffer,0,FRAME_SIZE);
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -2511,22 +2887,21 @@ __builtin_nop();
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 320) && (i1 <= MAX_BUFLEN))
 				{
 					AppConfig.TxBufferLength = i1;
-					AppConfig.TxBufferDelay = i1 - 160;
 					ok = 1;
 				}
 				break;
 			case 14: // GPS Type
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NORMAL) && (i1 <= GPS_TRIMBLE))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP))
 				{
-					if ((AppConfig.GPSType != GPS_TRIMBLE) && 
-						(i1 == GPS_TRIMBLE))
+					if ((AppConfig.GPSType != GPS_TSIP) && 
+						(i1 == GPS_TSIP))
 					{
 						AppConfig.GPSBaudRate = 9600;
 						AppConfig.PPSPolarity = 0;
 						AppConfig.GPSPolarity = 0;
 					}
-					if ((AppConfig.GPSType == GPS_TRIMBLE) && 
-						(i1 != GPS_TRIMBLE))
+					if ((AppConfig.GPSType == GPS_TSIP) && 
+						(i1 != GPS_TSIP))
 					{
 						AppConfig.GPSBaudRate = 4800;
 						AppConfig.PPSPolarity = 0;
@@ -2852,7 +3227,6 @@ static void InitAppConfig(void)
 	AppConfig.DefaultSecondaryDNSServer.v[3] = 0;
 
 	AppConfig.TxBufferLength = DEFAULT_TX_BUFFER_LENGTH;
-	AppConfig.TxBufferDelay = AppConfig.TxBufferLength - FRAME_SIZE;
 	AppConfig.VoterServerPort = 667;
 	AppConfig.GPSBaudRate = 4800;
 	strcpy(AppConfig.Password,"radios");
