@@ -2464,7 +2464,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.22  7/6/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.23  7/6/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2884,7 +2884,7 @@ __builtin_nop();
 				}
 				break;
 			case 13: // Tx Buffer Length
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 320) && (i1 <= MAX_BUFLEN))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN))
 				{
 					AppConfig.TxBufferLength = i1;
 					ok = 1;
