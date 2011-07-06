@@ -264,7 +264,7 @@ static struct {
 	VOTER_PACKET_HEADER vph;
 	char lat[9];
 	char lon[10];
-	char elev[6];
+	char elev[7];
 } gps_packet;
 WORD txdrainindex;
 WORD last_drainindex;
@@ -1654,7 +1654,7 @@ extern float doubleify(BYTE *p);
 		gps_packet.lat[7] = *strs[3];
 		strncpy(gps_packet.lon,strs[4],8);
 		gps_packet.lon[8] = *strs[5];
-		strncpy(gps_packet.elev,strs[9],5);
+		strncpy(gps_packet.elev,strs[9],6);
 	}
 	else /* is a Trimble Thunderbolt */
 	{
@@ -1741,7 +1741,7 @@ extern float doubleify(BYTE *p);
 				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
 			else
 				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
-			sprintf(gps_packet.elev,"%3.1f",(double)doubleify(gps_buf + 53));
+			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
 			return;
 		}
 	}
@@ -2464,7 +2464,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.21  7/5/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.22  7/6/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
