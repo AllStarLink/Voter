@@ -313,6 +313,7 @@ BYTE enc_lastdelta;
 BYTE dec_buffer[FRAME_SIZE];
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
+BOOL time_filled;
 
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
@@ -1839,12 +1840,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
 
+	if (filled && gpssync && (!time_filled))
+	{
+		system_time.vtime_sec = timing_time;
+		system_time.vtime_nsec = timing_index * 125000;
+		time_filled = 1;
+	}
+
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
 		if (gpssync)
 		{
-			system_time.vtime_sec = timing_time;
-			system_time.vtime_nsec = timing_index * 125000;
 			BOOL tosend = (connected && ((cor && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if (((!connected) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -1878,6 +1884,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 		}
 		filled = 0;
+		time_filled = 0;
 	}
 	if (connected && sendgps && gps_packet.lat[0])
 	{
@@ -1952,7 +1959,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						index -= FRAME_SIZE;
 						index += AppConfig.TxBufferLength - FRAME_SIZE;
                         /* if in bounds */
-                        if ((index > 0) && (index < (AppConfig.TxBufferLength - FRAME_SIZE)))
+                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - FRAME_SIZE)))
                         {
 		    		   		lastrxtick = TickGet();	
                             index += mytxindex;
@@ -2464,7 +2471,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.23  7/6/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.24  7/7/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2533,6 +2540,7 @@ int main(void)
 	fillindex = 0;
 	drainindex = 0;
 	filled = 0;
+	time_filled = 0;
 	connected = 0;
 	memclr((char *)audio_buf,FRAME_SIZE * 2);
 	gps_bufindex = 0;
