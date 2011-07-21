@@ -319,5 +319,7 @@ void MACFlush(void);
 	PTR_BASE MACGetSslBaseAddr(void);
 #endif
 
+void MACBurp(void);
+
 	
 #endif

@@ -219,6 +219,10 @@ extern BOOL write_eeprom_cali;			// Flag to write calibration values back to EEP
 extern BYTE noise_gain;			// Noise gain sent to digital pot
 extern WORD caldiode;
 
+#ifdef DUMPENCREGS
+extern void DumpETHReg(void);
+#endif
+
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
 
@@ -314,7 +318,6 @@ BYTE dec_buffer[FRAME_SIZE];
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
 BOOL time_filled;
-
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -2471,7 +2474,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.24  7/7/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.25  7/21/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -3017,6 +3020,14 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+#ifdef	DUMPENCREGS
+			case 96:
+				DumpETHReg();
+				printf(paktc);
+				fflush(stdout);
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				continue;
+#endif
 			case 97: // Display RX Level Quasi-Graphically  
 			 	putchar(' ');
 		      	for(i = 0; i < NCOLS; i++) putchar(' ');
@@ -3024,6 +3035,7 @@ __builtin_nop();
 				indisplay = 1;
 				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				indisplay = 0;
+				MACInit();
 				continue;
 			case 98:
 				t = system_time.vtime_sec;

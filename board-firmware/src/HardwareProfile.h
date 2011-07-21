@@ -83,6 +83,8 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 #define GetInstructionClock()	(GetSystemClock()/2)
 #define GetPeripheralClock()	GetInstructionClock()
 
+// #define DUMPENCREGS
+
 #if defined(SMT_BOARD)
 
 	#define	SPISel(x) { _LATC0 = 1; _LATC1= 1; _LATC2 = 1; LATC ^= x; }

@@ -214,6 +214,8 @@ void StackTask(void)
 	BYTE cFrameType;
 	BYTE cIPFrameType;
 
+	MACBurp();
+
    
     #if defined( WF_CS_TRIS )
         // This task performs low-level MAC processing specific to the MRF24WB0M
