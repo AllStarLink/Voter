@@ -2474,7 +2474,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.25  7/21/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.26  7/21/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -3035,7 +3035,6 @@ __builtin_nop();
 				indisplay = 1;
 				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				indisplay = 0;
-				MACInit();
 				continue;
 			case 98:
 				t = system_time.vtime_sec;
