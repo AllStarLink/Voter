@@ -273,7 +273,7 @@ static struct {
 WORD txdrainindex;
 WORD last_drainindex;
 BYTE txaudio[MAX_BUFLEN];
-DWORD lastrxtick;
+VTIME lastrxtime;
 BOOL ptt;
 DWORD gpstimer;
 WORD ppstimer;
@@ -1954,7 +1954,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					{
 						long index,ndiff;
 						short mydiff;
-						
+
 						index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
 						ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 						index += (ndiff / 125000);
@@ -1964,7 +1964,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
                         /* if in bounds */
                         if ((index > 0) && (index <= (AppConfig.TxBufferLength - FRAME_SIZE)))
                         {
-		    		   		lastrxtick = TickGet();	
+							lastrxtime.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
+							lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
                             index += mytxindex;
 					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
 							mydiff = AppConfig.TxBufferLength;
@@ -2019,6 +2020,7 @@ void main_processing_loop(void)
 	static DWORD t = 0, tdisp = 0;
 	long meas,thresh;
 	WORD i,mypeak;
+	long x,y,z;
 	static BYTE dispcnt = 0;
 
 	//UDP State machine
@@ -2189,13 +2191,23 @@ void main_processing_loop(void)
 			}
 			if (!CAL) SetLED(SQLED,sqled);
 		}
-	
-		if (ptt && (TickConvertToMilliseconds(TickGet() - lastrxtick) > 60ul))
+		z = 100000;
+		x = system_time.vtime_sec - lastrxtime.vtime_sec;
+
+
+		if (lastrxtime.vtime_sec && (x < 100))
+		{
+			y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+			z = x * 1000;
+			z += y / 1000000;
+			z -= (AppConfig.TxBufferLength - 160) >> 3;
+		}
+		if (ptt && (z > 60L))
 		{
 			ptt = 0;
 			SetPTT(0);
 		}
-		else if (!ptt && (TickConvertToMilliseconds(TickGet() - lastrxtick) <= 60ul))
+		else if (!ptt && (z <= 60L))
 		{
 			ptt = 1;
 			SetPTT(1);
@@ -2474,7 +2486,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.26  7/21/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.27  7/23/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2565,7 +2577,7 @@ int main(void)
 	option_flags = 0;
 	txdrainindex = 0;
 	last_drainindex = 0;
-	lastrxtick = 0;
+	memset(&lastrxtime,0,sizeof(lastrxtime));
 	ptt = 0;
 	myDHCPBindCount = 0xff;
 	digest = 0;
