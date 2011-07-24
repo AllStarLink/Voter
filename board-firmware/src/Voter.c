@@ -129,9 +129,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	BAUD_RATE2 4800
 
 #define	FRAME_SIZE 160
-#define	ADPCM_FRAME_SIZE 83
+#define	ADPCM_FRAME_SIZE 320
 #define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
-#define	DEFAULT_TX_BUFFER_LENGTH 2400 // 300ms of Buffer
+#define	DEFAULT_TX_BUFFER_LENGTH 3000 // approx 300ms of Buffer
 #define	VOTER_CHALLENGE_LEN 10
 #define	ADCOTHERS 3
 #define	ADCSQNOISE 0
@@ -161,10 +161,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 // sufficient for voting descisions.
 
 
-
-
-#define NOMINAL_INTERVAL 20000000
-#define	LOCK_SECS 5		// 5 seconds of stability to determine lock
 
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
@@ -233,10 +229,9 @@ BYTE inputs2;
 BYTE aliveCntrMain; //Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
 BOOL aliveCntrDec;
 BYTE filling_buffer;
-BYTE fillindex;
-BYTE drainindex;
+WORD fillindex;
 BOOL filled;
-BYTE audio_buf[2][FRAME_SIZE];
+BYTE audio_buf[2][FRAME_SIZE + 3];
 BOOL connected;
 BYTE rssi;
 BYTE gps_buf[160];
@@ -262,7 +257,7 @@ BYTE option_flags;
 static struct {
 	VOTER_PACKET_HEADER vph;
 	BYTE rssi;
-	BYTE audio[FRAME_SIZE];
+	BYTE audio[FRAME_SIZE + 3];
 } audio_packet;
 static struct {
 	VOTER_PACKET_HEADER vph;
@@ -314,7 +309,7 @@ char enc_index;		/* Index into stepsize table */
 short enc_prev_valprev;	/* Previous output value */
 char enc_prev_index;	/* Index into stepsize table */
 BYTE enc_lastdelta;
-BYTE dec_buffer[FRAME_SIZE];
+BYTE dec_buffer[FRAME_SIZE * 2];
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
 BOOL time_filled;
@@ -956,7 +951,7 @@ BYTE *cp;
 						{
 							audio_buf[filling_buffer][fillindex++] = ulawtable[last_adcsample];
 						}
-						if (fillindex >= FRAME_SIZE)
+						if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 						{
 							if (option_flags & OPTION_FLAG_ADPCM)
 							{
@@ -1033,26 +1028,26 @@ BYTE *cp;
 			saccum = index;
 			saccum -= 2048;
 			accum = saccum * 16;
-	           if (accum > amax)
-	           {
-	                amax = accum;
-	                discounteru = discfactor;
-	           }
-	           else if (--discounteru <= 0)
-	           {
-	                discounteru = discfactor;
-	                amax = (long)((amax * 32700) / 32768L);
-	           }
-	           if (accum < amin)
-	           {
-	                amin = accum;
-	                discounterl = discfactor;
-	           }
-	           else if (--discounterl <= 0)
-	           {
-	                discounterl = discfactor;
-	                amin = (long)((amin * 32700) / 32768L);
-	           }
+            if (accum > amax)
+            {
+                amax = accum;
+                discounteru = discfactor;
+            }
+            else if (--discounteru <= 0)
+            {
+                discounteru = discfactor;
+                amax = (long)((amax * 32700) / 32768L);
+            }
+            if (accum < amin)
+            {
+                amin = accum;
+                discounterl = discfactor;
+            }
+            else if (--discounterl <= 0)
+            {
+                discounterl = discfactor;
+                amin = (long)((amin * 32700) / 32768L);
+            }
 			if (samplecnt++ < 8000)
 			{
 				if (option_flags & OPTION_FLAG_ADPCM)
@@ -1133,7 +1128,7 @@ BYTE *cp;
 				{
 					audio_buf[filling_buffer][fillindex++] = ulawtable[index];
 				}
-				if (fillindex >= FRAME_SIZE)
+				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
 					{
@@ -1764,7 +1759,7 @@ void adpcm_decoder(BYTE *indata)
     BYTE inputbuffer;		/* place to keep next 4-bit value */
     BOOL bufferstep;		/* toggle between inputbuffer/input */
 	WORD w;
-	BYTE i;
+	WORD i;
 	long vout;
 
     inp = indata;
@@ -1777,7 +1772,7 @@ void adpcm_decoder(BYTE *indata)
     inputbuffer = 0;
 
    
-    for ( i = 0; i < FRAME_SIZE; i++) {
+    for ( i = 0; i < FRAME_SIZE * 2; i++) {
 	
 		/* Step 1 - get the delta value */
 		if ( bufferstep ) {
@@ -1854,6 +1849,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	{
 		if (gpssync)
 		{
+TESTBIT ^= 1;
 			BOOL tosend = (connected && ((cor && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if (((!connected) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -1866,7 +1862,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				i = 0;
 				cp = (BYTE *) &audio_packet;
 				for(i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) UDPPut(*cp++);
-				j = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE;
+				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 	            if (tosend)
 				{
@@ -1958,37 +1954,37 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
 						ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 						index += (ndiff / 125000);
-						if (ndiff < 0) index--; // Pure Math is cool, but fixed-point introduces some STRANGE stuff!!
-						index -= FRAME_SIZE;
-						index += AppConfig.TxBufferLength - FRAME_SIZE;
+						index -= (FRAME_SIZE * 2);
+						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
                         /* if in bounds */
-                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - FRAME_SIZE)))
+                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
 							lastrxtime.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 							lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
                             index += mytxindex;
 					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
 							mydiff = AppConfig.TxBufferLength;
-					  		mydiff -= ((short)index + FRAME_SIZE);
 
 							if (ntohs(audio_packet.vph.payload_type) == 3)
 							{
-								dec_valprev = (audio_packet.audio[80] << 8) + audio_packet.audio[81];
-								dec_index = audio_packet.audio[82];
+					  			mydiff -= ((short)index + (FRAME_SIZE * 2));
+								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
+								dec_index = audio_packet.audio[162];
 								adpcm_decoder(audio_packet.audio);
 	                            if (mydiff >= 0)
 	                            {
-	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE);
+	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
 	                             }
 	                            else
 	                            {
-	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE + mydiff);
-	                                    memcpy(txaudio,dec_buffer + (FRAME_SIZE + mydiff),-mydiff);
+	                                    memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
+	                                    memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
 	                            }
 
 							}
 							else
 							{
+					  			mydiff -= ((short)index + FRAME_SIZE);
 	                            if (mydiff >= 0)
 	                            {
 	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
@@ -2486,7 +2482,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.27  7/23/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.28  7/24/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2553,7 +2549,6 @@ int main(void)
 
 	filling_buffer = 0;
 	fillindex = 0;
-	drainindex = 0;
 	filled = 0;
 	time_filled = 0;
 	connected = 0;
@@ -2907,7 +2902,7 @@ __builtin_nop();
 				}
 				break;
 			case 13: // Tx Buffer Length
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 800) && (i1 <= MAX_BUFLEN))
 				{
 					AppConfig.TxBufferLength = i1;
 					ok = 1;
