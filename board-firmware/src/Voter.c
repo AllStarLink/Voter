@@ -145,6 +145,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define GPS_NMEA_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
 #define	GPS_TSIP_WARN_TIME (5000ul * 8ul) // 5000 ms GPS Warning Time
 #define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
+#define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
+#define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
@@ -160,8 +162,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 // we have to use a longer (1024ms) average, which still gives a good indication of signal strength,
 // but is incapable of tracking to full extent a really fluttery signal. This should be more then
 // sufficient for voting descisions.
-
-
 
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
@@ -190,6 +190,7 @@ typedef struct {
 #define OPTION_FLAG_NOCTCSSFILTER 4 // Do not filter CTCSS
 #define	OPTION_FLAG_MASTERTIMING 8  // Master Timing Source (do not delay sending audio packet)
 #define	OPTION_FLAG_ADPCM 16 // Use ADPCM rather then ULAW
+#define	OPTION_FLAG_MIX 32 // Request "Mix" option to host
 
 #ifdef DMWDIAG
 unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
@@ -273,6 +274,8 @@ VTIME lastrxtime;
 BOOL ptt;
 DWORD gpstimer;
 WORD ppstimer;
+WORD gpsforcetimer;
+WORD attempttimer;
 BOOL gpswarn;
 BOOL ppswarn;
 UDP_SOCKET udpSocketUser;
@@ -857,7 +860,9 @@ long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
 
-	if (PORTAbits.RA4) // If PPS signal is asserted
+ 	// If PPS signal is asserted
+	if (((PORTAbits.RA4) && (AppConfig.PPSPolarity == 0)) ||
+		((!PORTAbits.RA4) && (AppConfig.PPSPolarity == 1)))
 	{
 		if (USE_PPS)
 		{
@@ -1021,6 +1026,8 @@ BYTE *cp;
 		AD1CHS0 = 0;
 		if (gotpps) ppstimer++;
 		if (gps_state != GPS_STATE_IDLE) gpstimer++;
+		if (connected) gpsforcetimer++;
+		if (!connected) attempttimer++;
 	}
 	else
 	{
@@ -1862,6 +1869,8 @@ void adpcm_decoder(BYTE *indata)
 void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
 
+	ROM char badmix[] = "ERROR! Host not acknowledging non-GPS disciplined operation\n";
+
 	BYTE n,c,i,j,*cp;
 
 	WORD mytxindex;
@@ -1874,6 +1883,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
+		
 		system_time.vtime_sec = timing_time;
 		system_time.vtime_nsec = timing_index * 125000;
 		time_filled = 1;
@@ -1885,7 +1895,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		{
 TESTBIT ^= 1;
 			BOOL tosend = (connected && ((cor && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
-			if (((!connected) || tosend) && UDPIsPutReady(*udpSocketUser)) {
+			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
@@ -1913,14 +1923,16 @@ TESTBIT ^= 1;
 						for(i = 0; i < j; i++) UDPPut(c);
 					}
 				}
+				else if (!USE_PPS) UDPPut(OPTION_FLAG_MIX);
 	             //Send contents of transmit buffer, and free buffer
 	            UDPFlush();
+				attempttimer = 0;
 			}
 		}
 		filled = 0;
 		time_filled = 0;
 	}
-	if (connected && sendgps && gps_packet.lat[0])
+	if (connected && (sendgps || (!USE_PPS)) && (gps_packet.lat[0] || (gpsforcetimer >= GPS_FORCE_TIME)))
 	{
 	        if (UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -1932,14 +1944,18 @@ TESTBIT ^= 1;
 				// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
 				cp = (BYTE *) &gps_packet.vph;
 				for(i = 0; i < sizeof(gps_packet.vph); i++) UDPPut(*cp++);
-				cp = (BYTE *) gps_packet.lat;
-				for(i = 0; i < sizeof(gps_packet.lat); i++) UDPPut(*cp++);
-				cp = (BYTE *) gps_packet.lon;
-				for(i = 0; i < sizeof(gps_packet.lon); i++) UDPPut(*cp++);
-				cp = (BYTE *) gps_packet.elev;
-				for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
+				if (gps_packet.lat[0])
+				{
+					cp = (BYTE *) gps_packet.lat;
+					for(i = 0; i < sizeof(gps_packet.lat); i++) UDPPut(*cp++);
+					cp = (BYTE *) gps_packet.lon;
+					for(i = 0; i < sizeof(gps_packet.lon); i++) UDPPut(*cp++);
+					cp = (BYTE *) gps_packet.elev;
+					for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
+				}
 	            UDPFlush();
 				sendgps = 0;
+				gpsforcetimer = 0;
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
 	}
@@ -1970,10 +1986,20 @@ TESTBIT ^= 1;
 					if (mydigest == ntohl(audio_packet.vph.digest))
 					{
 						digest = mydigest;
+						if (!connected) gpsforcetimer = 0;
 						connected = 1;
 						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
 						else option_flags = 0;
-						SetAudioSrc();
+						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
+						{
+							printf(badmix);
+							connected = 0;
+							start_txseqno = 0;
+							txseqno = 0;
+							txseqno_ptt = 0;
+							digest = 0;
+						}
+						else SetAudioSrc();
 					}
 					else
 					{
@@ -1986,6 +2012,7 @@ TESTBIT ^= 1;
 				}
 				else
 				{
+					if (!connected) gpsforcetimer = 0;
 					connected = 1;
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
@@ -2167,8 +2194,7 @@ void main_processing_loop(void)
             }
             break;
         case SM_UDP_RESOLVED:
-
-			 process_udp(&udpSocketUser,&udpServerNode);
+			process_udp(&udpSocketUser,&udpServerNode);
             break;
        }
 
@@ -2266,39 +2292,44 @@ void main_processing_loop(void)
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 
-		if (!USE_PPS)
+
+		if (connected)
 		{
-			if (ptt && (txseqno > (txseqno_ptt + 2)))
+			if (!USE_PPS)
 			{
-				ptt = 0;
-				SetPTT(0);
+				if (ptt && (txseqno > (txseqno_ptt + 2)))
+				{
+					ptt = 0;
+					SetPTT(0);
+				}
+				else if (!ptt && (txseqno <= (txseqno_ptt + 2)))
+				{
+					ptt = 1;
+					SetPTT(1);
+				}
 			}
-			else if (!ptt && (txseqno <= (txseqno_ptt + 2)))
+			else
 			{
-				ptt = 1;
-				SetPTT(1);
+				if (lastrxtime.vtime_sec && (x < 100))
+				{
+					y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+					z = x * 1000;
+					z += y / 1000000;
+					z -= (AppConfig.TxBufferLength - 160) >> 3;
+				}
+				if (ptt && (z > 60L))
+				{
+					ptt = 0;
+					SetPTT(0);
+				}
+				else if (!ptt && (z <= 60L))
+				{
+					ptt = 1;
+					SetPTT(1);
+				}
 			}
 		}
-		else
-		{
-			if (lastrxtime.vtime_sec && (x < 100))
-			{
-				y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
-				z = x * 1000;
-				z += y / 1000000;
-				z -= (AppConfig.TxBufferLength - 160) >> 3;
-			}
-			if (ptt && (z > 60L))
-			{
-				ptt = 0;
-				SetPTT(0);
-			}
-			else if (!ptt && (z <= 60L))
-			{
-				ptt = 1;
-				SetPTT(1);
-			}
-		}	
+		else SetPTT(0);	
 	}
 
 	if (LEVDISP)
@@ -2574,7 +2605,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.29  7/26/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.30  7/27/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2672,6 +2703,8 @@ int main(void)
 	their_challenge[0] = 0;
 	ppstimer = 0;
 	gpstimer = 0;
+	gpsforcetimer = 0;
+	attempttimer = 0;
 	ppswarn = 0;
 	gpswarn = 0;
 	dwLastIP = 0;
