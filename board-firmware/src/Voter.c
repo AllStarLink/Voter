@@ -151,6 +151,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	TSIP_FACTOR 57.295779513082320876798154814105
 #define	ULAW_SILENCE 0xff
 #define	ADPCM_SILENCE 0
+#define	USE_PPS (AppConfig.PPSPolarity != 2)
 
 
 // Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
@@ -313,6 +314,10 @@ BYTE dec_buffer[FRAME_SIZE * 2];
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
 BOOL time_filled;
+long start_txseqno;
+long host_txseqno;
+long txseqno_ptt;
+long txseqno;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -854,136 +859,139 @@ BYTE *cp;
 
 	if (PORTAbits.RA4) // If PPS signal is asserted
 	{
-		ppstimer = 0;
-		ppswarn = 0;
-		if ((gps_state == GPS_STATE_VALID) && (!gotpps))
+		if (USE_PPS)
 		{
-			TMR3 = 0;
-			gotpps = 1;
-			lockcnt = 0;
-			samplecnt = 0;
-			fillindex = 0;
-		}
-		else if (gotpps) 
-		{
-			if (ppscount >= 3)
+			ppstimer = 0;
+			ppswarn = 0;
+			if ((gps_state == GPS_STATE_VALID) && (!gotpps))
 			{
-				if ((samplecnt >= 7999) && (samplecnt <= 8001))
+				TMR3 = 0;
+				gotpps = 1;
+				lockcnt = 0;
+				samplecnt = 0;
+				fillindex = 0;
+			}
+			else if (gotpps) 
+			{
+				if (ppscount >= 3)
 				{
-					last_samplecnt = samplecnt;
-					sendgps = 1;
-					real_time++;
-					if (samplecnt < 8000)  // If we are short one, insert another
+					if ((samplecnt >= 7999) && (samplecnt <= 8001))
 					{
-						if (option_flags & OPTION_FLAG_ADPCM)
-						{
-							val = last_adcsample;
-							val -= 2048;
-							val *= 16;
-							adpcm_index = enc_index;
-							valpred = enc_valprev;
-						    step = stepsizeTable[adpcm_index];
-							
-							/* Step 1 - compute difference with previous value */
-							diff = val - valpred;
-							sign = (diff < 0) ? 8 : 0;
-							if ( sign ) diff = (-diff);
-						
-							/* Step 2 - Divide and clamp */
-							/* Note:
-							** This code *approximately* computes:
-							**    delta = diff*4/step;
-							**    vpdiff = (delta+0.5)*step/4;
-							** but in shift step bits are dropped. The net result of this is
-							** that even if you have fast mul/div hardware you cannot put it to
-							** good use since the fixup would be too expensive.
-							*/
-							delta = 0;
-							vpdiff = (step >> 3);
-							
-							if ( diff >= step ) {
-							    delta = 4;
-							    diff -= step;
-							    vpdiff += step;
-							}
-							step >>= 1;
-							if ( diff >= step  ) {
-							    delta |= 2;
-							    diff -= step;
-							    vpdiff += step;
-							}
-							step >>= 1;
-							if ( diff >= step ) {
-							    delta |= 1;
-							    vpdiff += step;
-							}
-						
-							/* Step 3 - Update previous value */
-							if ( sign )
-							  valpred -= vpdiff;
-							else
-							  valpred += vpdiff;
-						
-							/* Step 4 - Clamp previous value to 16 bits */
-							if ( valpred > 32767 )
-							  valpred = 32767;
-							else if ( valpred < -32768 )
-							  valpred = -32768;
-						
-							/* Step 5 - Assemble value, update index and step values */
-							delta |= sign;
-							
-							adpcm_index += indexTable[delta];
-							if ( adpcm_index < 0 ) adpcm_index = 0;
-							if ( adpcm_index > 88 ) adpcm_index = 88;
-							enc_valprev = valpred;
-							enc_index = adpcm_index;
-							if (fillindex & 1)
-							{
-								audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
-							}
-							else
-							{
-								enc_lastdelta = delta;
-							}
-						}
-						else  // is ULAW
-						{
-							audio_buf[filling_buffer][fillindex++] = ulawtable[last_adcsample];
-						}
-						if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
+						last_samplecnt = samplecnt;
+						sendgps = 1;
+						real_time++;
+						if (samplecnt < 8000)  // If we are short one, insert another
 						{
 							if (option_flags & OPTION_FLAG_ADPCM)
 							{
-								cp = &audio_buf[filling_buffer][fillindex >> 1];
-								*cp++ = (enc_prev_valprev & 0xff00) >> 8;
-								*cp++ = enc_prev_valprev & 0xff;
-								*cp = enc_index;
-								enc_prev_valprev = enc_valprev;
-								enc_prev_index = enc_index;
+								val = last_adcsample;
+								val -= 2048;
+								val *= 16;
+								adpcm_index = enc_index;
+								valpred = enc_valprev;
+							    step = stepsizeTable[adpcm_index];
+								
+								/* Step 1 - compute difference with previous value */
+								diff = val - valpred;
+								sign = (diff < 0) ? 8 : 0;
+								if ( sign ) diff = (-diff);
+							
+								/* Step 2 - Divide and clamp */
+								/* Note:
+								** This code *approximately* computes:
+								**    delta = diff*4/step;
+								**    vpdiff = (delta+0.5)*step/4;
+								** but in shift step bits are dropped. The net result of this is
+								** that even if you have fast mul/div hardware you cannot put it to
+								** good use since the fixup would be too expensive.
+								*/
+								delta = 0;
+								vpdiff = (step >> 3);
+								
+								if ( diff >= step ) {
+								    delta = 4;
+								    diff -= step;
+								    vpdiff += step;
+								}
+								step >>= 1;
+								if ( diff >= step  ) {
+								    delta |= 2;
+								    diff -= step;
+								    vpdiff += step;
+								}
+								step >>= 1;
+								if ( diff >= step ) {
+								    delta |= 1;
+								    vpdiff += step;
+								}
+							
+								/* Step 3 - Update previous value */
+								if ( sign )
+								  valpred -= vpdiff;
+								else
+								  valpred += vpdiff;
+							
+								/* Step 4 - Clamp previous value to 16 bits */
+								if ( valpred > 32767 )
+								  valpred = 32767;
+								else if ( valpred < -32768 )
+								  valpred = -32768;
+							
+								/* Step 5 - Assemble value, update index and step values */
+								delta |= sign;
+								
+								adpcm_index += indexTable[delta];
+								if ( adpcm_index < 0 ) adpcm_index = 0;
+								if ( adpcm_index > 88 ) adpcm_index = 88;
+								enc_valprev = valpred;
+								enc_index = adpcm_index;
+								if (fillindex & 1)
+								{
+									audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
+								}
+								else
+								{
+									enc_lastdelta = delta;
+								}
 							}
-							filled = 1;
-							fillindex = 0;
-							filling_buffer ^= 1;
-							last_drainindex = txdrainindex;
-							timing_index = next_index;
-							timing_time = next_time;
+							else  // is ULAW
+							{
+								audio_buf[filling_buffer][fillindex++] = ulawtable[last_adcsample];
+							}
+							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
+							{
+								if (option_flags & OPTION_FLAG_ADPCM)
+								{
+									cp = &audio_buf[filling_buffer][fillindex >> 1];
+									*cp++ = (enc_prev_valprev & 0xff00) >> 8;
+									*cp++ = enc_prev_valprev & 0xff;
+									*cp = enc_index;
+									enc_prev_valprev = enc_valprev;
+									enc_prev_index = enc_index;
+								}
+								filled = 1;
+								fillindex = 0;
+								filling_buffer ^= 1;
+								last_drainindex = txdrainindex;
+								timing_index = next_index;
+								timing_time = next_time;
+							}
+						}
+						if ((!gpssync) && (gps_state == GPS_STATE_VALID))
+						{
+							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
+							gpssync = 1;
 						}
 					}
-					if ((!gpssync) && (gps_state == GPS_STATE_VALID))
+					else
 					{
-						system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
-						gpssync = 1;
+						gpssync = 0;
+						ppscount = 0;
 					}
-				}
-				else
-				{
-					gpssync = 0;
-					ppscount = 0;
-				}
-		    } else ppscount++;
+			    } else ppscount++;
+			}
+			samplecnt = 0;
 		}
-		samplecnt = 0;
 	}
 	IFS1bits.CNIF = 0;
 }
@@ -1016,7 +1024,7 @@ BYTE *cp;
 	}
 	else
 	{
-		if (gotpps)
+		if (gotpps || (!USE_PPS))
 		{
 			if (fillindex == 0)
 			{
@@ -1048,6 +1056,7 @@ BYTE *cp;
                 discounterl = discfactor;
                 amin = (long)((amin * 32700) / 32768L);
             }
+			if ((!USE_PPS) && (samplecnt == 8000)) samplecnt = 0;
 			if (samplecnt++ < 8000)
 			{
 				if (option_flags & OPTION_FLAG_ADPCM)
@@ -1128,6 +1137,9 @@ BYTE *cp;
 				{
 					audio_buf[filling_buffer][fillindex++] = ulawtable[index];
 				}
+				if (txseqno == 0) txseqno = 3;
+				if (fillindex == FRAME_SIZE) txseqno++;
+				if ((option_flags & OPTION_FLAG_ADPCM) && (fillindex == FRAME_SIZE * 2)) txseqno++;
 				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
@@ -1574,23 +1586,29 @@ static ROM char gpgga[] = "$GPGGA",
 extern float doubleify(BYTE *p);
 	
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
-	if (gpssync && (gps_state == GPS_STATE_VALID))
+	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime());
 		printf(gpsmsg3);
 	}
-	if ((!gpssync) && (gps_state == GPS_STATE_SYNCED))
+	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED))
 	{
 		gps_state = GPS_STATE_VALID;
 		printf(logtime());
 		printf(gpsmsg5);
-		connected = 0;
-		resp_digest = 0;
-		digest = 0;
-		their_challenge[0] = 0;
+		if (USE_PPS)
+		{
+			connected = 0;
+			start_txseqno = 0;
+			txseqno = 0;
+			txseqno_ptt = 0;
+			resp_digest = 0;
+			digest = 0;
+			their_challenge[0] = 0;
+		}
 	}
-	if (AppConfig.GPSType == GPS_NMEA)
+	if (AppConfig.GPSProto == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
@@ -1613,6 +1631,7 @@ extern float doubleify(BYTE *p);
 			tm.tm_mon = twoascii(strs[9] + 2);
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 			gps_time = (DWORD) mktime(&tm);
+			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
 	
@@ -1634,12 +1653,18 @@ extern float doubleify(BYTE *p);
 			gps_state = GPS_STATE_IDLE;
 			printf(logtime());
 			printf(gpsmsg6);
-			connected = 0;
-			resp_digest = 0;
-			digest = 0;
-			their_challenge[0] = 0;
-			gpssync = 0;
-			gotpps = 0;
+			if (USE_PPS)
+			{
+				connected = 0;
+				start_txseqno = 0;
+				txseqno = 0;
+				txseqno_ptt = 0;
+				resp_digest = 0;
+				digest = 0;
+				their_challenge[0] = 0;
+				gpssync = 0;
+				gotpps = 0;
+			}
 		}
 		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 		{
@@ -1673,6 +1698,7 @@ extern float doubleify(BYTE *p);
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
 			gps_time = (DWORD) mktime(&tm);
+			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
 		if (gps_buf[1] == 0xac)
@@ -1700,10 +1726,16 @@ extern float doubleify(BYTE *p);
 				gps_state = GPS_STATE_IDLE;
 				printf(logtime());
 				printf(gpsmsg6);
-				connected = 0;
-				resp_digest = 0;
-				digest = 0;
-				their_challenge[0] = 0;
+				if (USE_PPS)
+				{
+					connected = 0;
+					start_txseqno = 0;
+					txseqno = 0;
+					txseqno_ptt = 0;
+					resp_digest = 0;
+					digest = 0;
+					their_challenge[0] = 0;
+				}
 				gpssync = 0;
 				gotpps = 0;
 			}
@@ -1834,11 +1866,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 	WORD mytxindex;
 	VTIME mysystem_time;
+	long mytxseqno;
 
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
+	mytxseqno = txseqno;
 
-	if (filled && gpssync && (!time_filled))
+	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
 		system_time.vtime_sec = timing_time;
 		system_time.vtime_nsec = timing_index * 125000;
@@ -1847,7 +1881,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
-		if (gpssync)
+		if (gpssync || (!USE_PPS))
 		{
 TESTBIT ^= 1;
 			BOOL tosend = (connected && ((cor && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
@@ -1855,7 +1889,8 @@ TESTBIT ^= 1;
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
-				audio_packet.vph.curtime.vtime_nsec = htonl(system_time.vtime_nsec);
+				audio_packet.vph.curtime.vtime_nsec = 
+					(!USE_PPS) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
 				if (tosend) audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? 3 : 1);
@@ -1908,7 +1943,7 @@ TESTBIT ^= 1;
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
 	}
-	if (gpssync && UDPIsGetReady(*udpSocketUser)) {
+	if ((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) {
 		n = 0;
 		cp = (BYTE *) &audio_packet;
 		while(UDPGet(&c))
@@ -1920,6 +1955,9 @@ TESTBIT ^= 1;
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 			{
 				connected = 0;
+				start_txseqno = 0;
+				txseqno = 0;
+				txseqno_ptt = 0;
 				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
 				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
 			}
@@ -1940,6 +1978,9 @@ TESTBIT ^= 1;
 					else
 					{
 						connected = 0;
+						start_txseqno = 0;
+						txseqno = 0;
+						txseqno_ptt = 0;
 						digest = 0;
 					}
 				}
@@ -1951,16 +1992,48 @@ TESTBIT ^= 1;
 						long index,ndiff;
 						short mydiff;
 
-						index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
-						ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
-						index += (ndiff / 125000);
+
+						if (!USE_PPS)
+						{
+							mytxseqno = txseqno;
+							if (mytxseqno > (txseqno_ptt + 2))
+							{
+									start_txseqno = mytxseqno;
+									host_txseqno = 0;
+							}
+							txseqno_ptt = mytxseqno;
+							if (!host_txseqno) host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - host_txseqno) - (mytxseqno - start_txseqno);
+							index *= FRAME_SIZE;
+//printf("%ld %lu %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec) - host_txseqno,txseqno - start_txseqno);
+						}
+						else
+						{
+							index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
+							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
+							index += (ndiff / 125000);
+						}
 						index -= (FRAME_SIZE * 2);
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
+
                         /* if in bounds */
                         if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
-							lastrxtime.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
-							lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
+							if (!USE_PPS)
+							{
+								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
+									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
+							}
+							else
+							{
+								if ((ntohl(audio_packet.vph.curtime.vtime_sec) > lastrxtime.vtime_sec) ||
+									((ntohl(audio_packet.vph.curtime.vtime_sec) == lastrxtime.vtime_sec) &&
+										(ntohl(audio_packet.vph.curtime.vtime_nsec) > lastrxtime.vtime_nsec)))
+								{
+									lastrxtime.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
+									lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
+								}
+							}
                             index += mytxindex;
 					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
 							mydiff = AppConfig.TxBufferLength;
@@ -2101,26 +2174,29 @@ void main_processing_loop(void)
 
 		if (gps_state != GPS_STATE_IDLE)
 		{
-			if ((!gpswarn) && (gpstimer > ((AppConfig.GPSType == GPS_TSIP) ? GPS_TSIP_WARN_TIME : GPS_NMEA_WARN_TIME)))
+			if ((!gpswarn) && (gpstimer > ((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_WARN_TIME : GPS_NMEA_WARN_TIME)))
 			{
 				gpswarn = 1;
 				printf(logtime());
 				printf(gpsmsg7);
 			}
-			if (gpstimer >((AppConfig.GPSType == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME))
+			if (gpstimer >((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME))
 			{
 				printf(logtime());
 				printf(gpsmsg6);
 				gps_state = GPS_STATE_IDLE;
-				connected = 0;
-				resp_digest = 0;
-				digest = 0;
-				their_challenge[0] = 0;
+				if (USE_PPS)
+				{
+					connected = 0;
+					resp_digest = 0;
+					digest = 0;
+					their_challenge[0] = 0;
+				}
 				gpssync = 0;
 				gotpps = 0;
 			}
 		}
-		if (gotpps)
+		if (gotpps && USE_PPS)
 		{
 			if ((!ppswarn) && (ppstimer > PPS_WARN_TIME))
 			{
@@ -2150,7 +2226,7 @@ void main_processing_loop(void)
 	
 		process_gps();
 	
-		if (gotpps && (sqlcount++ >= 64))
+		if ((gotpps || (!USE_PPS)) && (sqlcount++ >= 64))
 		{
 			BOOL qualcor;
 
@@ -2190,31 +2266,47 @@ void main_processing_loop(void)
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 
-
-		if (lastrxtime.vtime_sec && (x < 100))
+		if (!USE_PPS)
 		{
-			y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
-			z = x * 1000;
-			z += y / 1000000;
-			z -= (AppConfig.TxBufferLength - 160) >> 3;
+			if (ptt && (txseqno > (txseqno_ptt + 2)))
+			{
+				ptt = 0;
+				SetPTT(0);
+			}
+			else if (!ptt && (txseqno <= (txseqno_ptt + 2)))
+			{
+				ptt = 1;
+				SetPTT(1);
+			}
 		}
-		if (ptt && (z > 60L))
+		else
 		{
-			ptt = 0;
-			SetPTT(0);
-		}
-		else if (!ptt && (z <= 60L))
-		{
-			ptt = 1;
-			SetPTT(1);
-		}
+			if (lastrxtime.vtime_sec && (x < 100))
+			{
+				y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+				z = x * 1000;
+				z += y / 1000000;
+				z -= (AppConfig.TxBufferLength - 160) >> 3;
+			}
+			if (ptt && (z > 60L))
+			{
+				ptt = 0;
+				SetPTT(0);
+			}
+			else if (!ptt && (z <= 60L))
+			{
+				ptt = 1;
+				SetPTT(1);
+			}
+		}	
 	}
 
 	if (LEVDISP)
 	{
 		SetLED(CONNLED,connected);
-		if (gps_state == GPS_STATE_SYNCED)
-			SetLED(GPSLED,1);
+		if ((gps_state == GPS_STATE_SYNCED) ||
+			((gps_state == GPS_STATE_VALID) && (!USE_PPS)))
+				SetLED(GPSLED,1);
 		else if (gps_state != GPS_STATE_VALID)
 			SetLED(GPSLED,0);
 	}
@@ -2253,7 +2345,7 @@ void main_processing_loop(void)
 		ToggleLED(SYSLED);
 		if (LEVDISP)
 		{
-			if (gps_state == GPS_STATE_VALID) ToggleLED(GPSLED);
+			if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
 		}
 		if (CAL && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 #ifdef	SILLY
@@ -2482,7 +2574,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.28  7/24/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.29  7/26/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2501,7 +2593,7 @@ int main(void)
 		"13 - Tx Buffer Length (%d),   "
 		"14 - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"15 - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
-		"16 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
+		"16 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n"
 		"17 - GPS Baud Rate (%lu),  "
 		"18 - RFU,  "
 		"19 - Telnet Port (%d)\n"
@@ -2615,6 +2707,9 @@ int main(void)
     enc_prev_index = 0;
 	enc_lastdelta = 0;
 	memset(dec_buffer,0,FRAME_SIZE);
+	txseqno = 0;
+	txseqno_ptt = 0;
+	start_txseqno = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -2753,7 +2848,7 @@ __builtin_nop();
 			AppConfig.DefaultPrimaryDNSServer.v[3],AppConfig.DefaultSecondaryDNSServer.v[0],AppConfig.DefaultSecondaryDNSServer.v[1],
 			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3],AppConfig.Flags.bIsDHCPEnabled,
 			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
-			AppConfig.TxBufferLength,AppConfig.GPSType,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
+			AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
 			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.DebugLevel);
 
@@ -2911,21 +3006,21 @@ __builtin_nop();
 			case 14: // GPS Type
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP))
 				{
-					if ((AppConfig.GPSType != GPS_TSIP) && 
+					if ((AppConfig.GPSProto != GPS_TSIP) && 
 						(i1 == GPS_TSIP))
 					{
 						AppConfig.GPSBaudRate = 9600;
 						AppConfig.PPSPolarity = 0;
 						AppConfig.GPSPolarity = 0;
 					}
-					if ((AppConfig.GPSType == GPS_TSIP) && 
+					if ((AppConfig.GPSProto == GPS_TSIP) && 
 						(i1 != GPS_TSIP))
 					{
 						AppConfig.GPSBaudRate = 4800;
 						AppConfig.PPSPolarity = 0;
 						AppConfig.GPSPolarity = 0;
 					}
-					AppConfig.GPSType = i1;
+					AppConfig.GPSProto = i1;
 					ok = 1;
 				}
 				break;
@@ -2937,7 +3032,7 @@ __builtin_nop();
 				}
 				break;
 			case 16: // PPS Invert
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 3))
 				{
 					AppConfig.PPSPolarity = i1;
 					ok = 1;
