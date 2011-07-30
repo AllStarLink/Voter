@@ -317,7 +317,6 @@ BYTE dec_buffer[FRAME_SIZE * 2];
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
 BOOL time_filled;
-long start_txseqno;
 long host_txseqno;
 long txseqno_ptt;
 long txseqno;
@@ -1145,8 +1144,6 @@ BYTE *cp;
 					audio_buf[filling_buffer][fillindex++] = ulawtable[index];
 				}
 				if (txseqno == 0) txseqno = 3;
-				if (fillindex == FRAME_SIZE) txseqno++;
-				if ((option_flags & OPTION_FLAG_ADPCM) && (fillindex == FRAME_SIZE * 2)) txseqno++;
 				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
@@ -1157,7 +1154,11 @@ BYTE *cp;
 						*cp = enc_prev_index;
 						enc_prev_valprev = enc_valprev;
 						enc_prev_index = enc_index;
+						txseqno++;
+						if (host_txseqno) host_txseqno++;
 					}
+					txseqno++;
+					if (host_txseqno) host_txseqno++;
 					filled = 1;
 					fillindex = 0;
 					filling_buffer ^= 1;
@@ -1607,7 +1608,6 @@ extern float doubleify(BYTE *p);
 		if (USE_PPS)
 		{
 			connected = 0;
-			start_txseqno = 0;
 			txseqno = 0;
 			txseqno_ptt = 0;
 			resp_digest = 0;
@@ -1663,7 +1663,6 @@ extern float doubleify(BYTE *p);
 			if (USE_PPS)
 			{
 				connected = 0;
-				start_txseqno = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
 				resp_digest = 0;
@@ -1736,7 +1735,6 @@ extern float doubleify(BYTE *p);
 				if (USE_PPS)
 				{
 					connected = 0;
-					start_txseqno = 0;
 					txseqno = 0;
 					txseqno_ptt = 0;
 					resp_digest = 0;
@@ -1875,11 +1873,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 	WORD mytxindex;
 	VTIME mysystem_time;
-	long mytxseqno;
+	long mytxseqno,myhost_txseqno;
 
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
 	mytxseqno = txseqno;
+	myhost_txseqno = host_txseqno;
 
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
@@ -1971,7 +1970,6 @@ TESTBIT ^= 1;
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 			{
 				connected = 0;
-				start_txseqno = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
 				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
@@ -1994,7 +1992,6 @@ TESTBIT ^= 1;
 						{
 							printf(badmix);
 							connected = 0;
-							start_txseqno = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
 							digest = 0;
@@ -2004,7 +2001,6 @@ TESTBIT ^= 1;
 					else
 					{
 						connected = 0;
-						start_txseqno = 0;
 						txseqno = 0;
 						txseqno_ptt = 0;
 						digest = 0;
@@ -2024,15 +2020,12 @@ TESTBIT ^= 1;
 						{
 							mytxseqno = txseqno;
 							if (mytxseqno > (txseqno_ptt + 2))
-							{
-									start_txseqno = mytxseqno;
 									host_txseqno = 0;
-							}
 							txseqno_ptt = mytxseqno;
-							if (!host_txseqno) host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
-							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - host_txseqno) - (mytxseqno - start_txseqno);
+							if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
 							index *= FRAME_SIZE;
-//printf("%ld %lu %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec) - host_txseqno,txseqno - start_txseqno);
+//printf("%ld %ld %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec),myhost_txseqno);
 						}
 						else
 						{
@@ -2605,7 +2598,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.30  7/27/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.31  7/28/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2742,7 +2735,6 @@ int main(void)
 	memset(dec_buffer,0,FRAME_SIZE);
 	txseqno = 0;
 	txseqno_ptt = 0;
-	start_txseqno = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
