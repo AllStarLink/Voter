@@ -1386,9 +1386,17 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
 #endif
 
+BOOL HasCOR(void)
+{
+	if (AppConfig.CORType == 2) return(0);
+	if (AppConfig.CORType == 1) return(1);
+	return (cor);
+}
+
 BOOL HasCTCSS(void)
 {
 	if (!AppConfig.ExternalCTCSS) return (1);
+	if (AppConfig.ExternalCTCSS == 3) return (0);
 	if ((AppConfig.ExternalCTCSS == 1) && CTCSSIN) return (1);
 	if ((AppConfig.ExternalCTCSS == 2) && (!CTCSSIN)) return(1);
 	return (0);
@@ -1893,7 +1901,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		if (gpssync || (!USE_PPS))
 		{
 TESTBIT ^= 1;
-			BOOL tosend = (connected && ((cor && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
+			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
@@ -1911,7 +1919,7 @@ TESTBIT ^= 1;
 	            if (tosend)
 				{
 
-					if ((rssi > 0) && cor && HasCTCSS())
+					if ((rssi > 0) && HasCOR() && HasCTCSS())
 					{
 						UDPPut(rssi);
 						for(i = 0; i < j; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
@@ -2251,7 +2259,7 @@ void main_processing_loop(void)
 
 			sqlcount = 0;
 			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
-			qualcor = (cor && HasCTCSS());	
+			qualcor = (HasCOR() && HasCTCSS());	
 			if (qualcor && (!wascor))
 			{
 				vnoise32 = adcothers[ADCSQNOISE] << 3;
@@ -2265,7 +2273,7 @@ void main_processing_loop(void)
 			if ((rssi < 1) && (qualcor)) rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssi = 0;
 			wascor = qualcor;
-			lastcor = cor;
+			lastcor = HasCOR();
 			if (write_eeprom_cali)
 			{
 				write_eeprom_cali = 0;
@@ -2336,7 +2344,7 @@ void main_processing_loop(void)
 	}
 	else
 	{
-		if (cor && HasCTCSS())
+		if (HasCOR() && HasCTCSS())
 		{
 			mypeak = apeak / (7200 / LEVDISP_FACTOR);
 			if (mypeak < dispcnt) SetLED(GPSLED,1);
@@ -2390,7 +2398,7 @@ void main_processing_loop(void)
        if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
 	   {
         	tdisp = TickGet();
-			if (cor && HasCTCSS())
+			if (HasCOR() && HasCTCSS())
 				meas = apeak;
 			else
 				meas = 0;
@@ -2598,7 +2606,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.31  7/28/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.32  8/19/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2628,7 +2636,8 @@ int main(void)
 		"24 - DynDNS Password (%s)\n"
 		"25 - DynDNS Host (%s)\n"
 		"26 - External CTCSS (0=Ignore, 1=Non-Inverted, 2=Inverted) (%d)\n"
-		"27 - Debug Level (%d), "
+		"27 - COR Type (0=Normal, 1=IGNORE COR, 2=No Receiver) (%d)\n"
+		"28 - Debug Level (%d), "
 		"97 - RX Level, "
 		"98 - Status, "
 		"99 - Save Values to EEPROM\n"
@@ -2875,7 +2884,7 @@ __builtin_nop();
 			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
 			AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
-			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.DebugLevel);
+			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
 
 		aborted = 0;
 		while(!aborted)
@@ -3140,7 +3149,14 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
-			case 27: // Debug Level
+			case 27: // COR Type
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.CORType = i1;
+					ok = 1;
+				}
+				break;
+			case 28: // Debug Level
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
 				{
 					AppConfig.DebugLevel = i1;

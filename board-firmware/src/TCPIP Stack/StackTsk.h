@@ -135,6 +135,7 @@ typedef struct __attribute__((__packed__))
 	long GPSTimeOffset;
 	BYTE ExternalCTCSS;
 	BYTE GPSProto;
+	BYTE CORType;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
