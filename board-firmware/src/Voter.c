@@ -1918,7 +1918,7 @@ TESTBIT ^= 1;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 	            if (tosend)
 				{
-
+					if (AppConfig.CORType == 1) rssi = 255;
 					if ((rssi > 0) && HasCOR() && HasCTCSS())
 					{
 						UDPPut(rssi);
@@ -2365,7 +2365,7 @@ void main_processing_loop(void)
 	{	
 		if (lastcor && HasCTCSS())
 			SetLED(SQLED,1);
-		else if (!lastcor)
+		else if ((!lastcor) || ((AppConfig.CORType != 0) && (!HasCTCSS())))
 			SetLED(SQLED,0);
 	}
 
@@ -2379,7 +2379,7 @@ void main_processing_loop(void)
 		{
 			if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
 		}
-		if (CAL && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
+		if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 #ifdef	SILLY
 		printf("%lu\n",sillyval);
 #endif
@@ -2606,7 +2606,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.32  8/19/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.33  8/19/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
