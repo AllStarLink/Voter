@@ -320,6 +320,7 @@ BOOL time_filled;
 long host_txseqno;
 long txseqno_ptt;
 long txseqno;
+DWORD elketimer;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -1025,7 +1026,11 @@ BYTE *cp;
 		AD1CHS0 = 0;
 		if (gotpps) ppstimer++;
 		if (gps_state != GPS_STATE_IDLE) gpstimer++;
-		if (connected) gpsforcetimer++;
+		if (connected) 
+		{
+			gpsforcetimer++;
+			elketimer++;
+		}
 		if (!connected) attempttimer++;
 	}
 	else
@@ -1923,6 +1928,7 @@ TESTBIT ^= 1;
 					{
 						UDPPut(rssi);
 						for(i = 0; i < j; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
+						elketimer = 0;
 					}
 					else
 					{
@@ -2293,17 +2299,18 @@ void main_processing_loop(void)
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 
-
 		if (connected)
 		{
 			if (!USE_PPS)
 			{
-				if (ptt && (txseqno > (txseqno_ptt + 2)))
+				if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
+					(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
 				{
 					ptt = 0;
 					SetPTT(0);
 				}
-				else if (!ptt && (txseqno <= (txseqno_ptt + 2)))
+				else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
+					(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
 				{
 					ptt = 1;
 					SetPTT(1);
@@ -2311,19 +2318,21 @@ void main_processing_loop(void)
 			}
 			else
 			{
-				if (lastrxtime.vtime_sec && (x < 100))
+				if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000))
 				{
 					y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
 					z = x * 1000;
 					z += y / 1000000;
 					z -= (AppConfig.TxBufferLength - 160) >> 3;
 				}
-				if (ptt && (z > 60L))
+				if (ptt && ((z > 60L) || (AppConfig.Elkes && 
+					(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
 				{
 					ptt = 0;
 					SetPTT(0);
 				}
-				else if (!ptt && (z <= 60L))
+				else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
+					(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
 				{
 					ptt = 1;
 					SetPTT(1);
@@ -2602,11 +2611,11 @@ static void SetDynDNS(void)
 int main(void)
 {
 
-	BYTE sel;
+	WORD sel;
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.33  8/19/2011, Jim Dixon WB6NIL\n",
+    static ROM char signon[] = "\nVOTER Client System verson 0.34  8/31/2011, Jim Dixon WB6NIL\n",
 			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
 
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
@@ -2744,6 +2753,7 @@ int main(void)
 	memset(dec_buffer,0,FRAME_SIZE);
 	txseqno = 0;
 	txseqno_ptt = 0;
+	elketimer = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -2907,7 +2917,7 @@ __builtin_nop();
 				Reset();
 		}
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 27))
+		if (((sel >= 1) && (sel <= 27)) || (sel == 11780))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -3199,6 +3209,13 @@ __builtin_nop();
 				SaveAppConfig();
 				printf(saved);
 				continue;
+			case 11780: // GPS Baud Rate
+				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >=0))
+				{
+					AppConfig.Elkes = l * 9677ul;
+					ok = 1;
+				}
+				break;
 			default:
 				printf(invalselection);
 				continue;

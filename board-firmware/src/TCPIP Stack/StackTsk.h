@@ -136,6 +136,7 @@ typedef struct __attribute__((__packed__))
 	BYTE ExternalCTCSS;
 	BYTE GPSProto;
 	BYTE CORType;
+	DWORD Elkes;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

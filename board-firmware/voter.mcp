@@ -202,7 +202,7 @@ file_039=src\TCPIP Stack\Telnet.h
 file_040=src\TCPIP Stack\TCP.h
 file_041=src\TCPIP Stack\DynDNS.h
 file_042=src\TCPIP Stack\ICMP.h
-file_043=C:\Documents and Settings\Compaq_Administrator\Desktop\ARBI-mockup\src\p33FJ128GP802.gld
+file_043=src\p33FJ128GP802.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
