@@ -58,6 +58,10 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
+#include <math.h>
+
+
+#define M_PI       3.14159265358979323846
 
 /* Un-comment this to generate digital milliwatt level on output */
 /* #define DMWDIAG */
@@ -153,8 +157,17 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	TSIP_FACTOR 57.295779513082320876798154814105
 #define	ULAW_SILENCE 0xff
 #define	ADPCM_SILENCE 0
-#define	USE_PPS (AppConfig.PPSPolarity != 2)
+#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))
+#define	DIAG_WAIT_UART (TICK_SECOND / 3ul)
+#define	DIAG_WAIT_MEAS (TICK_SECOND * 2)
+#define	DIAG_NOISE_GAIN 0x28
 
+struct meas {
+	WORD freq;
+	WORD min;
+	WORD max;
+	BOOL issql;
+} ;
 
 // Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
 // On a sufficently strong signal, we use a noise average over 32 squelch sample periods (128ms)
@@ -223,7 +236,7 @@ extern void DumpETHReg(void);
 
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
-
+BOOL set_atten(BYTE val);
 /////////////////////////////////////////////////
 //Global variables 
 BYTE inputs1;
@@ -308,6 +321,7 @@ short amax;
 short amin;
 WORD apeak;
 BOOL indisplay;
+BOOL indipsw;
 short enc_valprev;	/* Previous output value */
 char enc_index;		/* Index into stepsize table */
 short enc_prev_valprev;	/* Previous output value */
@@ -321,6 +335,17 @@ long host_txseqno;
 long txseqno_ptt;
 long txseqno;
 DWORD elketimer;
+WORD testidx;
+short *testp;
+BOOL indiag;
+BYTE leddiag;
+BYTE diagstate;
+BYTE measretstate;
+BYTE errcnt;
+struct meas *measp;
+BYTE measidx;
+char *measstr;
+BYTE diag_option_flags;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -512,6 +537,84 @@ static ROM long crc_32_tab[] = { /* CRC polynomial 0xedb88320 */
 0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693,
 0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
+};
+
+/* 1000.h: Generated from frequency 1000
+   by gentone.  16 samples  */
+static ROM short test_1000[] = {16,
+            0,  6269, 11585, 15136, 16384, 15136, 11585,  6269,
+            0, -6269, -11585, -15136, -16384, -15136, -11585, -6269,
+
+};
+/* 100.h: Generated from frequency 100
+   by gentone.  160 samples  */
+static ROM short test_100[] = {160,
+            0,   643,  1285,  1925,  2563,  3196,  3824,  4447,
+         5062,  5670,  6269,  6859,  7438,  8005,  8560,  9102,
+         9630, 10143, 10640, 11121, 11585, 12031, 12458, 12866,
+        13254, 13622, 13969, 14294, 14598, 14879, 15136, 15371,
+        15582, 15768, 15931, 16069, 16182, 16270, 16333, 16371,
+        16384, 16371, 16333, 16270, 16182, 16069, 15931, 15768,
+        15582, 15371, 15136, 14879, 14598, 14294, 13969, 13622,
+        13254, 12866, 12458, 12031, 11585, 11121, 10640, 10143,
+         9630,  9102,  8560,  8005,  7438,  6859,  6269,  5670,
+         5062,  4447,  3824,  3196,  2563,  1925,  1285,   643,
+            0,  -643, -1285, -1925, -2563, -3196, -3824, -4447,
+        -5062, -5670, -6269, -6859, -7438, -8005, -8560, -9102,
+        -9630, -10143, -10640, -11121, -11585, -12031, -12458, -12866,
+        -13254, -13622, -13969, -14294, -14598, -14879, -15136, -15371,
+        -15582, -15768, -15931, -16069, -16182, -16270, -16333, -16371,
+        -16384, -16371, -16333, -16270, -16182, -16069, -15931, -15768,
+        -15582, -15371, -15136, -14879, -14598, -14294, -13969, -13622,
+        -13254, -12866, -12458, -12031, -11585, -11121, -10640, -10143,
+        -9630, -9102, -8560, -8005, -7438, -6859, -6269, -5670,
+        -5062, -4447, -3824, -3196, -2563, -1925, -1285,  -643,
+
+};
+/* 2000.h: Generated from frequency 2000
+   by gentone.  8 samples  */
+static ROM short test_2000[] = {8,
+            0, 11585, 16384, 11585,     0, -11585, -16384, -11585,
+
+};
+/* 3200.h: Generated from frequency 3200
+   by gentone.  10 samples  */
+static ROM short test_3200[] = {10,
+            0, 15582,  9630, -9630, -15582,     0, 15582,  9630,
+        -9630, -15582,
+};
+/* 320.h: Generated from frequency 320
+   by gentone.  50 samples  */
+static ROM short test_320[] = {50,
+            0,  2053,  4074,  6031,  7893,  9630, 11215, 12624,
+        13833, 14824, 15582, 16093, 16351, 16351, 16093, 15582,
+        14824, 13833, 12624, 11215,  9630,  7893,  6031,  4074,
+         2053,     0, -2053, -4074, -6031, -7893, -9630, -11215,
+        -12624, -13833, -14824, -15582, -16093, -16351, -16351, -16093,
+        -15582, -14824, -13833, -12624, -11215, -9630, -7893, -6031,
+        -4074, -2053,
+};
+/* 500.h: Generated from frequency 500
+   by gentone.  32 samples  */
+static ROM short test_500[] = {32,
+            0,  3196,  6269,  9102, 11585, 13622, 15136, 16069,
+        16384, 16069, 15136, 13622, 11585,  9102,  6269,  3196,
+            0, -3196, -6269, -9102, -11585, -13622, -15136, -16069,
+        -16384, -16069, -15136, -13622, -11585, -9102, -6269, -3196,
+
+};
+/* 6000.h: Generated from frequency 6000
+   by gentone.  8 samples  */
+static ROM short test_6000[] = {8,
+            0, 11585, -16384, 11585,     0, -11585, 16384, -11585,
+
+};
+/* 7200.h: Generated from frequency 7200
+   by gentone.  20 samples  */
+static ROM short test_7200[] = {20,
+            0,  5062, -9630, 13254, -15582, 16384, -15582, 13254,
+        -9630,  5062,     0, -5062,  9630, -13254, 15582, -16384,
+        15582, -13254,  9630, -5062,
 };
 
 static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
@@ -843,6 +946,9 @@ ROM static int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
+static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
+	invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n";
+
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB;
 
@@ -864,7 +970,7 @@ BYTE *cp;
 	if (((PORTAbits.RA4) && (AppConfig.PPSPolarity == 0)) ||
 		((!PORTAbits.RA4) && (AppConfig.PPSPolarity == 1)))
 	{
-		if (USE_PPS)
+		if (USE_PPS && (!indiag))
 		{
 			ppstimer = 0;
 			ppswarn = 0;
@@ -1173,16 +1279,6 @@ BYTE *cp;
 					apeak = (long)(amax - amin) / 2;
 				}
 			}
-			// Output Tx sample
-#ifdef	DMWDIAG
-			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
-			if (mwp > 7) mwp = 0;
-#else
-			DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
-#endif
-			txaudio[txdrainindex++] = ULAW_SILENCE;
-			if (txdrainindex >= AppConfig.TxBufferLength)
-				txdrainindex = 0;
 		}
 #if defined(SMT_BOARD)
 		AD1CHS0 = adcindex + 1;
@@ -1194,6 +1290,30 @@ BYTE *cp;
 	adcother ^= 1;
 	IFS0bits.AD1IF = 0;
 }
+
+void __attribute__((interrupt, no_auto_psv)) _DAC1LInterrupt(void)
+{
+	IFS4bits.DAC1LIF = 0;
+	// Output Tx sample
+	if (testp)
+	{
+		DAC1LDAT = testp[testidx++ + 1];
+		if (testidx >= testp[0]) testidx = 0;
+	}
+	else
+	{
+#ifdef	DMWDIAG
+		DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
+		if (mwp > 7) mwp = 0;
+#else
+		DAC1LDAT = ulawtabletx[txaudio[txdrainindex]];
+#endif
+		txaudio[txdrainindex++] = ULAW_SILENCE;
+		if (txdrainindex >= AppConfig.TxBufferLength)
+		txdrainindex = 0;
+	}
+}
+
 
 void __attribute__((interrupt, auto_psv)) _DefaultInterrupt(void)
 {
@@ -1244,9 +1364,13 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	
 	void SetAudioSrc(void)
 	{
-		if (option_flags & 1)_LATB3 = 1;
+		BYTE myflags;
+
+		if (indiag) myflags = diag_option_flags;
+		else myflags = option_flags;
+		if (myflags & 1)_LATB3 = 1;
 		else _LATB3 = 0;
-		if (!(option_flags & 4)) _LATB2 = 1;
+		if (!(myflags & 4)) _LATB2 = 1;
 		else _LATB2 = 0;
 	}
 
@@ -1393,6 +1517,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
 BOOL HasCOR(void)
 {
+	if (indiag) return(0);
 	if (AppConfig.CORType == 2) return(0);
 	if (AppConfig.CORType == 1) return(1);
 	return (cor);
@@ -1400,12 +1525,61 @@ BOOL HasCOR(void)
 
 BOOL HasCTCSS(void)
 {
+	if (indiag) return(0);
 	if (!AppConfig.ExternalCTCSS) return (1);
 	if (AppConfig.ExternalCTCSS == 3) return (0);
 	if ((AppConfig.ExternalCTCSS == 1) && CTCSSIN) return (1);
 	if ((AppConfig.ExternalCTCSS == 2) && (!CTCSSIN)) return(1);
 	return (0);
 }
+
+void SetTxTone(int freq)
+{
+
+	DISABLE_INTERRUPTS();
+	if (freq == 0)
+	{
+		DAC1CONbits.DACFDIV = 74;		// Divide by 75 for 8K Samples/sec
+		testp = 0;
+		testidx = 0;
+	}
+	else
+	{
+		DAC1CONbits.DACFDIV = 36;		// Divide by 37 for approx 16216.216 Samples/sec
+		switch(freq)
+		{
+		    case 100:
+				testp = (short *)test_100;
+				break;
+		    case 320:
+				testp = (short *)test_320;
+				break;
+		    case 500:
+				testp = (short *)test_500;
+				break;
+		    case 1000:
+				testp = (short *)test_1000;
+				break;
+		    case 2000:
+				testp = (short *)test_2000;
+				break;
+		    case 3200:
+				testp = (short *)test_3200;
+				break;
+		    case 6000:
+				testp = (short *)test_6000;
+				break;
+		    case 7200:
+				testp = (short *)test_7200;
+				break;
+			default:
+				testp = 0;
+				break;
+		}
+	}
+	ENABLE_INTERRUPTS();
+}
+
 
 /*
 * Break up a delimited string into a table of substrings
@@ -1606,6 +1780,7 @@ static ROM char gpgga[] = "$GPGGA",
 // Please see doubleify.c for explanation of this poo-poo
 extern float doubleify(BYTE *p);
 	
+	if (indiag) return;
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
@@ -1893,6 +2068,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	mytxseqno = txseqno;
 	myhost_txseqno = host_txseqno;
 
+	if (indiag) return;
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
 		
@@ -1905,7 +2081,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	{
 		if (gpssync || (!USE_PPS))
 		{
-TESTBIT ^= 1;
+//TESTBIT ^= 1;
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -2120,11 +2296,37 @@ void main_processing_loop(void)
 	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
 			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
 			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
-	static DWORD t = 0, tdisp = 0;
+	static ROM char diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
+		diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
+		diagerr3[] = "Error - Failed to read data from GPS UART\n",
+		diagfail[] = "  \nDiagnostics Failed With %d Errors!!!!\n",
+		diagpass[] = " \nDiagnostics Passed Successfully\n",
+		diag1[] = "Testing PTT/External CTCSS\n",
+		diag2[] = "Testing GPS UART\n",
+		measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
+		measmsg[] = "Testing level at %d Hz for %s\n",
+		flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",deemp_test_str[] = "De-Emphasized Audio",
+		sql_test_str[] = "Squelch Noise Detector";
+
+	static ROM struct meas flat_test[] = {
+		{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
+	}, plfilt_test[] = {
+		{100,282,451,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
+	}, deemp_test[] = {
+		{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0} 
+	}, sql_test[] = {
+		{3200,0,10,1},{6000,255,345,1},{7200,765,1023,1},{0,0,0,0} 
+	};
+
+
+	static ROM BYTE diaguart[] = {0x55,0xaa,0x69,0};
+
+	static DWORD t = 0, t1 = 0, tdisp = 0,tdiag = 0;
 	long meas,thresh;
 	WORD i,mypeak;
 	long x,y,z;
 	static BYTE dispcnt = 0;
+	struct meas *m;
 
 	//UDP State machine
 	#define SM_UDP_SEND_ARP     0
@@ -2299,96 +2501,111 @@ void main_processing_loop(void)
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 
-		if (connected)
+		if (!indiag)
 		{
-			if (!USE_PPS)
+			if (connected)
 			{
-				if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
-					(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
+				if (!USE_PPS)
 				{
-					ptt = 0;
-					SetPTT(0);
+					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
+						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
+					{
+						ptt = 0;
+						SetPTT(0);
+					}
+					else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
+						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
+					{
+						ptt = 1;
+						SetPTT(1);
+					}
 				}
-				else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
-					(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
+				else
 				{
-					ptt = 1;
-					SetPTT(1);
+					if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000))
+					{
+						y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+						z = x * 1000;
+						z += y / 1000000;
+						z -= (AppConfig.TxBufferLength - 160) >> 3;
+					}
+					if (ptt && ((z > 60L) || (AppConfig.Elkes && 
+						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
+					{
+						ptt = 0;
+						SetPTT(0);
+					}
+					else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
+						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
+					{
+						ptt = 1;
+						SetPTT(1);
+					}
 				}
 			}
-			else
-			{
-				if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000))
-				{
-					y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
-					z = x * 1000;
-					z += y / 1000000;
-					z -= (AppConfig.TxBufferLength - 160) >> 3;
-				}
-				if (ptt && ((z > 60L) || (AppConfig.Elkes && 
-					(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
-				{
-					ptt = 0;
-					SetPTT(0);
-				}
-				else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
-					(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
-				{
-					ptt = 1;
-					SetPTT(1);
-				}
-			}
+			else SetPTT(0);	
 		}
-		else SetPTT(0);	
 	}
 
-	if (LEVDISP)
+	if (!indiag)
 	{
-		SetLED(CONNLED,connected);
-		if ((gps_state == GPS_STATE_SYNCED) ||
-			((gps_state == GPS_STATE_VALID) && (!USE_PPS)))
-				SetLED(GPSLED,1);
-		else if (gps_state != GPS_STATE_VALID)
-			SetLED(GPSLED,0);
-	}
-	else
-	{
-		if (HasCOR() && HasCTCSS())
+		if (LEVDISP)
 		{
-			mypeak = apeak / (7200 / LEVDISP_FACTOR);
-			if (mypeak < dispcnt) SetLED(GPSLED,1);
-			else SetLED(GPSLED,0);
-			if (mypeak > (dispcnt + LEVDISP_FACTOR)) SetLED(CONNLED,1);
-			else SetLED(CONNLED,0);
+			SetLED(CONNLED,connected);
+			if ((gps_state == GPS_STATE_SYNCED) ||
+				((gps_state == GPS_STATE_VALID) && (!USE_PPS)))
+					SetLED(GPSLED,1);
+			else if (gps_state != GPS_STATE_VALID)
+				SetLED(GPSLED,0);
 		}
 		else
 		{
-			SetLED(GPSLED,0);
-			SetLED(CONNLED,0);
+			if (HasCOR() && HasCTCSS())
+			{
+				mypeak = apeak / (7200 / LEVDISP_FACTOR);
+				if (mypeak < dispcnt) SetLED(GPSLED,1);
+				else SetLED(GPSLED,0);
+				if (mypeak > (dispcnt + LEVDISP_FACTOR)) SetLED(CONNLED,1);
+				else SetLED(CONNLED,0);
+			}
+			else
+			{
+				SetLED(GPSLED,0);
+				SetLED(CONNLED,0);
+			}
+			dispcnt++;
+			if (dispcnt > LEVDISP_FACTOR) dispcnt = 0;
 		}
-		dispcnt++;
-		if (dispcnt > LEVDISP_FACTOR) dispcnt = 0;
+	
+		if (CAL)
+		{	
+			if (lastcor && HasCTCSS())
+				SetLED(SQLED,1);
+			else if ((!lastcor) || ((AppConfig.CORType != 0) && (!HasCTCSS())))
+				SetLED(SQLED,0);
+		}
 	}
 
-	if (CAL)
-	{	
-		if (lastcor && HasCTCSS())
-			SetLED(SQLED,1);
-		else if ((!lastcor) || ((AppConfig.CORType != 0) && (!HasCTCSS())))
-			SetLED(SQLED,0);
-	}
-
+       // Blink LEDs as appropriate
+       if(TickGet() - t1 >= TICK_SECOND / 6ul)
+        {
+		  t1 = TickGet();
+		  if (indiag) ToggleLED(SYSLED);
+	    }
        // Blink LEDs as appropriate
        if(TickGet() - t >= TICK_SECOND / 2ul)
        {
 		if (dnstimer) dnstimer--;
         t = TickGet();
-		ToggleLED(SYSLED);
-		if (LEVDISP)
+		if (!indiag)
 		{
-			if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
+			ToggleLED(SYSLED);
+			if (LEVDISP)
+			{
+				if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
+			}
+			if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 		}
-		if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 #ifdef	SILLY
 		printf("%lu\n",sillyval);
 #endif
@@ -2402,12 +2619,14 @@ void main_processing_loop(void)
        // This tasks invokes each of the core stack application tasks
        StackApplications();
 
-		if (!inread) return;
+	   if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
+
+	   if (!inread) return;
 
        if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
 	   {
         	tdisp = TickGet();
-			if (HasCOR() && HasCTCSS())
+			if (indiag || (HasCOR() && HasCTCSS()))
 				meas = apeak;
 			else
 				meas = 0;
@@ -2424,7 +2643,182 @@ void main_processing_loop(void)
 			fflush(stdout);
 			amin = amax = 0;
 		}
-
+       if(indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul))
+	   {
+        	tdisp = TickGet();
+			printf(" (%s) (%s) (%s) (%s)\r",(!JP8) ? "Down" : " Up ",(!JP9) ? "Down" : " Up ",
+				(!JP10) ? "Down" : " Up ",(!JP11) ? "Down" : " Up ");
+			fflush(stdout);
+	   } 
+       if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul))
+	   {
+        	tdisp = TickGet();
+			SetLED(SQLED,0);
+			SetLED(GPSLED,0);
+			SetLED(CONNLED,0);
+			SetPTT(0);
+			switch (leddiag)
+			{
+			    case 1:
+					SetLED(SQLED,1);
+				    leddiag = 2;
+					break;
+			    case 2:
+					SetLED(CONNLED,1);
+					leddiag = 3;
+					break;
+			    case 3:
+					SetPTT(1);
+					leddiag = 4;
+					break;
+				case 4:
+					SetLED(GPSLED,1);
+					leddiag = 1;
+					break;
+			}
+		}
+	   if (indiag && (tdiag < TickGet()))
+       {
+		if (measp && measidx)
+		{
+			m = (measp + (measidx - 1));
+			BOOL isok = 1;
+			short sqlval = adcothers[ADCSQNOISE] - (AppConfig.SqlDiode - adcothers[ADCDIODE]);
+			if (sqlval < 0) sqlval = 0;
+			if (m->issql)
+			{
+				if ((sqlval < m->min) || (sqlval > m->max)) isok = 0;
+			}
+			else
+			{
+				if ((apeak < m->min) || (apeak > m->max)) isok = 0;
+			}
+			if (!isok) 
+			{
+				printf(measerr,(m->issql) ? sqlval : apeak,m->min,m->max);
+				errcnt++;
+			}
+			measidx++;
+			m = (measp + (measidx - 1));
+			if (!m->freq) 
+			{
+				measp = 0;
+				measidx = 0;
+				measstr = 0;
+			}
+			else
+			{
+				SetTxTone(m->freq);
+				tdiag = TickGet() + DIAG_WAIT_MEAS;
+				if (measstr) printf(measmsg,m->freq,measstr);
+			}
+		}
+		if (!measp)
+		{
+			switch(diagstate)
+			{
+				case 1: // Make sure PTT is seen in both states and
+						// set up UART and send test data
+					printf(diag1);
+					SetPTT(0);
+					Nop();
+					Nop();
+					Nop();
+					Nop();
+					if (!CTCSSIN)
+					{
+						errcnt++;
+						printf(diagerr1);
+					}
+					SetPTT(1);
+					Nop();
+					Nop();
+					Nop();
+					Nop();
+					if (CTCSSIN)
+					{
+						errcnt++;
+						printf(diagerr2);
+					}
+					printf(diag2);
+					U2MODEbits.URXINV = 0;
+					U2STAbits.UTXINV = 0;
+					while (DataRdyUART2()) ReadUART2();
+					putrsUART2((ROM char *)diaguart);
+					diagstate = 2;
+					tdiag = TickGet() + DIAG_WAIT_UART; // Wait 333 ms
+					break;
+				case 2: // see if UART got test data okay
+					for(i = 0; diaguart[i]; i++)
+					{
+						if (!DataRdyUART2()) break;
+						if (ReadUART2() != diaguart[i]) break;
+					}
+					if (diaguart[i] || DataRdyUART2())
+					{
+						errcnt++;
+						printf(diagerr3);
+					}
+					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
+					SetAudioSrc();
+					diagstate = 3;
+					measp = (struct meas *)flat_test;
+					measstr = (char *)flat_test_str;
+					measidx = 1;
+					m = (measp + (measidx - 1));
+					SetTxTone(m->freq);
+					tdiag = TickGet() + DIAG_WAIT_MEAS;
+					printf(measmsg,m->freq,measstr);
+					break;
+				case 3:
+					diag_option_flags = OPTION_FLAG_FLATAUDIO;
+					SetAudioSrc();
+					diagstate = 4;
+					measp = (struct meas *)plfilt_test;
+					measstr = (char *)plfilt_test_str;
+					measidx = 1;
+					m = (measp + (measidx - 1));
+					SetTxTone(m->freq);
+					tdiag = TickGet() + DIAG_WAIT_MEAS;
+					printf(measmsg,m->freq,measstr);
+					break;
+				case 4:
+					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
+					SetAudioSrc();
+					diagstate = 5;
+					measp = (struct meas *)deemp_test;
+					measstr = (char *)deemp_test_str;
+					measidx = 1;
+					m = (measp + (measidx - 1));
+					SetTxTone(m->freq);
+					tdiag = TickGet() + DIAG_WAIT_MEAS;
+					printf(measmsg,m->freq,measstr);
+					break;
+				case 5:
+					diag_option_flags = 0;
+					SetAudioSrc();
+					diagstate = 255;
+					measp = (struct meas *)sql_test;
+					measstr = (char *)sql_test_str;
+					measidx = 1;
+					m = (measp + (measidx - 1));
+					set_atten(DIAG_NOISE_GAIN);
+					SetTxTone(m->freq);
+					tdiag = TickGet() + DIAG_WAIT_MEAS;
+					printf(measmsg,m->freq,measstr);
+					break;
+				case 255:
+					tdiag = 0;
+					if (errcnt) printf(diagfail,errcnt);
+					else printf(diagpass);
+					printf(paktc);
+					diagstate = 0;
+					break;
+			}
+		}
+	   }
        // If the local IP address has changed (ex: due to DHCP lease change)
        // write the new IP address to the LCD display, UART, and Announce 
        // service
@@ -2608,6 +3002,142 @@ static void SetDynDNS(void)
 	}
 }
 
+
+static void DiagMenu()
+{
+
+ indiag = 1; 
+ gps_state = GPS_STATE_IDLE;
+ if (USE_PPS)
+ {
+	connected = 0;
+	resp_digest = 0;
+	digest = 0;
+	their_challenge[0] = 0;
+ }
+ gpssync = 0;
+ gotpps = 0;
+
+ while(1) 
+	{
+		char cmdstr[50];
+		int i,sel;
+
+	static ROM char menu[] = "Select the following Diagnostic functions:\n\n" 
+		"1  - Set Initial Tone Level (and assert PTT)\n"
+		"2  - Display Value of DIP Switches\n"
+		"3  - Flash LED's in sequence\n"
+		"4  - Run entire diag suite\n"
+		"c  - Show Diagnostic Cable Pinouts\n"
+		"x -  Exit Diagnostic Menu (back to main menu)\n\n",
+		entsel[] = "Enter Selection (1-4,c,x) : ",
+		settone[] = "Adjust Tx Level for 1V P-P (1 KHz) on output, then adjust Rx Level\nto \"5 KHz\" on display\n\n",
+		dipstr[] = "Dip Switch Values\n\n   SW1    SW2    SW3    SW4\n",
+		diodewarn[] = "Warning!! VF Diode NOT calibrated!!!\n\n",
+		ledstr[] = "LED's will flash as follows: Squelch (Top Green), GPS (Middle Yellow),\n"
+				"PTT (Red), Host (Top, Right Yellow). System LED will continue flashing\nat fast speed.\n",
+		diagstr[] = "Running Diagnostics...\n\n",
+		diagcable[] = "Diagnostic Cable Pinouts:\n\n9 Pin D-Shell Connector (Radio Connector):\n\n"
+			"1 - VIN (+12V or so)\n"
+			"2 - connects to 3 and also is output to 'scope for tone measurement\n"
+			"4 - connects to 7\n"
+			"5 - Gnd\n\n"
+			"15 Pin D-Shell Connector (GPS/Console Connector):\n\n"
+			"2 - Console Pin 2\n"
+			"3 - Console Pin 3\n"
+			"5 - Console Pin 5\n"
+			"6 - connects to 14\n"
+			"\"Console\" is a 9 Pin D-shell connector that connects to serial console device\n\n";
+
+		printf(menu);
+		fflush(stdout);
+		SetLED(SQLED,0);
+		SetLED(GPSLED,0);
+		SetLED(CONNLED,0);
+		SetPTT(0);
+		aborted = 0;
+		while(!aborted)
+		{
+			printf(entsel);
+			memset(cmdstr,0,sizeof(cmdstr));
+			if (!fgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!strchr(cmdstr,'!')) break;
+		}
+		if (aborted) continue;
+		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
+		{
+				break;
+		}
+		printf(" \n");
+		if ((strchr(cmdstr,'C')) || strchr(cmdstr,'c'))
+		{
+		        printf(diagcable);
+ 				printf(paktc);
+				fflush(stdout);
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				printf("\n\n");
+				continue;
+		}
+		sel = atoi(cmdstr);
+		switch(sel)
+		{
+			case 1: // Send 1000Hz Tone, Display RX Level Quasi-Graphically 
+				SetPTT(1); 
+				SetTxTone(1000);
+				printf(settone);
+			 	putchar(' ');
+		      	for(i = 0; i < NCOLS; i++) putchar(' ');
+		        printf(rxvoicestr);
+				indisplay = 1;
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				indisplay = 0;
+				SetPTT(0);
+				SetTxTone(0);
+				continue;
+			case 2: // Dip Switch test  
+		        printf(dipstr);
+				indipsw = 1;
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				indipsw = 0;
+				printf("\n\n");
+				continue;
+			case 3: // Flash LED's
+		        printf(ledstr);
+				leddiag = 1;
+ 				printf(paktc);
+				fflush(stdout);
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				leddiag = 0;
+				printf("\n\n");
+				continue;
+			case 4: // Run diags
+		        printf(diagstr);
+				if (!AppConfig.SqlDiode) printf(diodewarn);
+				diagstate = 1;
+				fflush(stdout);
+				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				measp = 0;
+				measidx = 0;
+				measstr = 0;
+				U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+				U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+				diagstate = 0;
+				printf("\n\n");
+				continue;
+
+			default:
+				printf(invalselection);
+				continue;
+		}
+	}
+	SetTxTone(0);
+	SetPTT(0);
+	set_atten(noise_gain);
+	indiag = 0;
+	SetAudioSrc();
+}
+
+
 int main(void)
 {
 
@@ -2615,9 +3145,13 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.34  8/31/2011, Jim Dixon WB6NIL\n",
-			rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n";;
+    static ROM char signon[] = "\nVOTER Client System verson 0.36  11/03/2011, Jim Dixon WB6NIL\n";
 
+	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
+		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
+		saved[] = "Configuration Settings Written to EEPROM\n", defwritten[] = "\nDefault Values Written to EEPROM\n",
+		defdiode[] = "Diode Calibration Value Written to EEPROM\n", booting[] = "System Re-Booting...\n";
+			
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d),  "
 		"2  - (Static) IP Address (%d.%d.%d.%d)\n"
@@ -2650,16 +3184,11 @@ int main(void)
 		"97 - RX Level, "
 		"98 - Status, "
 		"99 - Save Values to EEPROM\n"
-		"q - Disconnect Remote Console Session, r = reset system (reboot)\n\n",
-		entsel[] = "Enter Selection (1-27,97-99,r,q) : ";
+		"q - Disconnect Remote Console Session, r - reboot system, d - diagnostics\n\n",
+		entsel[] = "Enter Selection (1-27,97-99,r,q,d) : ";
 
 
 
-	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
-		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		saved[] = "Configuration Settings Written to EEPROM\n", invalselection[] = "Invalid Selection\n",
-		paktc[] = "\nPress The Any Key (Enter) To Continue\n", defwritten[] = "\nDefault Values Written to EEPROM\n",
-		defdiode[] = "Diode Calibration Value Written to EEPROM\n", booting[] = "System Re-Booting...\n";
 
 	static ROM char oprdata[] = "IP Address: %d.%d.%d.%d\n"
 		"Netmask: %d.%d.%d.%d\n"
@@ -2743,6 +3272,9 @@ int main(void)
 	amin = 0;
 	apeak = 0;
 	indisplay = 0;
+	indipsw = 0;
+	leddiag = 0;
+	diagstate = 0;
     dec_valprev = 0;
     dec_index = 0;
     enc_valprev = 0;
@@ -2754,6 +3286,14 @@ int main(void)
 	txseqno = 0;
 	txseqno_ptt = 0;
 	elketimer = 0;
+	testidx = 0;
+	testp = 0;
+	indiag = 0;
+	errcnt = 0;
+	measp = 0;
+	measstr = 0;
+	measidx = 0;
+	diag_option_flags = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -2884,6 +3424,14 @@ __builtin_nop();
 		unsigned int i1,i2,i3,i4,x;
 		unsigned long l;
 
+		SetTxTone(0);
+		if (indiag) 
+		{	
+			SetPTT(0);
+			set_atten(noise_gain);
+		}
+		indiag = 0;
+		SetAudioSrc();
 		printf(menu,AppConfig.SerialNumber,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
 			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3],AppConfig.DefaultMask.v[0],
 			AppConfig.DefaultMask.v[1],AppConfig.DefaultMask.v[2],AppConfig.DefaultMask.v[3],
@@ -2916,8 +3464,13 @@ __builtin_nop();
 				printf(booting);
 				Reset();
 		}
+		if ((strchr(cmdstr,'D')) || strchr(cmdstr,'d'))
+		{
+				DiagMenu();
+				continue;
+		}
 		sel = atoi(cmdstr);
-		if (((sel >= 1) && (sel <= 27)) || (sel == 11780))
+		if (((sel >= 1) && (sel <= 28)) || (sel == 11780))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -3167,16 +3720,17 @@ __builtin_nop();
 				}
 				break;
 			case 28: // Debug Level
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 10000))
 				{
-					AppConfig.DebugLevel = i1;
+				//	AppConfig.DebugLevel = i1;
+					SetTxTone(i1);
 					ok = 1;
 				}
 				break;
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();
-				printf(paktc);
+ 				printf(paktc);
 				fflush(stdout);
 				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				continue;
@@ -3280,8 +3834,11 @@ static void InitializeBoard(void)
 
 	DAC1DFLT = 0;
 	DAC1STAT = 0x8000;
+	DAC1STATbits.LITYPE = 0;
 	DAC1CON = 0x1100 + 74;		// Divide by 75 for 8K Samples/sec
 	IFS4bits.DAC1LIF = 0;
+	IEC4bits.DAC1LIE = 1;
+	IPC19bits.DAC1LIP = 6;
 	DAC1CONbits.DACEN = 1;
 
 #if defined(SMT_BOARD)
