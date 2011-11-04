@@ -161,6 +161,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	DIAG_WAIT_UART (TICK_SECOND / 3ul)
 #define	DIAG_WAIT_MEAS (TICK_SECOND * 2)
 #define	DIAG_NOISE_GAIN 0x28
+#define	NAPEAKS 50
 
 struct meas {
 	WORD freq;
@@ -346,6 +347,7 @@ struct meas *measp;
 BYTE measidx;
 char *measstr;
 BYTE diag_option_flags;
+WORD apeaks[NAPEAKS];
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -1112,6 +1114,7 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 WORD index;
 long accum;
 short saccum;
+BYTE i;
 
 //Stuff for ADPCM encode
 int val;			/* Current input sample value */
@@ -1277,6 +1280,8 @@ BYTE *cp;
 					timing_index = next_index;
 					timing_time = next_time;
 					apeak = (long)(amax - amin) / 2;
+					for(i = NAPEAKS -1; i; i--) apeaks[i] = apeaks[i - 1];
+					apeaks[0] = apeak;
 				}
 			}
 		}
@@ -2623,6 +2628,8 @@ void main_processing_loop(void)
 
 	   if (!inread) return;
 
+	   // Rx Level Display handler
+
        if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
 	   {
         	tdisp = TickGet();
@@ -2642,7 +2649,9 @@ void main_processing_loop(void)
 			putchar('\r');
 			fflush(stdout);
 			amin = amax = 0;
-		}
+	   }
+
+	   // Dip Switch diagnostic display handler
        if(indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul))
 	   {
         	tdisp = TickGet();
@@ -2650,6 +2659,7 @@ void main_processing_loop(void)
 				(!JP10) ? "Down" : " Up ",(!JP11) ? "Down" : " Up ");
 			fflush(stdout);
 	   } 
+       // LED Flash diagnostic handler
        if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul))
 	   {
         	tdisp = TickGet();
@@ -2676,14 +2686,22 @@ void main_processing_loop(void)
 					leddiag = 1;
 					break;
 			}
-		}
+	   }
+
+       // "Diagnostic Suite" handler
 	   if (indiag && (tdiag < TickGet()))
        {
+		// If we have a result, perform measurement and check results
 		if (measp && measidx)
 		{
-			m = (measp + (measidx - 1));
 			BOOL isok = 1;
+			DWORD accum = 0;
+			WORD aval;
 			short sqlval = adcothers[ADCSQNOISE] - (AppConfig.SqlDiode - adcothers[ADCDIODE]);
+
+			m = (measp + (measidx - 1));
+			for(i = 0; i < NAPEAKS; i++) accum += apeaks[i];
+			aval = (WORD)(accum / NAPEAKS);
 			if (sqlval < 0) sqlval = 0;
 			if (m->issql)
 			{
@@ -2691,21 +2709,25 @@ void main_processing_loop(void)
 			}
 			else
 			{
-				if ((apeak < m->min) || (apeak > m->max)) isok = 0;
+				if ((aval < m->min) || (aval > m->max)) isok = 0;
 			}
 			if (!isok) 
 			{
-				printf(measerr,(m->issql) ? sqlval : apeak,m->min,m->max);
+				printf(measerr,(m->issql) ? sqlval : aval,m->min,m->max);
 				errcnt++;
 			}
+		    // Grab next "step" in current measurement sequence
 			measidx++;
 			m = (measp + (measidx - 1));
+			memset(apeaks,0,sizeof(apeaks));
+			// If no more steps
 			if (!m->freq) 
 			{
 				measp = 0;
 				measidx = 0;
 				measstr = 0;
 			}
+			// Otherwise set new freq and start new measurement
 			else
 			{
 				SetTxTone(m->freq);
@@ -2715,6 +2737,7 @@ void main_processing_loop(void)
 		}
 		if (!measp)
 		{
+			// State machine for various steps of diagnostics
 			switch(diagstate)
 			{
 				case 1: // Make sure PTT is seen in both states and
@@ -2761,6 +2784,7 @@ void main_processing_loop(void)
 					}
 					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
 					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+					// Perform measurement sequence with no filters on audio
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc();
 					diagstate = 3;
@@ -2768,11 +2792,12 @@ void main_processing_loop(void)
 					measstr = (char *)flat_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
+					memset(apeaks,0,sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
-				case 3:
+				case 3: // Perform measurement sequence with de-demphasis enabled
 					diag_option_flags = OPTION_FLAG_FLATAUDIO;
 					SetAudioSrc();
 					diagstate = 4;
@@ -2780,11 +2805,12 @@ void main_processing_loop(void)
 					measstr = (char *)plfilt_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
+					memset(apeaks,0,sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
-				case 4:
+				case 4: // Perform measurement sequence with CTCSS filter enabled
 					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc();
 					diagstate = 5;
@@ -2792,11 +2818,12 @@ void main_processing_loop(void)
 					measstr = (char *)deemp_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
+					memset(apeaks,0,sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
-				case 5:
+				case 5: // Perform measurement sequence of squelch noise detector
 					diag_option_flags = 0;
 					SetAudioSrc();
 					diagstate = 255;
@@ -2805,11 +2832,12 @@ void main_processing_loop(void)
 					measidx = 1;
 					m = (measp + (measidx - 1));
 					set_atten(DIAG_NOISE_GAIN);
+					memset(apeaks,0,sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
-				case 255:
+				case 255: // No more measurements to do
 					tdiag = 0;
 					if (errcnt) printf(diagfail,errcnt);
 					else printf(diagpass);
@@ -3113,6 +3141,7 @@ static void DiagMenu()
 			case 4: // Run diags
 		        printf(diagstr);
 				if (!AppConfig.SqlDiode) printf(diodewarn);
+				errcnt = 0;
 				diagstate = 1;
 				fflush(stdout);
 				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
@@ -3145,7 +3174,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.36  11/03/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.37  11/04/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
