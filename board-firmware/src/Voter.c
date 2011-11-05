@@ -2316,11 +2316,11 @@ void main_processing_loop(void)
 	static ROM struct meas flat_test[] = {
 		{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
 	}, plfilt_test[] = {
-		{100,282,451,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
+		{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
 	}, deemp_test[] = {
 		{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0} 
 	}, sql_test[] = {
-		{3200,0,10,1},{6000,255,345,1},{7200,765,1023,1},{0,0,0,0} 
+		{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} 
 	};
 
 
@@ -3174,7 +3174,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.37  11/04/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.38  11/05/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
