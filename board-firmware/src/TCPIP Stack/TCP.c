@@ -3045,9 +3045,15 @@ static void SendTCP(BYTE vTCPFlags, BYTE vSendFlags)
 		header.Window = MyTCBStub.rxTail - MyTCBStub.rxHead - 1;
 
 	// Calculate the amount of free space in the MAC RX buffer area and adjust window if needed
-	wVal.Val = MACGetFreeRxSize()-64;
-	if((SHORT)wVal.Val < (SHORT)0)
+	wVal.Val = MACGetFreeRxSize();
+	if(wVal.Val < 64)
+    {
 		wVal.Val = 0;
+    }
+    else
+    {
+		wVal.Val -= 64;
+    }
 	// Force the remote node to throttle back if we are running low on general RX buffer space
 	if(header.Window > wVal.Val)
 		header.Window = wVal.Val;

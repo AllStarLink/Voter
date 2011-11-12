@@ -278,6 +278,7 @@ void TelnetTask(void)
 	
 				// Print the authenticated prompt
 				TCPPutROMString(MySocket, strAuthenticated);
+				TCPFlush(MySocket);
 				TelnetState = SM_AUTHENTICATED;
 				// No break
 		
