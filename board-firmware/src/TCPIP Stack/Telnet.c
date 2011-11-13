@@ -83,7 +83,7 @@ static ROM BYTE strPassword[]		= "Password: \xff\xfd\x2d";	// DO Suppress Local 
 // Access denied message
 static ROM BYTE strAccessDenied[]	= "\r\nAccess denied\r\n\r\n";
 // Successful authentication message
-static ROM BYTE strAuthenticated[]	= "\r\nLogged in successfully, now joining console session...\r\n\r\n";
+static ROM BYTE strAuthenticated[]	= "\r\n\xff\xfe\x22Logged in successfully, now joining console session...\r\n\r\n";
 									  
 extern BYTE AN0String[8];
 
@@ -263,6 +263,7 @@ void TelnetTask(void)
 	
 				// Search for the password -- case sensitive
 				w2 = TCPFindArray(MySocket, TELNET_PASSWORD, strlen((char *)TELNET_PASSWORD), 0, FALSE);
+
 				if((w2 != 3u) || !(((strlen((char *)TELNET_PASSWORD) == w-4)) || ((strlen((char *)TELNET_PASSWORD) == w-3)))
 					|| (TelnetState == SM_GET_PASSWORD_BAD_LOGIN))
 				{
@@ -316,6 +317,9 @@ BOOL PutTelnetConsole(char c)
 
 	BYTE		vTelnetSession;
 	TCP_SOCKET	MySocket;
+
+	StackTask();
+	StackApplications();
 
 	for(vTelnetSession = 0; vTelnetSession < MAX_TELNET_CONNECTIONS; vTelnetSession++)
 	{

@@ -206,6 +206,7 @@ typedef struct {
 #define	OPTION_FLAG_ADPCM 16 // Use ADPCM rather then ULAW
 #define	OPTION_FLAG_MIX 32 // Request "Mix" option to host
 
+
 #ifdef DMWDIAG
 unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
 BYTE mwp;
@@ -350,6 +351,8 @@ BYTE diag_option_flags;
 WORD apeaks[NAPEAKS];
 BOOL netisup;
 BOOL inprocloop;
+BOOL ininput;
+BOOL telnet_echo;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -951,7 +954,8 @@ ROM static int stepsizeTable[89] = {
 };
 
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
-	invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n";
+	invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n",
+	booting[] = "System Re-Booting...\n";
 
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB;
@@ -1587,6 +1591,15 @@ void SetTxTone(int freq)
 	ENABLE_INTERRUPTS();
 }
 
+static char *myfgets(char *s, int size, FILE *stream)
+{
+	char *r;
+
+	ininput = 1;
+	r = fgets(s,size,stream);
+	ininput = 0;
+	return(r);
+}
 
 /*
 * Break up a delimited string into a table of substrings
@@ -2931,6 +2944,8 @@ int read(int handle, void *buffer, unsigned int len)
 BYTE *dest,c;
 int count,x;
 
+	if ((!ininput) || inprocloop) return(0);
+
 	inread = 1;
 	aborted = 0;
 	if ((handle < 0) || (handle > 2)) 
@@ -2954,7 +2969,6 @@ int count,x;
 			if (DataRdyUART())
 			{
 				c = ReadUART() & 0x7f;
-				if (c == '\r') c = '\n';
 				break;
 			}
 			if (netisup)
@@ -2973,10 +2987,10 @@ int count,x;
 		{
 			while(BusyUART()) if (!inprocloop) main_processing_loop();
 			WriteUART('^');
-			if (netisup) while(!PutTelnetConsole('^')) if (!inprocloop) main_processing_loop();
+			if (telnet_echo && netisup) while(!PutTelnetConsole('^')) if (!inprocloop) main_processing_loop();
 			while(BusyUART()) if (!inprocloop) main_processing_loop();
 			WriteUART('C');
-			if (netisup) while(!PutTelnetConsole('C')) if (!inprocloop) main_processing_loop();
+			if (telnet_echo && netisup) while(!PutTelnetConsole('C')) if (!inprocloop) main_processing_loop();
 			aborted = 1;
 			dest[0] = '\n';
 			dest[1] = 0;
@@ -3009,14 +3023,15 @@ int count,x;
 			if (netisup) CloseTelnetConsole();
 			continue;
 		}
-		if ((c != '\n') && (c < ' ')) continue;
+		if ((c != '\r') && (c < ' ')) continue;
 		if (c > 126) continue;
+		if (c == '\r') c = '\n';
 		dest[count++] = c;
 		dest[count] = 0;
 		if (c == '\n') break;
 		while(BusyUART()) if (!inprocloop) main_processing_loop();
 		WriteUART(c);
-		if (netisup) while(!PutTelnetConsole(c)) if (!inprocloop) main_processing_loop();
+		if (telnet_echo && netisup) while(!PutTelnetConsole(c)) if (!inprocloop) main_processing_loop();
 
 	}
 	while(BusyUART()) if (!inprocloop) main_processing_loop();
@@ -3074,8 +3089,8 @@ static void DiagMenu()
 		"3  - Flash LED's in sequence\n"
 		"4  - Run entire diag suite\n"
 		"c  - Show Diagnostic Cable Pinouts\n"
-		"x -  Exit Diagnostic Menu (back to main menu)\n\n",
-		entsel[] = "Enter Selection (1-4,c,x) : ",
+		"x -  Exit Diagnostic Menu (back to main menu)\nq - Disconnect Remote Console Session, r - reboot system\n\n",
+		entsel[] = "Enter Selection (1-4,c,x,q,r) : ",
 		settone[] = "Adjust Tx Level for 1V P-P (1 KHz) on output, then adjust Rx Level\nto \"5 KHz\" on display\n\n",
 		dipstr[] = "Dip Switch Values\n\n   SW1    SW2    SW3    SW4\n",
 		diodewarn[] = "Warning!! VF Diode NOT calibrated!!!\n\n",
@@ -3105,10 +3120,21 @@ static void DiagMenu()
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
-			if (!fgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
 		if (aborted) continue;
+		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
+		{
+				CloseTelnetConsole();
+				continue;
+		}
+		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
+		{
+				CloseTelnetConsole();
+				printf(booting);
+				Reset();
+		}
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
 				break;
@@ -3119,7 +3145,7 @@ static void DiagMenu()
 		        printf(diagcable);
  				printf(paktc);
 				fflush(stdout);
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				printf("\n\n");
 				continue;
 		}
@@ -3134,7 +3160,7 @@ static void DiagMenu()
 		      	for(i = 0; i < NCOLS; i++) putchar(' ');
 		        printf(rxvoicestr);
 				indisplay = 1;
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				indisplay = 0;
 				SetPTT(0);
 				SetTxTone(0);
@@ -3142,7 +3168,7 @@ static void DiagMenu()
 			case 2: // Dip Switch test  
 		        printf(dipstr);
 				indipsw = 1;
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				indipsw = 0;
 				printf("\n\n");
 				continue;
@@ -3151,7 +3177,7 @@ static void DiagMenu()
 				leddiag = 1;
  				printf(paktc);
 				fflush(stdout);
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				leddiag = 0;
 				printf("\n\n");
 				continue;
@@ -3161,7 +3187,7 @@ static void DiagMenu()
 				errcnt = 0;
 				diagstate = 1;
 				fflush(stdout);
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				measp = 0;
 				measidx = 0;
 				measstr = 0;
@@ -3191,12 +3217,12 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.41  11/13/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.42  11/13/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 		saved[] = "Configuration Settings Written to EEPROM\n", defwritten[] = "\nDefault Values Written to EEPROM\n",
-		defdiode[] = "Diode Calibration Value Written to EEPROM\n", booting[] = "System Re-Booting...\n";
+		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
 	static ROM char menu[] = "Select the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d),  "
@@ -3341,6 +3367,9 @@ int main(void)
 	measidx = 0;
 	diag_option_flags = 0;
 	netisup = 0;
+	inprocloop = 0;
+	ininput = 0;
+	telnet_echo = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -3499,7 +3528,7 @@ __builtin_nop();
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
-			if (!fgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
 		if (aborted) continue;
@@ -3524,7 +3553,7 @@ __builtin_nop();
 		{
 			printf(entnewval);
 			if (aborted) continue;
-			if ((!fgets(cmdstr,sizeof(cmdstr) - 1,stdin)) || (strlen(cmdstr) < 2))
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) || (strlen(cmdstr) < 2))
 			{
 				printf(newvalnotchanged);
 				continue;
@@ -3782,7 +3811,7 @@ __builtin_nop();
 				DumpETHReg();
  				printf(paktc);
 				fflush(stdout);
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				continue;
 #endif
 			case 97: // Display RX Level Quasi-Graphically  
@@ -3790,7 +3819,7 @@ __builtin_nop();
 		      	for(i = 0; i < NCOLS; i++) putchar(' ');
 		        printf(rxvoicestr);
 				indisplay = 1;
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				indisplay = 0;
 				continue;
 			case 98:
@@ -3807,7 +3836,7 @@ __builtin_nop();
 				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				printf(paktc);
 				fflush(stdout);
-				fgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
 				continue;
 			case 99:
 				SaveAppConfig();
@@ -4021,7 +4050,7 @@ static void InitAppConfig(void)
 	AppConfig.TelnetPort = 23;
 	strcpy((char *)AppConfig.TelnetUsername,"admin");
 	strcpy((char *)AppConfig.TelnetPassword,"radios");
-	AppConfig.DynDNSEnable = 1;
+	AppConfig.DynDNSEnable = 0;
 	strcpy((char *)AppConfig.DynDNSUsername,"wb6nil");
 	strcpy((char *)AppConfig.DynDNSPassword,"radios42");
 	strcpy((char *)AppConfig.DynDNSHost,"voter-test.dyndns.org");
