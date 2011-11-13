@@ -349,6 +349,7 @@ char *measstr;
 BYTE diag_option_flags;
 WORD apeaks[NAPEAKS];
 BOOL netisup;
+BOOL inprocloop;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -2348,6 +2349,7 @@ void main_processing_loop(void)
 	static DWORD  tsecWait = 0;           //General purpose wait timer
 	static WORD mynoise;
 
+	inprocloop = 1;
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
 
@@ -2631,7 +2633,11 @@ void main_processing_loop(void)
 
 	   if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
 
-	   if (!inread) return;
+	   if (!inread)
+	   {
+			inprocloop = 0;
+			return;
+	   }
 
 	   // Rx Level Display handler
 
@@ -2884,28 +2890,31 @@ void main_processing_loop(void)
 		printf(dnsfailed,AppConfig.VoterServerFQDN);
 	}
 	dnsnotify = 0;
+	inprocloop = 0;
 }
 
 int write(int handle, void *buffer, unsigned int len)
 {
 int i;
 BYTE *cp;
+BOOL instuff;
 
+		instuff = (inread || inprocloop);
 		i = len;
 		if ((handle >= 0) && (handle <= 2))
 		{
 			cp = (BYTE *)buffer;
 			while(i--)
 			{
-				while(BusyUART()) if (!inread) main_processing_loop();
+				while(BusyUART()) if (!instuff) main_processing_loop();
 				if (*cp == '\n')
 				{
 					WriteUART('\r');
-					if (netisup) while(!PutTelnetConsole('\r')) if (!inread) main_processing_loop();
-					while(BusyUART()) if (!inread) main_processing_loop();
+					if (netisup) while(!PutTelnetConsole('\r')) if (!instuff) main_processing_loop();
+					while(BusyUART()) if (!instuff) main_processing_loop();
 				}
 				WriteUART(*cp);
-				if (netisup) while (!PutTelnetConsole(*cp)) if (!inread) main_processing_loop();
+				if (netisup) while (!PutTelnetConsole(*cp)) if (!instuff) main_processing_loop();
 				cp++;
 			}
 		}
@@ -2958,16 +2967,16 @@ int count,x;
 				}
 				if (c) break;
 			}
-			main_processing_loop();
+			if (!inprocloop) main_processing_loop();
 		}
 		if (c == 3) 
 		{
-			while(BusyUART()) main_processing_loop();
+			while(BusyUART()) if (!inprocloop) main_processing_loop();
 			WriteUART('^');
-			if (netisup) while(!PutTelnetConsole('^')) main_processing_loop();
-			while(BusyUART()) main_processing_loop();
+			if (netisup) while(!PutTelnetConsole('^')) if (!inprocloop) main_processing_loop();
+			while(BusyUART()) if (!inprocloop) main_processing_loop();
 			WriteUART('C');
-			if (netisup) while(!PutTelnetConsole('C')) main_processing_loop();
+			if (netisup) while(!PutTelnetConsole('C')) if (!inprocloop) main_processing_loop();
 			aborted = 1;
 			dest[0] = '\n';
 			dest[1] = 0;
@@ -2983,15 +2992,15 @@ int count,x;
 			{
 				count--;
 				dest[count] = 0;
-				while(BusyUART()) main_processing_loop();
+				while(BusyUART()) if (!inprocloop) main_processing_loop();
 				WriteUART(8);
-				if (netisup) while(!PutTelnetConsole(8)) main_processing_loop();
+				if (netisup) while(!PutTelnetConsole(8)) if (!inprocloop) main_processing_loop();
 				while(BusyUART()) main_processing_loop();
 				WriteUART(' ');
-				if (netisup) while(!PutTelnetConsole(' ')) main_processing_loop();
+				if (netisup) while(!PutTelnetConsole(' ')) if (!inprocloop) main_processing_loop();
 				while(BusyUART()) main_processing_loop();
 				WriteUART(8);
-				if (netisup) while(!PutTelnetConsole(8)) main_processing_loop();
+				if (netisup) while(!PutTelnetConsole(8)) if (!inprocloop) main_processing_loop();
 			}
 			continue;
 		}
@@ -3005,17 +3014,17 @@ int count,x;
 		dest[count++] = c;
 		dest[count] = 0;
 		if (c == '\n') break;
-		while(BusyUART()) main_processing_loop();
+		while(BusyUART()) if (!inprocloop) main_processing_loop();
 		WriteUART(c);
-		if (netisup) while(!PutTelnetConsole(c)) main_processing_loop();
+		if (netisup) while(!PutTelnetConsole(c)) if (!inprocloop) main_processing_loop();
 
 	}
-	while(BusyUART()) main_processing_loop();
+	while(BusyUART()) if (!inprocloop) main_processing_loop();
 	WriteUART('\r');
-	if (netisup) while(!PutTelnetConsole('\r')) main_processing_loop();
-	while(BusyUART()) main_processing_loop();
+	if (netisup) while(!PutTelnetConsole('\r')) if (!inprocloop) main_processing_loop();
+	while(BusyUART()) if (!inprocloop) main_processing_loop();
 	WriteUART('\n');
-	if (netisup) while(!PutTelnetConsole('\n')) main_processing_loop();
+	if (netisup) while(!PutTelnetConsole('\n')) if (!inprocloop) main_processing_loop();
 	inread = 0;
 	return(count);
 }
@@ -3182,7 +3191,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.40  11/12/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.41  11/13/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",

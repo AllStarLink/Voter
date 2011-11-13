@@ -248,12 +248,12 @@ Program Memory  [Origin = 0x3400, Length = 0x12400]
 section                    address   length (PC units)   length (bytes) (dec)
 -------                    -------   -----------------   --------------------
 .text                       0x3400              0x380a          0x540f  (21519)
-.text                       0x6c0a              0x7cfa          0xbb77  (47991)
-.dinit                      0xe904               0x614           0x91e  (2334)
-.text                       0xef18              0x212c          0x31c2  (12738)
+.text                       0x6c0a              0x7d92          0xbc5b  (48219)
+.dinit                      0xe99c               0x614           0x91e  (2334)
+.text                       0xefb0              0x212c          0x31c2  (12738)
 .const                     0x11df0              0x3a10          0x5718  (22296)
 
-                     Total program memory used (bytes):        0x1a17e  (106878) 95%
+                     Total program memory used (bytes):        0x1a262  (107106) 95%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -261,41 +261,41 @@ Data Memory  [Origin = 0x800, Length = 0x4000]
 section                    address      alignment gaps    total length  (dec)
 -------                    -------      --------------    -------------------
 .nbss                        0x800                   0             0x2  (2)
-.bss                         0x802                   0          0x2820  (10272)
-.data                       0x3022                   0           0x500  (1280)
-.dconst                     0x3522                   0           0x118  (280)
-.bss                        0x363a                   0           0x144  (324)
-.data                       0x377e                   0            0xbc  (188)
-.dconst                     0x383a                   0            0x3c  (60)
-.bss                        0x3876                   0            0xa2  (162)
-.dconst                     0x3918                   0            0x54  (84)
-.bss                        0x396c                   0            0x4e  (78)
-.data                       0x39ba                   0            0x1c  (28)
-.bss                        0x39d6                   0            0x6a  (106)
-.data                       0x3a40                   0             0xc  (12)
-.bss                        0x3a4c                   0            0x18  (24)
-.data                       0x3a64                   0             0x8  (8)
-.bss                        0x3a6c                   0             0x4  (4)
-.data                       0x3a70                   0             0x2  (2)
-.pbss                       0x3a72                   0             0x2  (2)
-.data                       0x3a74                   0             0x2  (2)
-.pbss                       0x3a76                   0             0x2  (2)
-.data                       0x3a78                   0             0x2  (2)
-.pbss                       0x3a7a                   0             0x2  (2)
-.bss                        0x3a7c                   0             0xa  (10)
-.heap                       0x3a86                   0           0x400  (1024)
+.bss                         0x802                   0          0x2822  (10274)
+.data                       0x3024                   0           0x500  (1280)
+.dconst                     0x3524                   0           0x118  (280)
+.bss                        0x363c                   0           0x144  (324)
+.data                       0x3780                   0            0xbc  (188)
+.dconst                     0x383c                   0            0x3c  (60)
+.bss                        0x3878                   0            0xa2  (162)
+.dconst                     0x391a                   0            0x54  (84)
+.bss                        0x396e                   0            0x4e  (78)
+.data                       0x39bc                   0            0x1c  (28)
+.bss                        0x39d8                   0            0x6a  (106)
+.data                       0x3a42                   0             0xc  (12)
+.bss                        0x3a4e                   0            0x18  (24)
+.data                       0x3a66                   0             0x8  (8)
+.bss                        0x3a6e                   0             0x4  (4)
+.data                       0x3a72                   0             0x2  (2)
+.pbss                       0x3a74                   0             0x2  (2)
+.data                       0x3a76                   0             0x2  (2)
+.pbss                       0x3a78                   0             0x2  (2)
+.data                       0x3a7a                   0             0x2  (2)
+.pbss                       0x3a7c                   0             0x2  (2)
+.bss                        0x3a7e                   0             0xa  (10)
+.heap                       0x3a88                   0           0x400  (1024)
 
-                        Total data memory used (bytes):         0x3686  (13958) 85%
+                        Total data memory used (bytes):         0x3688  (13960) 85%
 
 
 Dynamic Memory Usage
 
 region                     address                      maximum length  (dec)
 ------                     -------                      ---------------------
-heap                        0x3a86                               0x400  (1024)
-stack                       0x3e86                               0x97a  (2426)
+heap                        0x3a88                               0x400  (1024)
+stack                       0x3e88                               0x978  (2424)
 
-                        Maximum dynamic memory (bytes):          0xd7a  (3450)
+                        Maximum dynamic memory (bytes):          0xd78  (3448)
 
 
 External Symbols in Data Memory (by address):
@@ -305,268 +305,270 @@ External Symbols in Data Memory (by address):
                     0x084e                  _myDHCPBindCount
                     0x084f                  _challenge
                     0x0859                  _their_challenge
-                    0x0864                  _netisup
-                    0x0866                  _apeaks
-                    0x08ca                  _diag_option_flags
-                    0x08cc                  _measstr
-                    0x08ce                  _measidx
-                    0x08d0                  _measp
-                    0x08d2                  _errcnt
-                    0x08d3                  _measretstate
-                    0x08d4                  _diagstate
-                    0x08d5                  _leddiag
-                    0x08d6                  _indiag
-                    0x08d8                  _testp
-                    0x08da                  _testidx
-                    0x08dc                  _elketimer
-                    0x08e0                  _txseqno
-                    0x08e4                  _txseqno_ptt
-                    0x08e8                  _host_txseqno
-                    0x08ec                  _time_filled
-                    0x08ee                  _dec_index
-                    0x08f0                  _dec_valprev
-                    0x08f2                  _dec_buffer
-                    0x0a32                  _enc_lastdelta
-                    0x0a33                  _enc_prev_index
-                    0x0a34                  _enc_prev_valprev
-                    0x0a36                  _enc_index
-                    0x0a38                  _enc_valprev
-                    0x0a3a                  _indipsw
-                    0x0a3c                  _indisplay
-                    0x0a3e                  _apeak
-                    0x0a40                  _amin
-                    0x0a42                  _amax
-                    0x0a44                  _discounteru
-                    0x0a48                  _discounterl
-                    0x0a4c                  _discfactor
-                    0x0a50                  _dnsnotify
-                    0x0a52                  _sendgps
-                    0x0a54                  _mydigest
-                    0x0a58                  _resp_digest
-                    0x0a5c                  _digest
-                    0x0a60                  _last_samplecnt
-                    0x0a62                  _real_time
-                    0x0a66                  _last_adcsample
-                    0x0a68                  _samplecnt
-                    0x0a6a                  _next_index
-                    0x0a6e                  _next_time
-                    0x0a72                  _timing_index
-                    0x0a74                  _timing_time
-                    0x0a78                  _dnsdone
-                    0x0a7a                  _dnstimer
-                    0x0a7c                  _CurVoterAddr
-                    0x0a80                  _LastVoterAddr
-                    0x0a84                  _MyVoterAddr
-                    0x0a88                  _inread
-                    0x0a8a                  _aborted
-                    0x0a8c                  _dwLastIP
-                    0x0a90                  _udpServerNode
-                    0x0a9a                  _udpSocketUser
-                    0x0a9c                  _ppswarn
-                    0x0a9e                  _gpswarn
-                    0x0aa0                  _attempttimer
-                    0x0aa2                  _gpsforcetimer
-                    0x0aa4                  _ppstimer
-                    0x0aa6                  _gpstimer
-                    0x0aaa                  _ptt
-                    0x0aac                  _lastrxtime
-                    0x0ab4                  _txaudio
-                    0x23b4                  _last_drainindex
-                    0x23b6                  _txdrainindex
-                    0x23b8                  _option_flags
-                    0x23ba                  _lastcor
-                    0x23bc                  _wascor
-                    0x23be                  _vnoise256
-                    0x23c2                  _vnoise32
-                    0x23c4                  _sqlcount
-                    0x23c5                  _adcindex
-                    0x23c6                  _adcothers
-                    0x23cc                  _adcother
-                    0x23ce                  _lockcnt
-                    0x23d0                  _last_interval
-                    0x23d4                  _ppscount
-                    0x23d6                  _gps_time
-                    0x23da                  _gotpps
-                    0x23dc                  _gpssync
-                    0x23de                  _gps_nsat
-                    0x23df                  _gps_state
-                    0x23e0                  _TSIPwasdle
-                    0x23e1                  _gps_bufindex
-                    0x23e2                  _gps_buf
-                    0x2482                  _rssi
-                    0x2484                  _connected
-                    0x2486                  _audio_buf
-                    0x25cc                  _filled
-                    0x25ce                  _fillindex
-                    0x25d0                  _filling_buffer
-                    0x25d2                  _aliveCntrDec
-                    0x25d4                  _aliveCntrMain
-                    0x25d5                  _inputs2
-                    0x25d6                  _inputs1
-                    0x25d7                  _AN0String
-                    0x25e0                  _AppConfig
-                    0x2720                  _system_time
-                    0x2728                  _dummy_loc
-                    0x2c20                  __sobuf
-                    0x2e20                  __sibuf
-                    0x3020                  __atexitptr
-                    0x33c2                  __npowers_
-                    0x3472                  __powers_
-                    0x36e6                  _UDPRxCount
-                    0x36e8                  _UDPTxCount
-                    0x36ea                  _activeUDPSocket
-                    0x36ec                  _UDPSocketInfo
-                    0x377e                  __Files
-                    0x3780                  __iob
-                    0x3894                  _DDNSClient
-                    0x38b0                  _caldiode
-                    0x38b2                  _noise_gain
-                    0x38b4                  _write_eeprom_cali
-                    0x38b6                  _sqled
-                    0x38b8                  _cor
-                    0x3916                  _time_zone
-                    0x3a34                  _remoteNode
-                    0x3a40                  _moninit
-                    0x3a60                  _TelnetState
-                    0x3a70                  _DHCPClientInitializedOnce
-                    0x3a7c                  __outdone
-                    0x3a82                  __tfilesptr
-                    0x3a84                  ___curbrk
+                    0x0864                  _inprocloop
+                    0x0866                  _netisup
+                    0x0868                  _apeaks
+                    0x08cc                  _diag_option_flags
+                    0x08ce                  _measstr
+                    0x08d0                  _measidx
+                    0x08d2                  _measp
+                    0x08d4                  _errcnt
+                    0x08d5                  _measretstate
+                    0x08d6                  _diagstate
+                    0x08d7                  _leddiag
+                    0x08d8                  _indiag
+                    0x08da                  _testp
+                    0x08dc                  _testidx
+                    0x08de                  _elketimer
+                    0x08e2                  _txseqno
+                    0x08e6                  _txseqno_ptt
+                    0x08ea                  _host_txseqno
+                    0x08ee                  _time_filled
+                    0x08f0                  _dec_index
+                    0x08f2                  _dec_valprev
+                    0x08f4                  _dec_buffer
+                    0x0a34                  _enc_lastdelta
+                    0x0a35                  _enc_prev_index
+                    0x0a36                  _enc_prev_valprev
+                    0x0a38                  _enc_index
+                    0x0a3a                  _enc_valprev
+                    0x0a3c                  _indipsw
+                    0x0a3e                  _indisplay
+                    0x0a40                  _apeak
+                    0x0a42                  _amin
+                    0x0a44                  _amax
+                    0x0a46                  _discounteru
+                    0x0a4a                  _discounterl
+                    0x0a4e                  _discfactor
+                    0x0a52                  _dnsnotify
+                    0x0a54                  _sendgps
+                    0x0a56                  _mydigest
+                    0x0a5a                  _resp_digest
+                    0x0a5e                  _digest
+                    0x0a62                  _last_samplecnt
+                    0x0a64                  _real_time
+                    0x0a68                  _last_adcsample
+                    0x0a6a                  _samplecnt
+                    0x0a6c                  _next_index
+                    0x0a70                  _next_time
+                    0x0a74                  _timing_index
+                    0x0a76                  _timing_time
+                    0x0a7a                  _dnsdone
+                    0x0a7c                  _dnstimer
+                    0x0a7e                  _CurVoterAddr
+                    0x0a82                  _LastVoterAddr
+                    0x0a86                  _MyVoterAddr
+                    0x0a8a                  _inread
+                    0x0a8c                  _aborted
+                    0x0a8e                  _dwLastIP
+                    0x0a92                  _udpServerNode
+                    0x0a9c                  _udpSocketUser
+                    0x0a9e                  _ppswarn
+                    0x0aa0                  _gpswarn
+                    0x0aa2                  _attempttimer
+                    0x0aa4                  _gpsforcetimer
+                    0x0aa6                  _ppstimer
+                    0x0aa8                  _gpstimer
+                    0x0aac                  _ptt
+                    0x0aae                  _lastrxtime
+                    0x0ab6                  _txaudio
+                    0x23b6                  _last_drainindex
+                    0x23b8                  _txdrainindex
+                    0x23ba                  _option_flags
+                    0x23bc                  _lastcor
+                    0x23be                  _wascor
+                    0x23c0                  _vnoise256
+                    0x23c4                  _vnoise32
+                    0x23c6                  _sqlcount
+                    0x23c7                  _adcindex
+                    0x23c8                  _adcothers
+                    0x23ce                  _adcother
+                    0x23d0                  _lockcnt
+                    0x23d2                  _last_interval
+                    0x23d6                  _ppscount
+                    0x23d8                  _gps_time
+                    0x23dc                  _gotpps
+                    0x23de                  _gpssync
+                    0x23e0                  _gps_nsat
+                    0x23e1                  _gps_state
+                    0x23e2                  _TSIPwasdle
+                    0x23e3                  _gps_bufindex
+                    0x23e4                  _gps_buf
+                    0x2484                  _rssi
+                    0x2486                  _connected
+                    0x2488                  _audio_buf
+                    0x25ce                  _filled
+                    0x25d0                  _fillindex
+                    0x25d2                  _filling_buffer
+                    0x25d4                  _aliveCntrDec
+                    0x25d6                  _aliveCntrMain
+                    0x25d7                  _inputs2
+                    0x25d8                  _inputs1
+                    0x25d9                  _AN0String
+                    0x25e2                  _AppConfig
+                    0x2722                  _system_time
+                    0x272a                  _dummy_loc
+                    0x2c22                  __sobuf
+                    0x2e22                  __sibuf
+                    0x3022                  __atexitptr
+                    0x33c4                  __npowers_
+                    0x3474                  __powers_
+                    0x36e8                  _UDPRxCount
+                    0x36ea                  _UDPTxCount
+                    0x36ec                  _activeUDPSocket
+                    0x36ee                  _UDPSocketInfo
+                    0x3780                  __Files
+                    0x3782                  __iob
+                    0x3896                  _DDNSClient
+                    0x38b2                  _caldiode
+                    0x38b4                  _noise_gain
+                    0x38b6                  _write_eeprom_cali
+                    0x38b8                  _sqled
+                    0x38ba                  _cor
+                    0x3918                  _time_zone
+                    0x3a36                  _remoteNode
+                    0x3a42                  _moninit
+                    0x3a62                  _TelnetState
+                    0x3a72                  _DHCPClientInitializedOnce
+                    0x3a7e                  __outdone
+                    0x3a84                  __tfilesptr
+                    0x3a86                  ___curbrk
 
 External Symbols in Data Memory (by name):
 
-                    0x25d7                  _AN0String
-                    0x25e0                  _AppConfig
-                    0x0a7c                  _CurVoterAddr
-                    0x3894                  _DDNSClient
-                    0x3a70                  _DHCPClientInitializedOnce
+                    0x25d9                  _AN0String
+                    0x25e2                  _AppConfig
+                    0x0a7e                  _CurVoterAddr
+                    0x3896                  _DDNSClient
+                    0x3a72                  _DHCPClientInitializedOnce
                     0x084d                  _IOExpOutA
                     0x084c                  _IOExpOutB
-                    0x0a80                  _LastVoterAddr
-                    0x0a84                  _MyVoterAddr
-                    0x23e0                  _TSIPwasdle
-                    0x3a60                  _TelnetState
-                    0x36e6                  _UDPRxCount
-                    0x36ec                  _UDPSocketInfo
-                    0x36e8                  _UDPTxCount
-                    0x377e                  __Files
-                    0x3a84                  ___curbrk
-                    0x3020                  __atexitptr
-                    0x3780                  __iob
-                    0x33c2                  __npowers_
-                    0x3a7c                  __outdone
-                    0x3472                  __powers_
-                    0x2e20                  __sibuf
-                    0x2c20                  __sobuf
-                    0x3a82                  __tfilesptr
-                    0x0a8a                  _aborted
-                    0x36ea                  _activeUDPSocket
-                    0x23c5                  _adcindex
-                    0x23cc                  _adcother
-                    0x23c6                  _adcothers
-                    0x25d2                  _aliveCntrDec
-                    0x25d4                  _aliveCntrMain
-                    0x0a42                  _amax
-                    0x0a40                  _amin
-                    0x0a3e                  _apeak
-                    0x0866                  _apeaks
-                    0x0aa0                  _attempttimer
-                    0x2486                  _audio_buf
-                    0x38b0                  _caldiode
+                    0x0a82                  _LastVoterAddr
+                    0x0a86                  _MyVoterAddr
+                    0x23e2                  _TSIPwasdle
+                    0x3a62                  _TelnetState
+                    0x36e8                  _UDPRxCount
+                    0x36ee                  _UDPSocketInfo
+                    0x36ea                  _UDPTxCount
+                    0x3780                  __Files
+                    0x3a86                  ___curbrk
+                    0x3022                  __atexitptr
+                    0x3782                  __iob
+                    0x33c4                  __npowers_
+                    0x3a7e                  __outdone
+                    0x3474                  __powers_
+                    0x2e22                  __sibuf
+                    0x2c22                  __sobuf
+                    0x3a84                  __tfilesptr
+                    0x0a8c                  _aborted
+                    0x36ec                  _activeUDPSocket
+                    0x23c7                  _adcindex
+                    0x23ce                  _adcother
+                    0x23c8                  _adcothers
+                    0x25d4                  _aliveCntrDec
+                    0x25d6                  _aliveCntrMain
+                    0x0a44                  _amax
+                    0x0a42                  _amin
+                    0x0a40                  _apeak
+                    0x0868                  _apeaks
+                    0x0aa2                  _attempttimer
+                    0x2488                  _audio_buf
+                    0x38b2                  _caldiode
                     0x084f                  _challenge
-                    0x2484                  _connected
-                    0x38b8                  _cor
-                    0x08f2                  _dec_buffer
-                    0x08ee                  _dec_index
-                    0x08f0                  _dec_valprev
-                    0x08ca                  _diag_option_flags
-                    0x08d4                  _diagstate
-                    0x0a5c                  _digest
-                    0x0a4c                  _discfactor
-                    0x0a48                  _discounterl
-                    0x0a44                  _discounteru
-                    0x0a78                  _dnsdone
-                    0x0a50                  _dnsnotify
-                    0x0a7a                  _dnstimer
-                    0x2728                  _dummy_loc
-                    0x0a8c                  _dwLastIP
-                    0x08dc                  _elketimer
-                    0x0a36                  _enc_index
-                    0x0a32                  _enc_lastdelta
-                    0x0a33                  _enc_prev_index
-                    0x0a34                  _enc_prev_valprev
-                    0x0a38                  _enc_valprev
-                    0x08d2                  _errcnt
-                    0x25cc                  _filled
-                    0x25ce                  _fillindex
-                    0x25d0                  _filling_buffer
-                    0x23da                  _gotpps
-                    0x23e2                  _gps_buf
-                    0x23e1                  _gps_bufindex
-                    0x23de                  _gps_nsat
-                    0x23df                  _gps_state
-                    0x23d6                  _gps_time
-                    0x0aa2                  _gpsforcetimer
-                    0x23dc                  _gpssync
-                    0x0aa6                  _gpstimer
-                    0x0a9e                  _gpswarn
-                    0x08e8                  _host_txseqno
-                    0x08d6                  _indiag
-                    0x0a3a                  _indipsw
-                    0x0a3c                  _indisplay
-                    0x25d6                  _inputs1
-                    0x25d5                  _inputs2
-                    0x0a88                  _inread
-                    0x0a66                  _last_adcsample
-                    0x23b4                  _last_drainindex
-                    0x23d0                  _last_interval
-                    0x0a60                  _last_samplecnt
-                    0x23ba                  _lastcor
-                    0x0aac                  _lastrxtime
-                    0x08d5                  _leddiag
-                    0x23ce                  _lockcnt
-                    0x08ce                  _measidx
-                    0x08d0                  _measp
-                    0x08d3                  _measretstate
-                    0x08cc                  _measstr
-                    0x3a40                  _moninit
+                    0x2486                  _connected
+                    0x38ba                  _cor
+                    0x08f4                  _dec_buffer
+                    0x08f0                  _dec_index
+                    0x08f2                  _dec_valprev
+                    0x08cc                  _diag_option_flags
+                    0x08d6                  _diagstate
+                    0x0a5e                  _digest
+                    0x0a4e                  _discfactor
+                    0x0a4a                  _discounterl
+                    0x0a46                  _discounteru
+                    0x0a7a                  _dnsdone
+                    0x0a52                  _dnsnotify
+                    0x0a7c                  _dnstimer
+                    0x272a                  _dummy_loc
+                    0x0a8e                  _dwLastIP
+                    0x08de                  _elketimer
+                    0x0a38                  _enc_index
+                    0x0a34                  _enc_lastdelta
+                    0x0a35                  _enc_prev_index
+                    0x0a36                  _enc_prev_valprev
+                    0x0a3a                  _enc_valprev
+                    0x08d4                  _errcnt
+                    0x25ce                  _filled
+                    0x25d0                  _fillindex
+                    0x25d2                  _filling_buffer
+                    0x23dc                  _gotpps
+                    0x23e4                  _gps_buf
+                    0x23e3                  _gps_bufindex
+                    0x23e0                  _gps_nsat
+                    0x23e1                  _gps_state
+                    0x23d8                  _gps_time
+                    0x0aa4                  _gpsforcetimer
+                    0x23de                  _gpssync
+                    0x0aa8                  _gpstimer
+                    0x0aa0                  _gpswarn
+                    0x08ea                  _host_txseqno
+                    0x08d8                  _indiag
+                    0x0a3c                  _indipsw
+                    0x0a3e                  _indisplay
+                    0x0864                  _inprocloop
+                    0x25d8                  _inputs1
+                    0x25d7                  _inputs2
+                    0x0a8a                  _inread
+                    0x0a68                  _last_adcsample
+                    0x23b6                  _last_drainindex
+                    0x23d2                  _last_interval
+                    0x0a62                  _last_samplecnt
+                    0x23bc                  _lastcor
+                    0x0aae                  _lastrxtime
+                    0x08d7                  _leddiag
+                    0x23d0                  _lockcnt
+                    0x08d0                  _measidx
+                    0x08d2                  _measp
+                    0x08d5                  _measretstate
+                    0x08ce                  _measstr
+                    0x3a42                  _moninit
                     0x084e                  _myDHCPBindCount
-                    0x0a54                  _mydigest
-                    0x0864                  _netisup
-                    0x0a6a                  _next_index
-                    0x0a6e                  _next_time
-                    0x38b2                  _noise_gain
-                    0x23b8                  _option_flags
-                    0x23d4                  _ppscount
-                    0x0aa4                  _ppstimer
-                    0x0a9c                  _ppswarn
-                    0x0aaa                  _ptt
-                    0x0a62                  _real_time
-                    0x3a34                  _remoteNode
-                    0x0a58                  _resp_digest
-                    0x2482                  _rssi
-                    0x0a68                  _samplecnt
-                    0x0a52                  _sendgps
-                    0x23c4                  _sqlcount
-                    0x38b6                  _sqled
-                    0x2720                  _system_time
-                    0x08da                  _testidx
-                    0x08d8                  _testp
+                    0x0a56                  _mydigest
+                    0x0866                  _netisup
+                    0x0a6c                  _next_index
+                    0x0a70                  _next_time
+                    0x38b4                  _noise_gain
+                    0x23ba                  _option_flags
+                    0x23d6                  _ppscount
+                    0x0aa6                  _ppstimer
+                    0x0a9e                  _ppswarn
+                    0x0aac                  _ptt
+                    0x0a64                  _real_time
+                    0x3a36                  _remoteNode
+                    0x0a5a                  _resp_digest
+                    0x2484                  _rssi
+                    0x0a6a                  _samplecnt
+                    0x0a54                  _sendgps
+                    0x23c6                  _sqlcount
+                    0x38b8                  _sqled
+                    0x2722                  _system_time
+                    0x08dc                  _testidx
+                    0x08da                  _testp
                     0x0859                  _their_challenge
-                    0x08ec                  _time_filled
-                    0x3916                  _time_zone
-                    0x0a72                  _timing_index
-                    0x0a74                  _timing_time
-                    0x0ab4                  _txaudio
-                    0x23b6                  _txdrainindex
-                    0x08e0                  _txseqno
-                    0x08e4                  _txseqno_ptt
-                    0x0a90                  _udpServerNode
-                    0x0a9a                  _udpSocketUser
-                    0x23be                  _vnoise256
-                    0x23c2                  _vnoise32
-                    0x23bc                  _wascor
-                    0x38b4                  _write_eeprom_cali
+                    0x08ee                  _time_filled
+                    0x3918                  _time_zone
+                    0x0a74                  _timing_index
+                    0x0a76                  _timing_time
+                    0x0ab6                  _txaudio
+                    0x23b8                  _txdrainindex
+                    0x08e2                  _txseqno
+                    0x08e6                  _txseqno_ptt
+                    0x0a92                  _udpServerNode
+                    0x0a9c                  _udpSocketUser
+                    0x23c0                  _vnoise256
+                    0x23c4                  _vnoise32
+                    0x23be                  _wascor
+                    0x38b6                  _write_eeprom_cali
 
 External Symbols in Program Memory (by address):
 
@@ -705,172 +707,172 @@ External Symbols in Program Memory (by address):
                   0x00867e                  _IOExp_Read
                   0x0086f0                  _main
                   0x009514                  _main_processing_loop
-                  0x00a268                  _read
-                  0x00a44e                  _write
-                  0x00a514                  _TCPWasReset
-                  0x00a526                  _TCPIsConnected
-                  0x00a538                  _TCPIsPutReady
-                  0x00a566                  _TCPGetTxFIFOFull
-                  0x00a580                  _TCPIsGetReady
-                  0x00a59c                  _TCPGetRxFIFOFree
-                  0x00a754                  _TCPGetRemoteInfo
-                  0x00a768                  _TCPInit
-                  0x00aac0                  _TCPAdjustFIFOSize
-                  0x00aba0                  _TCPDiscard
-                  0x00abbc                  _TCPFlush
-                  0x00abd2                  _TCPDisconnect
-                  0x00ac48                  _TCPClose
-                  0x00ac5a                  _TCPOpen
-                  0x00ad56                  _TCPProcess
-                  0x00b4c8                  _TCPTick
-                  0x00b7fc                  _TCPFindArrayEx
-                  0x00bd98                  _TCPFindEx
-                  0x00bdac                  _TCPPeekArray
-                  0x00be16                  _TCPPeek
-                  0x00be28                  _TCPGetArray
-                  0x00beac                  _TCPGet
-                  0x00bf0c                  _TCPPutArray
-                  0x00bfb0                  _TCPPutString
-                  0x00bfc8                  _TCPPut
-                  0x00c04c                  _MACGet
-                  0x00c07c                  _MACGetArray
-                  0x00c126                  _MACPut
-                  0x00c160                  _MACPutArray
-                  0x00c2a2                  _MACSetReadPtrInRx
-                  0x00c2c4                  _MACPutHeader
-                  0x00c352                  _MACDiscardRx
-                  0x00c3d6                  _SetCLKOUT
-                  0x00c3ec                  _WritePHYReg
-                  0x00c424                  _ReadPHYReg
-                  0x00c482                  _MACIsLinked
-                  0x00c494                  _MACBurp
-                  0x00c4d6                  _GetCLKOUT
-                  0x00c4f2                  _MACPowerUp
-                  0x00c510                  _MACPowerDown
-                  0x00c53a                  _MACIsMemCopyDone
-                  0x00c550                  _MACMemCopyAsync
-                  0x00c748                  _CalcIPBufferChecksum
-                  0x00c87c                  _MACCalcRxChecksum
-                  0x00c8d8                  _MACSetReadPtr
-                  0x00c912                  _MACSetWritePtr
-                  0x00c94c                  _MACFlush
-                  0x00cace                  _MACGetHeader
-                  0x00cb6c                  _MACGetFreeRxSize
-                  0x00cbf2                  _MACIsTxReady
-                  0x00cc08                  _MACInit
-                  0x00cd50                  _DDNSInit
-                  0x00cd86                  _DDNSTask
-                  0x00d7ac                  _DDNSForceUpdate
-                  0x00d7bc                  _DDNSSetService
-                  0x00d7d0                  _DDNSGetLastIP
-                  0x00d7d8                  _DDNSGetLastStatus
-                  0x00d7dc                  _LFSRRand
-                  0x00d9d2                  _LFSRSeedRand
-                  0x00da0c                  _GenerateRandomDWORD
-                  0x00dab8                  _StringToIPAddress
-                  0x00db66                  _Base64Encode
-                  0x00dd08                  _uitoa
-                  0x00ddaa                  _hexatob
-                  0x00de10                  _btohexa_high
-                  0x00de24                  _btohexa_low
-                  0x00de36                  _stricmppgm2ram
-                  0x00de84                  _swaps
-                  0x00de96                  _swapl
-                  0x00dec4                  _CalcIPChecksum
-                  0x00df86                  _strupr
-                  0x00dfa6                  _FormatNetBIOSName
-                  0x00e0d0                  _strnchr
-                  0x00e216                  _DHCPInit
-                  0x00e242                  _DHCPDisable
-                  0x00e258                  _DHCPEnable
-                  0x00e268                  _DHCPIsEnabled
-                  0x00e272                  _DHCPIsBound
-                  0x00e278                  _DHCPStateChanged
-                  0x00e288                  _DHCPIsServerDetected
-                  0x00e68a                  _DHCPTask
-                  0x00ef18                  _UDPClose
-                  0x00ef30                  _UDPInit
-                  0x00ef5e                  _UDPTask
-                  0x00ef64                  _UDPOpen
-                  0x00f02e                  _UDPSetTxBuffer
-                  0x00f03e                  _UDPSetRxBuffer
-                  0x00f04c                  _UDPIsPutReady
-                  0x00f072                  _UDPPut
-                  0x00f098                  _UDPPutArray
-                  0x00f0c2                  _UDPPutString
-                  0x00f0d6                  _UDPFlush
-                  0x00f180                  _UDPIsGetReady
-                  0x00f1a6                  _UDPGet
-                  0x00f1d0                  _UDPGetArray
-                  0x00f1fe                  _UDPDiscard
-                  0x00f218                  _UDPProcess
-                  0x00f428                  _DNSBeginUsage
-                  0x00f43c                  _DNSEndUsage
-                  0x00f45e                  _DNSResolve
-                  0x00f51a                  _DNSIsResolved
-                  0x00f92e                  __U1RXInterrupt
-                  0x00f9a2                  __U1TXInterrupt
-                  0x00f9d0                  __U2RXInterrupt
-                  0x00fa2e                  __U2TXInterrupt
-                  0x00fa5a                  _InitUARTS
-                  0x00fa9e                  _DataRdyUART
-                  0x00fab4                  _ReadUART
-                  0x00fac8                  _ReadStringUART
-                  0x00fafa                  _WriteUART
-                  0x00fb2a                  _putsUART
-                  0x00fb40                  _putrsUART
-                  0x00fb56                  _getsUART
-                  0x00fc26                  _BusyUART
-                  0x00fc40                  _WriteUART2
-                  0x00fc6e                  _putsUART2
-                  0x00fc84                  _putrsUART2
-                  0x00fc9a                  _DataRdyUART2
-                  0x00fcb0                  _ReadUART2
-                  0x00fcc4                  _getsUART2
-                  0x00fd94                  _BusyUART2
-                  0x00fdae                  _set_atten
-                  0x00fdf8                  _init_squelch
-                  0x00fe2a                  _service_squelch
-                  0x0100fa                  _XEEInit
-                  0x010112                  _XEEBeginRead
-                  0x01011c                  _XEEEndRead
-                  0x01011e                  _XEEBeginWrite
-                  0x010128                  _XEEReadArray
-                  0x0101c4                  _XEERead
-                  0x0101fc                  _XEEIsBusy
-                  0x010328                  _XEEEndWrite
-                  0x010332                  _XEEWrite
-                  0x010352                  _XEEWriteArray
-                  0x0103e6                  _ARPInit
-                  0x010412                  _ARPIsResolved
-                  0x0104b0                  _SwapARPPacket
-                  0x01052c                  _ARPResolve
-                  0x0105ba                  _ARPProcess
-                  0x01067a                  _TelnetTask
-                  0x010830                  _GetTelnetConsole
-                  0x01085c                  _PutTelnetConsole
-                  0x01089e                  _CloseTelnetConsole
-                  0x0108b8                  _ICMPProcess
-                  0x01095c                  _ICMPSendPing
-                  0x010976                  _ICMPSendPingToHost
-                  0x010990                  _ICMPGetReply
-                  0x010a82                  _ICMPBeginUsage
-                  0x010a96                  _ICMPEndUsage
-                  0x010a9c                  _Delay10us
-                  0x010ac8                  _DelayMs
-                  0x010c74                  _StackInit
-                  0x010c9e                  _StackTask
-                  0x010dea                  _StackApplications
-                  0x010dee                  _IPSetRxBuffer
-                  0x010e10                  _IPPutHeader
-                  0x010e98                  _IPGetHeader
-                  0x010f18                  _TickInit
-                  0x010f80                  _TickGet
-                  0x010f88                  _TickGetDiv256
-                  0x010fac                  _TickGetDiv64K
-                  0x010fd0                  _TickConvertToMilliseconds
-                  0x010fe2                  __T1Interrupt
-                  0x010ff6                  _doubleify
+                  0x00a270                  _read
+                  0x00a4b0                  _write
+                  0x00a5ac                  _TCPWasReset
+                  0x00a5be                  _TCPIsConnected
+                  0x00a5d0                  _TCPIsPutReady
+                  0x00a5fe                  _TCPGetTxFIFOFull
+                  0x00a618                  _TCPIsGetReady
+                  0x00a634                  _TCPGetRxFIFOFree
+                  0x00a7ec                  _TCPGetRemoteInfo
+                  0x00a800                  _TCPInit
+                  0x00ab58                  _TCPAdjustFIFOSize
+                  0x00ac38                  _TCPDiscard
+                  0x00ac54                  _TCPFlush
+                  0x00ac6a                  _TCPDisconnect
+                  0x00ace0                  _TCPClose
+                  0x00acf2                  _TCPOpen
+                  0x00adee                  _TCPProcess
+                  0x00b560                  _TCPTick
+                  0x00b894                  _TCPFindArrayEx
+                  0x00be30                  _TCPFindEx
+                  0x00be44                  _TCPPeekArray
+                  0x00beae                  _TCPPeek
+                  0x00bec0                  _TCPGetArray
+                  0x00bf44                  _TCPGet
+                  0x00bfa4                  _TCPPutArray
+                  0x00c048                  _TCPPutString
+                  0x00c060                  _TCPPut
+                  0x00c0e4                  _MACGet
+                  0x00c114                  _MACGetArray
+                  0x00c1be                  _MACPut
+                  0x00c1f8                  _MACPutArray
+                  0x00c33a                  _MACSetReadPtrInRx
+                  0x00c35c                  _MACPutHeader
+                  0x00c3ea                  _MACDiscardRx
+                  0x00c46e                  _SetCLKOUT
+                  0x00c484                  _WritePHYReg
+                  0x00c4bc                  _ReadPHYReg
+                  0x00c51a                  _MACIsLinked
+                  0x00c52c                  _MACBurp
+                  0x00c56e                  _GetCLKOUT
+                  0x00c58a                  _MACPowerUp
+                  0x00c5a8                  _MACPowerDown
+                  0x00c5d2                  _MACIsMemCopyDone
+                  0x00c5e8                  _MACMemCopyAsync
+                  0x00c7e0                  _CalcIPBufferChecksum
+                  0x00c914                  _MACCalcRxChecksum
+                  0x00c970                  _MACSetReadPtr
+                  0x00c9aa                  _MACSetWritePtr
+                  0x00c9e4                  _MACFlush
+                  0x00cb66                  _MACGetHeader
+                  0x00cc04                  _MACGetFreeRxSize
+                  0x00cc8a                  _MACIsTxReady
+                  0x00cca0                  _MACInit
+                  0x00cde8                  _DDNSInit
+                  0x00ce1e                  _DDNSTask
+                  0x00d844                  _DDNSForceUpdate
+                  0x00d854                  _DDNSSetService
+                  0x00d868                  _DDNSGetLastIP
+                  0x00d870                  _DDNSGetLastStatus
+                  0x00d874                  _LFSRRand
+                  0x00da6a                  _LFSRSeedRand
+                  0x00daa4                  _GenerateRandomDWORD
+                  0x00db50                  _StringToIPAddress
+                  0x00dbfe                  _Base64Encode
+                  0x00dda0                  _uitoa
+                  0x00de42                  _hexatob
+                  0x00dea8                  _btohexa_high
+                  0x00debc                  _btohexa_low
+                  0x00dece                  _stricmppgm2ram
+                  0x00df1c                  _swaps
+                  0x00df2e                  _swapl
+                  0x00df5c                  _CalcIPChecksum
+                  0x00e01e                  _strupr
+                  0x00e03e                  _FormatNetBIOSName
+                  0x00e168                  _strnchr
+                  0x00e2ae                  _DHCPInit
+                  0x00e2da                  _DHCPDisable
+                  0x00e2f0                  _DHCPEnable
+                  0x00e300                  _DHCPIsEnabled
+                  0x00e30a                  _DHCPIsBound
+                  0x00e310                  _DHCPStateChanged
+                  0x00e320                  _DHCPIsServerDetected
+                  0x00e722                  _DHCPTask
+                  0x00efb0                  _UDPClose
+                  0x00efc8                  _UDPInit
+                  0x00eff6                  _UDPTask
+                  0x00effc                  _UDPOpen
+                  0x00f0c6                  _UDPSetTxBuffer
+                  0x00f0d6                  _UDPSetRxBuffer
+                  0x00f0e4                  _UDPIsPutReady
+                  0x00f10a                  _UDPPut
+                  0x00f130                  _UDPPutArray
+                  0x00f15a                  _UDPPutString
+                  0x00f16e                  _UDPFlush
+                  0x00f218                  _UDPIsGetReady
+                  0x00f23e                  _UDPGet
+                  0x00f268                  _UDPGetArray
+                  0x00f296                  _UDPDiscard
+                  0x00f2b0                  _UDPProcess
+                  0x00f4c0                  _DNSBeginUsage
+                  0x00f4d4                  _DNSEndUsage
+                  0x00f4f6                  _DNSResolve
+                  0x00f5b2                  _DNSIsResolved
+                  0x00f9c6                  __U1RXInterrupt
+                  0x00fa3a                  __U1TXInterrupt
+                  0x00fa68                  __U2RXInterrupt
+                  0x00fac6                  __U2TXInterrupt
+                  0x00faf2                  _InitUARTS
+                  0x00fb36                  _DataRdyUART
+                  0x00fb4c                  _ReadUART
+                  0x00fb60                  _ReadStringUART
+                  0x00fb92                  _WriteUART
+                  0x00fbc2                  _putsUART
+                  0x00fbd8                  _putrsUART
+                  0x00fbee                  _getsUART
+                  0x00fcbe                  _BusyUART
+                  0x00fcd8                  _WriteUART2
+                  0x00fd06                  _putsUART2
+                  0x00fd1c                  _putrsUART2
+                  0x00fd32                  _DataRdyUART2
+                  0x00fd48                  _ReadUART2
+                  0x00fd5c                  _getsUART2
+                  0x00fe2c                  _BusyUART2
+                  0x00fe46                  _set_atten
+                  0x00fe90                  _init_squelch
+                  0x00fec2                  _service_squelch
+                  0x010192                  _XEEInit
+                  0x0101aa                  _XEEBeginRead
+                  0x0101b4                  _XEEEndRead
+                  0x0101b6                  _XEEBeginWrite
+                  0x0101c0                  _XEEReadArray
+                  0x01025c                  _XEERead
+                  0x010294                  _XEEIsBusy
+                  0x0103c0                  _XEEEndWrite
+                  0x0103ca                  _XEEWrite
+                  0x0103ea                  _XEEWriteArray
+                  0x01047e                  _ARPInit
+                  0x0104aa                  _ARPIsResolved
+                  0x010548                  _SwapARPPacket
+                  0x0105c4                  _ARPResolve
+                  0x010652                  _ARPProcess
+                  0x010712                  _TelnetTask
+                  0x0108c8                  _GetTelnetConsole
+                  0x0108f4                  _PutTelnetConsole
+                  0x010936                  _CloseTelnetConsole
+                  0x010950                  _ICMPProcess
+                  0x0109f4                  _ICMPSendPing
+                  0x010a0e                  _ICMPSendPingToHost
+                  0x010a28                  _ICMPGetReply
+                  0x010b1a                  _ICMPBeginUsage
+                  0x010b2e                  _ICMPEndUsage
+                  0x010b34                  _Delay10us
+                  0x010b60                  _DelayMs
+                  0x010d0c                  _StackInit
+                  0x010d36                  _StackTask
+                  0x010e82                  _StackApplications
+                  0x010e86                  _IPSetRxBuffer
+                  0x010ea8                  _IPPutHeader
+                  0x010f30                  _IPGetHeader
+                  0x010fb0                  _TickInit
+                  0x011018                  _TickGet
+                  0x011020                  _TickGetDiv256
+                  0x011044                  _TickGetDiv64K
+                  0x011068                  _TickConvertToMilliseconds
+                  0x01107a                  __T1Interrupt
+                  0x01108e                  _doubleify
                   0x011df0                  _ulawtabletx
                   0x011ff0                  _ulawtable
                   0x012ff0                  _gpsmsg9
@@ -887,158 +889,158 @@ External Symbols in Program Memory (by address):
 
 External Symbols in Program Memory (by name):
 
-                  0x0103e6                  _ARPInit
-                  0x010412                  _ARPIsResolved
-                  0x0105ba                  _ARPProcess
-                  0x01052c                  _ARPResolve
-                  0x00db66                  _Base64Encode
-                  0x00fc26                  _BusyUART
-                  0x00fd94                  _BusyUART2
-                  0x00c748                  _CalcIPBufferChecksum
-                  0x00dec4                  _CalcIPChecksum
-                  0x01089e                  _CloseTelnetConsole
-                  0x00d7ac                  _DDNSForceUpdate
-                  0x00d7d0                  _DDNSGetLastIP
-                  0x00d7d8                  _DDNSGetLastStatus
-                  0x00cd50                  _DDNSInit
-                  0x00d7bc                  _DDNSSetService
-                  0x00cd86                  _DDNSTask
-                  0x00e242                  _DHCPDisable
-                  0x00e258                  _DHCPEnable
-                  0x00e216                  _DHCPInit
-                  0x00e272                  _DHCPIsBound
-                  0x00e268                  _DHCPIsEnabled
-                  0x00e288                  _DHCPIsServerDetected
-                  0x00e278                  _DHCPStateChanged
-                  0x00e68a                  _DHCPTask
-                  0x00f428                  _DNSBeginUsage
-                  0x00f43c                  _DNSEndUsage
-                  0x00f51a                  _DNSIsResolved
-                  0x00f45e                  _DNSResolve
-                  0x00fa9e                  _DataRdyUART
-                  0x00fc9a                  _DataRdyUART2
-                  0x010a9c                  _Delay10us
-                  0x010ac8                  _DelayMs
-                  0x00dfa6                  _FormatNetBIOSName
-                  0x00da0c                  _GenerateRandomDWORD
-                  0x00c4d6                  _GetCLKOUT
-                  0x010830                  _GetTelnetConsole
+                  0x01047e                  _ARPInit
+                  0x0104aa                  _ARPIsResolved
+                  0x010652                  _ARPProcess
+                  0x0105c4                  _ARPResolve
+                  0x00dbfe                  _Base64Encode
+                  0x00fcbe                  _BusyUART
+                  0x00fe2c                  _BusyUART2
+                  0x00c7e0                  _CalcIPBufferChecksum
+                  0x00df5c                  _CalcIPChecksum
+                  0x010936                  _CloseTelnetConsole
+                  0x00d844                  _DDNSForceUpdate
+                  0x00d868                  _DDNSGetLastIP
+                  0x00d870                  _DDNSGetLastStatus
+                  0x00cde8                  _DDNSInit
+                  0x00d854                  _DDNSSetService
+                  0x00ce1e                  _DDNSTask
+                  0x00e2da                  _DHCPDisable
+                  0x00e2f0                  _DHCPEnable
+                  0x00e2ae                  _DHCPInit
+                  0x00e30a                  _DHCPIsBound
+                  0x00e300                  _DHCPIsEnabled
+                  0x00e320                  _DHCPIsServerDetected
+                  0x00e310                  _DHCPStateChanged
+                  0x00e722                  _DHCPTask
+                  0x00f4c0                  _DNSBeginUsage
+                  0x00f4d4                  _DNSEndUsage
+                  0x00f5b2                  _DNSIsResolved
+                  0x00f4f6                  _DNSResolve
+                  0x00fb36                  _DataRdyUART
+                  0x00fd32                  _DataRdyUART2
+                  0x010b34                  _Delay10us
+                  0x010b60                  _DelayMs
+                  0x00e03e                  _FormatNetBIOSName
+                  0x00daa4                  _GenerateRandomDWORD
+                  0x00c56e                  _GetCLKOUT
+                  0x0108c8                  _GetTelnetConsole
                   0x00740e                  _HasCOR
                   0x00742c                  _HasCTCSS
-                  0x010a82                  _ICMPBeginUsage
-                  0x010a96                  _ICMPEndUsage
-                  0x010990                  _ICMPGetReply
-                  0x0108b8                  _ICMPProcess
-                  0x01095c                  _ICMPSendPing
-                  0x010976                  _ICMPSendPingToHost
+                  0x010b1a                  _ICMPBeginUsage
+                  0x010b2e                  _ICMPEndUsage
+                  0x010a28                  _ICMPGetReply
+                  0x010950                  _ICMPProcess
+                  0x0109f4                  _ICMPSendPing
+                  0x010a0e                  _ICMPSendPingToHost
                   0x008658                  _IOExpInit
                   0x00867e                  _IOExp_Read
                   0x007eb4                  _IOExp_Write
-                  0x010e98                  _IPGetHeader
-                  0x010e10                  _IPPutHeader
-                  0x010dee                  _IPSetRxBuffer
-                  0x00fa5a                  _InitUARTS
-                  0x00d7dc                  _LFSRRand
-                  0x00d9d2                  _LFSRSeedRand
-                  0x00c494                  _MACBurp
-                  0x00c87c                  _MACCalcRxChecksum
-                  0x00c352                  _MACDiscardRx
-                  0x00c94c                  _MACFlush
-                  0x00c04c                  _MACGet
-                  0x00c07c                  _MACGetArray
-                  0x00cb6c                  _MACGetFreeRxSize
-                  0x00cace                  _MACGetHeader
-                  0x00cc08                  _MACInit
-                  0x00c482                  _MACIsLinked
-                  0x00c53a                  _MACIsMemCopyDone
-                  0x00cbf2                  _MACIsTxReady
-                  0x00c550                  _MACMemCopyAsync
-                  0x00c510                  _MACPowerDown
-                  0x00c4f2                  _MACPowerUp
-                  0x00c126                  _MACPut
-                  0x00c160                  _MACPutArray
-                  0x00c2c4                  _MACPutHeader
-                  0x00c8d8                  _MACSetReadPtr
-                  0x00c2a2                  _MACSetReadPtrInRx
-                  0x00c912                  _MACSetWritePtr
-                  0x01085c                  _PutTelnetConsole
-                  0x00c424                  _ReadPHYReg
-                  0x00fac8                  _ReadStringUART
-                  0x00fab4                  _ReadUART
-                  0x00fcb0                  _ReadUART2
+                  0x010f30                  _IPGetHeader
+                  0x010ea8                  _IPPutHeader
+                  0x010e86                  _IPSetRxBuffer
+                  0x00faf2                  _InitUARTS
+                  0x00d874                  _LFSRRand
+                  0x00da6a                  _LFSRSeedRand
+                  0x00c52c                  _MACBurp
+                  0x00c914                  _MACCalcRxChecksum
+                  0x00c3ea                  _MACDiscardRx
+                  0x00c9e4                  _MACFlush
+                  0x00c0e4                  _MACGet
+                  0x00c114                  _MACGetArray
+                  0x00cc04                  _MACGetFreeRxSize
+                  0x00cb66                  _MACGetHeader
+                  0x00cca0                  _MACInit
+                  0x00c51a                  _MACIsLinked
+                  0x00c5d2                  _MACIsMemCopyDone
+                  0x00cc8a                  _MACIsTxReady
+                  0x00c5e8                  _MACMemCopyAsync
+                  0x00c5a8                  _MACPowerDown
+                  0x00c58a                  _MACPowerUp
+                  0x00c1be                  _MACPut
+                  0x00c1f8                  _MACPutArray
+                  0x00c35c                  _MACPutHeader
+                  0x00c970                  _MACSetReadPtr
+                  0x00c33a                  _MACSetReadPtrInRx
+                  0x00c9aa                  _MACSetWritePtr
+                  0x0108f4                  _PutTelnetConsole
+                  0x00c4bc                  _ReadPHYReg
+                  0x00fb60                  _ReadStringUART
+                  0x00fb4c                  _ReadUART
+                  0x00fd48                  _ReadUART2
                   0x007c72                  _SaveAppConfig
                   0x007f24                  _SetAudioSrc
-                  0x00c3d6                  _SetCLKOUT
+                  0x00c46e                  _SetCLKOUT
                   0x008634                  _SetLED
                   0x0085fc                  _SetPTT
                   0x00745c                  _SetTxTone
-                  0x010dea                  _StackApplications
-                  0x010c74                  _StackInit
-                  0x010c9e                  _StackTask
-                  0x00dab8                  _StringToIPAddress
-                  0x0104b0                  _SwapARPPacket
-                  0x00aac0                  _TCPAdjustFIFOSize
-                  0x00ac48                  _TCPClose
-                  0x00aba0                  _TCPDiscard
-                  0x00abd2                  _TCPDisconnect
-                  0x00b7fc                  _TCPFindArrayEx
-                  0x00bd98                  _TCPFindEx
-                  0x00abbc                  _TCPFlush
-                  0x00beac                  _TCPGet
-                  0x00be28                  _TCPGetArray
-                  0x00a754                  _TCPGetRemoteInfo
-                  0x00a59c                  _TCPGetRxFIFOFree
-                  0x00a566                  _TCPGetTxFIFOFull
-                  0x00a768                  _TCPInit
-                  0x00a526                  _TCPIsConnected
-                  0x00a580                  _TCPIsGetReady
-                  0x00a538                  _TCPIsPutReady
-                  0x00ac5a                  _TCPOpen
-                  0x00be16                  _TCPPeek
-                  0x00bdac                  _TCPPeekArray
-                  0x00ad56                  _TCPProcess
-                  0x00bfc8                  _TCPPut
-                  0x00bf0c                  _TCPPutArray
-                  0x00bfb0                  _TCPPutString
+                  0x010e82                  _StackApplications
+                  0x010d0c                  _StackInit
+                  0x010d36                  _StackTask
+                  0x00db50                  _StringToIPAddress
+                  0x010548                  _SwapARPPacket
+                  0x00ab58                  _TCPAdjustFIFOSize
+                  0x00ace0                  _TCPClose
+                  0x00ac38                  _TCPDiscard
+                  0x00ac6a                  _TCPDisconnect
+                  0x00b894                  _TCPFindArrayEx
+                  0x00be30                  _TCPFindEx
+                  0x00ac54                  _TCPFlush
+                  0x00bf44                  _TCPGet
+                  0x00bec0                  _TCPGetArray
+                  0x00a7ec                  _TCPGetRemoteInfo
+                  0x00a634                  _TCPGetRxFIFOFree
+                  0x00a5fe                  _TCPGetTxFIFOFull
+                  0x00a800                  _TCPInit
+                  0x00a5be                  _TCPIsConnected
+                  0x00a618                  _TCPIsGetReady
+                  0x00a5d0                  _TCPIsPutReady
+                  0x00acf2                  _TCPOpen
+                  0x00beae                  _TCPPeek
+                  0x00be44                  _TCPPeekArray
+                  0x00adee                  _TCPProcess
+                  0x00c060                  _TCPPut
+                  0x00bfa4                  _TCPPutArray
+                  0x00c048                  _TCPPutString
                   0x0157fa                  _TCPSocketInitializer
-                  0x00b4c8                  _TCPTick
-                  0x00a514                  _TCPWasReset
-                  0x01067a                  _TelnetTask
-                  0x010fd0                  _TickConvertToMilliseconds
-                  0x010f80                  _TickGet
-                  0x010f88                  _TickGetDiv256
-                  0x010fac                  _TickGetDiv64K
-                  0x010f18                  _TickInit
+                  0x00b560                  _TCPTick
+                  0x00a5ac                  _TCPWasReset
+                  0x010712                  _TelnetTask
+                  0x011068                  _TickConvertToMilliseconds
+                  0x011018                  _TickGet
+                  0x011020                  _TickGetDiv256
+                  0x011044                  _TickGetDiv64K
+                  0x010fb0                  _TickInit
                   0x00861c                  _ToggleLED
-                  0x00ef18                  _UDPClose
-                  0x00f1fe                  _UDPDiscard
-                  0x00f0d6                  _UDPFlush
-                  0x00f1a6                  _UDPGet
-                  0x00f1d0                  _UDPGetArray
-                  0x00ef30                  _UDPInit
-                  0x00f180                  _UDPIsGetReady
-                  0x00f04c                  _UDPIsPutReady
-                  0x00ef64                  _UDPOpen
-                  0x00f218                  _UDPProcess
-                  0x00f072                  _UDPPut
-                  0x00f098                  _UDPPutArray
-                  0x00f0c2                  _UDPPutString
-                  0x00f03e                  _UDPSetRxBuffer
-                  0x00f02e                  _UDPSetTxBuffer
-                  0x00ef5e                  _UDPTask
-                  0x00c3ec                  _WritePHYReg
-                  0x00fafa                  _WriteUART
-                  0x00fc40                  _WriteUART2
-                  0x010112                  _XEEBeginRead
-                  0x01011e                  _XEEBeginWrite
-                  0x01011c                  _XEEEndRead
-                  0x010328                  _XEEEndWrite
-                  0x0100fa                  _XEEInit
-                  0x0101fc                  _XEEIsBusy
-                  0x0101c4                  _XEERead
-                  0x010128                  _XEEReadArray
-                  0x010332                  _XEEWrite
-                  0x010352                  _XEEWriteArray
+                  0x00efb0                  _UDPClose
+                  0x00f296                  _UDPDiscard
+                  0x00f16e                  _UDPFlush
+                  0x00f23e                  _UDPGet
+                  0x00f268                  _UDPGetArray
+                  0x00efc8                  _UDPInit
+                  0x00f218                  _UDPIsGetReady
+                  0x00f0e4                  _UDPIsPutReady
+                  0x00effc                  _UDPOpen
+                  0x00f2b0                  _UDPProcess
+                  0x00f10a                  _UDPPut
+                  0x00f130                  _UDPPutArray
+                  0x00f15a                  _UDPPutString
+                  0x00f0d6                  _UDPSetRxBuffer
+                  0x00f0c6                  _UDPSetTxBuffer
+                  0x00eff6                  _UDPTask
+                  0x00c484                  _WritePHYReg
+                  0x00fb92                  _WriteUART
+                  0x00fcd8                  _WriteUART2
+                  0x0101aa                  _XEEBeginRead
+                  0x0101b6                  _XEEBeginWrite
+                  0x0101b4                  _XEEEndRead
+                  0x0103c0                  _XEEEndWrite
+                  0x010192                  _XEEInit
+                  0x010294                  _XEEIsBusy
+                  0x01025c                  _XEERead
+                  0x0101c0                  _XEEReadArray
+                  0x0103ca                  _XEEWrite
+                  0x0103ea                  _XEEWriteArray
                   0x00701e                  __ADC1Interrupt
                   0x0073f0                  __AddressError
                   0x006e12                  __CNInterrupt
@@ -1048,11 +1050,11 @@ External Symbols in Program Memory (by name):
                   0x0073fc                  __MathError
                   0x0073de                  __OscillatorFail
                   0x0073f6                  __StackError
-                  0x010fe2                  __T1Interrupt
-                  0x00f92e                  __U1RXInterrupt
-                  0x00f9a2                  __U1TXInterrupt
-                  0x00f9d0                  __U2RXInterrupt
-                  0x00fa2e                  __U2TXInterrupt
+                  0x01107a                  __T1Interrupt
+                  0x00f9c6                  __U1RXInterrupt
+                  0x00fa3a                  __U1TXInterrupt
+                  0x00fa68                  __U2RXInterrupt
+                  0x00fac6                  __U2TXInterrupt
                   0x003ea4                  ___adddf3
                   0x00389a                  ___addsf3
                   0x003da0                  ___divdf3
@@ -1128,11 +1130,11 @@ External Symbols in Program Memory (by name):
                   0x007b60                  _adpcm_decoder
                   0x00429c                  _asctime
                   0x00464c                  _atoi
-                  0x00de10                  _btohexa_high
-                  0x00de24                  _btohexa_low
+                  0x00dea8                  _btohexa_high
+                  0x00debc                  _btohexa_low
                   0x00432e                  _ctime
                   0x0155d2                  _ddnsServiceHosts
-                  0x010ff6                  _doubleify
+                  0x01108e                  _doubleify
                   0x005aaa                  _fclose
                   0x004828                  _fflush
                   0x005b1a                  _fgetc
@@ -1145,8 +1147,8 @@ External Symbols in Program Memory (by name):
                   0x007554                  _getGPSStr
                   0x007594                  _getTSIPPacket
                   0x0047fc                  _gets
-                  0x00fb56                  _getsUART
-                  0x00fcc4                  _getsUART2
+                  0x00fbee                  _getsUART
+                  0x00fd5c                  _getsUART2
                   0x0041da                  _gmtime
                   0x013101                  _gpsmsg1
                   0x0130cc                  _gpsmsg2
@@ -1156,10 +1158,10 @@ External Symbols in Program Memory (by name):
                   0x013034                  _gpsmsg7
                   0x013005                  _gpsmsg8
                   0x012ff0                  _gpsmsg9
-                  0x00ddaa                  _hexatob
+                  0x00de42                  _hexatob
                   0x007518                  _htonl
                   0x0074f0                  _htons
-                  0x00fdf8                  _init_squelch
+                  0x00fe90                  _init_squelch
                   0x0034aa                  _isalpha
                   0x0034be                  _isspace
                   0x003490                  _isupper
@@ -1175,32 +1177,32 @@ External Symbols in Program Memory (by name):
                   0x00460c                  _printf
                   0x00765c                  _process_gps
                   0x007f50                  _process_udp
-                  0x00fb40                  _putrsUART
-                  0x00fc84                  _putrsUART2
+                  0x00fbd8                  _putrsUART
+                  0x00fd1c                  _putrsUART2
                   0x004638                  _puts
-                  0x00fb2a                  _putsUART
-                  0x00fc6e                  _putsUART2
-                  0x00a268                  _read
-                  0x00fe2a                  _service_squelch
-                  0x00fdae                  _set_atten
+                  0x00fbc2                  _putsUART
+                  0x00fd06                  _putsUART2
+                  0x00a270                  _read
+                  0x00fec2                  _service_squelch
+                  0x00fe46                  _set_atten
                   0x004818                  _strchr
                   0x00417e                  _strcmp
                   0x004796                  _strcpy
                   0x0043b6                  _strftime
-                  0x00de36                  _stricmppgm2ram
+                  0x00dece                  _stricmppgm2ram
                   0x004164                  _strlen
-                  0x00e0d0                  _strnchr
+                  0x00e168                  _strnchr
                   0x004694                  _strncpy
-                  0x00df86                  _strupr
-                  0x00de96                  _swapl
-                  0x00de84                  _swaps
+                  0x00e01e                  _strupr
+                  0x00df2e                  _swapl
+                  0x00df1c                  _swaps
                   0x00349c                  _tolower
-                  0x00dd08                  _uitoa
+                  0x00dda0                  _uitoa
                   0x011ff0                  _ulawtable
                   0x011df0                  _ulawtabletx
                   0x006bd0                  _ungetc
                   0x004ade                  _vfprintf
-                  0x00a44e                  _write
+                  0x00a4b0                  _write
 
 Memory Configuration
 
@@ -1591,7 +1593,7 @@ __FUID3
                   0x000014          0x4 LONG 0x73cc DEFINED (__INT0Interrupt)?<code 339> (__INT0Interrupt):<code 339> (__DefaultInterrupt)
                   0x000016          0x4 LONG 0x73cc DEFINED (__IC1Interrupt)?<code 339> (__IC1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000018          0x4 LONG 0x73cc DEFINED (__OC1Interrupt)?<code 339> (__OC1Interrupt):<code 339> (__DefaultInterrupt)
-                  0x00001a          0x4 LONG 0x10fe2 DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
+                  0x00001a          0x4 LONG 0x1107a DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
                   0x00001c          0x4 LONG 0x73cc DEFINED (__DMA0Interrupt)?<code 339> (__DMA0Interrupt):<code 339> (__DefaultInterrupt)
                   0x00001e          0x4 LONG 0x73cc DEFINED (__IC2Interrupt)?<code 339> (__IC2Interrupt):<code 339> (__DefaultInterrupt)
                   0x000020          0x4 LONG 0x73cc DEFINED (__OC2Interrupt)?<code 339> (__OC2Interrupt):<code 339> (__DefaultInterrupt)
@@ -1599,8 +1601,8 @@ __FUID3
                   0x000024          0x4 LONG 0x73cc DEFINED (__T3Interrupt)?<code 339> (__T3Interrupt):<code 339> (__DefaultInterrupt)
                   0x000026          0x4 LONG 0x73cc DEFINED (__SPI1ErrInterrupt)?<code 339> (__SPI1ErrInterrupt):<code 339> (__DefaultInterrupt)
                   0x000028          0x4 LONG 0x73cc DEFINED (__SPI1Interrupt)?<code 339> (__SPI1Interrupt):<code 339> (__DefaultInterrupt)
-                  0x00002a          0x4 LONG 0xf92e DEFINED (__U1RXInterrupt)?<code 339> (__U1RXInterrupt):<code 339> (__DefaultInterrupt)
-                  0x00002c          0x4 LONG 0xf9a2 DEFINED (__U1TXInterrupt)?<code 339> (__U1TXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x00002a          0x4 LONG 0xf9c6 DEFINED (__U1RXInterrupt)?<code 339> (__U1RXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x00002c          0x4 LONG 0xfa3a DEFINED (__U1TXInterrupt)?<code 339> (__U1TXInterrupt):<code 339> (__DefaultInterrupt)
                   0x00002e          0x4 LONG 0x701e DEFINED (__ADC1Interrupt)?<code 339> (__ADC1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000030          0x4 LONG 0x73cc DEFINED (__DMA1Interrupt)?<code 339> (__DMA1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000032          0x4 LONG 0x73cc DEFINED (__Interrupt15)?<code 339> (__Interrupt15):<code 339> (__DefaultInterrupt)
@@ -1618,8 +1620,8 @@ __FUID3
                   0x00004a          0x4 LONG 0x73cc DEFINED (__T4Interrupt)?<code 339> (__T4Interrupt):<code 339> (__DefaultInterrupt)
                   0x00004c          0x4 LONG 0x73cc DEFINED (__T5Interrupt)?<code 339> (__T5Interrupt):<code 339> (__DefaultInterrupt)
                   0x00004e          0x4 LONG 0x73cc DEFINED (__INT2Interrupt)?<code 339> (__INT2Interrupt):<code 339> (__DefaultInterrupt)
-                  0x000050          0x4 LONG 0xf9d0 DEFINED (__U2RXInterrupt)?<code 339> (__U2RXInterrupt):<code 339> (__DefaultInterrupt)
-                  0x000052          0x4 LONG 0xfa2e DEFINED (__U2TXInterrupt)?<code 339> (__U2TXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x000050          0x4 LONG 0xfa68 DEFINED (__U2RXInterrupt)?<code 339> (__U2RXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x000052          0x4 LONG 0xfac6 DEFINED (__U2TXInterrupt)?<code 339> (__U2TXInterrupt):<code 339> (__DefaultInterrupt)
                   0x000054          0x4 LONG 0x73cc DEFINED (__SPI2ErrInterrupt)?<code 339> (__SPI2ErrInterrupt):<code 339> (__DefaultInterrupt)
                   0x000056          0x4 LONG 0x73cc DEFINED (__SPI2Interrupt)?<code 339> (__SPI2Interrupt):<code 339> (__DefaultInterrupt)
                   0x000058          0x4 LONG 0x73cc DEFINED (__C1RxRdyInterrupt)?<code 339> (__C1RxRdyInterrupt):<code 339> (__DefaultInterrupt)
@@ -1719,7 +1721,7 @@ __FUID3
                   0x000114          0x4 LONG 0x73cc DEFINED (__AltINT0Interrupt)?<code 339> (__AltINT0Interrupt):DEFINED (__INT0Interrupt)?<code 339> (__INT0Interrupt):<code 339> (__DefaultInterrupt)
                   0x000116          0x4 LONG 0x73cc DEFINED (__AltIC1Interrupt)?<code 339> (__AltIC1Interrupt):DEFINED (__IC1Interrupt)?<code 339> (__IC1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000118          0x4 LONG 0x73cc DEFINED (__AltOC1Interrupt)?<code 339> (__AltOC1Interrupt):DEFINED (__OC1Interrupt)?<code 339> (__OC1Interrupt):<code 339> (__DefaultInterrupt)
-                  0x00011a          0x4 LONG 0x10fe2 DEFINED (__AltT1Interrupt)?<code 339> (__AltT1Interrupt):DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
+                  0x00011a          0x4 LONG 0x1107a DEFINED (__AltT1Interrupt)?<code 339> (__AltT1Interrupt):DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
                   0x00011c          0x4 LONG 0x73cc DEFINED (__AltDMA0Interrupt)?<code 339> (__AltDMA0Interrupt):DEFINED (__DMA0Interrupt)?<code 339> (__DMA0Interrupt):<code 339> (__DefaultInterrupt)
                   0x00011e          0x4 LONG 0x73cc DEFINED (__AltIC2Interrupt)?<code 339> (__AltIC2Interrupt):DEFINED (__IC2Interrupt)?<code 339> (__IC2Interrupt):<code 339> (__DefaultInterrupt)
                   0x000120          0x4 LONG 0x73cc DEFINED (__AltOC2Interrupt)?<code 339> (__AltOC2Interrupt):DEFINED (__OC2Interrupt)?<code 339> (__OC2Interrupt):<code 339> (__DefaultInterrupt)
@@ -1727,8 +1729,8 @@ __FUID3
                   0x000124          0x4 LONG 0x73cc DEFINED (__AltT3Interrupt)?<code 339> (__AltT3Interrupt):DEFINED (__T3Interrupt)?<code 339> (__T3Interrupt):<code 339> (__DefaultInterrupt)
                   0x000126          0x4 LONG 0x73cc DEFINED (__AltSPI1ErrInterrupt)?<code 339> (__AltSPI1ErrInterrupt):DEFINED (__SPI1ErrInterrupt)?<code 339> (__SPI1ErrInterrupt):<code 339> (__DefaultInterrupt)
                   0x000128          0x4 LONG 0x73cc DEFINED (__AltSPI1Interrupt)?<code 339> (__AltSPI1Interrupt):DEFINED (__SPI1Interrupt)?<code 339> (__SPI1Interrupt):<code 339> (__DefaultInterrupt)
-                  0x00012a          0x4 LONG 0xf92e DEFINED (__AltU1RXInterrupt)?<code 339> (__AltU1RXInterrupt):DEFINED (__U1RXInterrupt)?<code 339> (__U1RXInterrupt):<code 339> (__DefaultInterrupt)
-                  0x00012c          0x4 LONG 0xf9a2 DEFINED (__AltU1TXInterrupt)?<code 339> (__AltU1TXInterrupt):DEFINED (__U1TXInterrupt)?<code 339> (__U1TXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x00012a          0x4 LONG 0xf9c6 DEFINED (__AltU1RXInterrupt)?<code 339> (__AltU1RXInterrupt):DEFINED (__U1RXInterrupt)?<code 339> (__U1RXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x00012c          0x4 LONG 0xfa3a DEFINED (__AltU1TXInterrupt)?<code 339> (__AltU1TXInterrupt):DEFINED (__U1TXInterrupt)?<code 339> (__U1TXInterrupt):<code 339> (__DefaultInterrupt)
                   0x00012e          0x4 LONG 0x701e DEFINED (__AltADC1Interrupt)?<code 339> (__AltADC1Interrupt):DEFINED (__ADC1Interrupt)?<code 339> (__ADC1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000130          0x4 LONG 0x73cc DEFINED (__AltDMA1Interrupt)?<code 339> (__AltDMA1Interrupt):DEFINED (__DMA1Interrupt)?<code 339> (__DMA1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000132          0x4 LONG 0x73cc DEFINED (__AltInterrupt15)?<code 339> (__AltInterrupt15):DEFINED (__Interrupt15)?<code 339> (__Interrupt15):<code 339> (__DefaultInterrupt)
@@ -1746,8 +1748,8 @@ __FUID3
                   0x00014a          0x4 LONG 0x73cc DEFINED (__AltT4Interrupt)?<code 339> (__AltT4Interrupt):DEFINED (__T4Interrupt)?<code 339> (__T4Interrupt):<code 339> (__DefaultInterrupt)
                   0x00014c          0x4 LONG 0x73cc DEFINED (__AltT5Interrupt)?<code 339> (__AltT5Interrupt):DEFINED (__T5Interrupt)?<code 339> (__T5Interrupt):<code 339> (__DefaultInterrupt)
                   0x00014e          0x4 LONG 0x73cc DEFINED (__AltINT2Interrupt)?<code 339> (__AltINT2Interrupt):DEFINED (__INT2Interrupt)?<code 339> (__INT2Interrupt):<code 339> (__DefaultInterrupt)
-                  0x000150          0x4 LONG 0xf9d0 DEFINED (__AltU2RXInterrupt)?<code 339> (__AltU2RXInterrupt):DEFINED (__U2RXInterrupt)?<code 339> (__U2RXInterrupt):<code 339> (__DefaultInterrupt)
-                  0x000152          0x4 LONG 0xfa2e DEFINED (__AltU2TXInterrupt)?<code 339> (__AltU2TXInterrupt):DEFINED (__U2TXInterrupt)?<code 339> (__U2TXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x000150          0x4 LONG 0xfa68 DEFINED (__AltU2RXInterrupt)?<code 339> (__AltU2RXInterrupt):DEFINED (__U2RXInterrupt)?<code 339> (__U2RXInterrupt):<code 339> (__DefaultInterrupt)
+                  0x000152          0x4 LONG 0xfac6 DEFINED (__AltU2TXInterrupt)?<code 339> (__AltU2TXInterrupt):DEFINED (__U2TXInterrupt)?<code 339> (__U2TXInterrupt):<code 339> (__DefaultInterrupt)
                   0x000154          0x4 LONG 0x73cc DEFINED (__AltSPI2ErrInterrupt)?<code 339> (__AltSPI2ErrInterrupt):DEFINED (__SPI2ErrInterrupt)?<code 339> (__SPI2ErrInterrupt):<code 339> (__DefaultInterrupt)
                   0x000156          0x4 LONG 0x73cc DEFINED (__AltSPI2Interrupt)?<code 339> (__AltSPI2Interrupt):DEFINED (__SPI2Interrupt)?<code 339> (__SPI2Interrupt):<code 339> (__DefaultInterrupt)
                   0x000158          0x4 LONG 0x73cc DEFINED (__AltC1RxRdyInterrupt)?<code 339> (__AltC1RxRdyInterrupt):DEFINED (__C1RxRdyInterrupt)?<code 339> (__C1RxRdyInterrupt):<code 339> (__DefaultInterrupt)
@@ -3019,227 +3021,228 @@ __c30_signature
  .nbss              0x0800          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libm-coff.a(errno.o)
                     0x0800                  errno
 
-.bss                0x0802       0x2820
- .bss               0x0802       0x2016 Voter.o
+.bss                0x0802       0x2822
+ .bss               0x0802       0x2018 Voter.o
                     0x084c                  IOExpOutB
                     0x084d                  IOExpOutA
                     0x084e                  myDHCPBindCount
                     0x084f                  challenge
                     0x0859                  their_challenge
-                    0x0864                  netisup
-                    0x0866                  apeaks
-                    0x08ca                  diag_option_flags
-                    0x08cc                  measstr
-                    0x08ce                  measidx
-                    0x08d0                  measp
-                    0x08d2                  errcnt
-                    0x08d3                  measretstate
-                    0x08d4                  diagstate
-                    0x08d5                  leddiag
-                    0x08d6                  indiag
-                    0x08d8                  testp
-                    0x08da                  testidx
-                    0x08dc                  elketimer
-                    0x08e0                  txseqno
-                    0x08e4                  txseqno_ptt
-                    0x08e8                  host_txseqno
-                    0x08ec                  time_filled
-                    0x08ee                  dec_index
-                    0x08f0                  dec_valprev
-                    0x08f2                  dec_buffer
-                    0x0a32                  enc_lastdelta
-                    0x0a33                  enc_prev_index
-                    0x0a34                  enc_prev_valprev
-                    0x0a36                  enc_index
-                    0x0a38                  enc_valprev
-                    0x0a3a                  indipsw
-                    0x0a3c                  indisplay
-                    0x0a3e                  apeak
-                    0x0a40                  amin
-                    0x0a42                  amax
-                    0x0a44                  discounteru
-                    0x0a48                  discounterl
-                    0x0a4c                  discfactor
-                    0x0a50                  dnsnotify
-                    0x0a52                  sendgps
-                    0x0a54                  mydigest
-                    0x0a58                  resp_digest
-                    0x0a5c                  digest
-                    0x0a60                  last_samplecnt
-                    0x0a62                  real_time
-                    0x0a66                  last_adcsample
-                    0x0a68                  samplecnt
-                    0x0a6a                  next_index
-                    0x0a6e                  next_time
-                    0x0a72                  timing_index
-                    0x0a74                  timing_time
-                    0x0a78                  dnsdone
-                    0x0a7a                  dnstimer
-                    0x0a7c                  CurVoterAddr
-                    0x0a80                  LastVoterAddr
-                    0x0a84                  MyVoterAddr
-                    0x0a88                  inread
-                    0x0a8a                  aborted
-                    0x0a8c                  dwLastIP
-                    0x0a90                  udpServerNode
-                    0x0a9a                  udpSocketUser
-                    0x0a9c                  ppswarn
-                    0x0a9e                  gpswarn
-                    0x0aa0                  attempttimer
-                    0x0aa2                  gpsforcetimer
-                    0x0aa4                  ppstimer
-                    0x0aa6                  gpstimer
-                    0x0aaa                  ptt
-                    0x0aac                  lastrxtime
-                    0x0ab4                  txaudio
-                    0x23b4                  last_drainindex
-                    0x23b6                  txdrainindex
-                    0x23b8                  option_flags
-                    0x23ba                  lastcor
-                    0x23bc                  wascor
-                    0x23be                  vnoise256
-                    0x23c2                  vnoise32
-                    0x23c4                  sqlcount
-                    0x23c5                  adcindex
-                    0x23c6                  adcothers
-                    0x23cc                  adcother
-                    0x23ce                  lockcnt
-                    0x23d0                  last_interval
-                    0x23d4                  ppscount
-                    0x23d6                  gps_time
-                    0x23da                  gotpps
-                    0x23dc                  gpssync
-                    0x23de                  gps_nsat
-                    0x23df                  gps_state
-                    0x23e0                  TSIPwasdle
-                    0x23e1                  gps_bufindex
-                    0x23e2                  gps_buf
-                    0x2482                  rssi
-                    0x2484                  connected
-                    0x2486                  audio_buf
-                    0x25cc                  filled
-                    0x25ce                  fillindex
-                    0x25d0                  filling_buffer
-                    0x25d2                  aliveCntrDec
-                    0x25d4                  aliveCntrMain
-                    0x25d5                  inputs2
-                    0x25d6                  inputs1
-                    0x25d7                  AN0String
-                    0x25e0                  AppConfig
-                    0x2720                  system_time
-                    0x2728                  dummy_loc
- .bss               0x2818        0x408 UART.o
- .bss               0x2c20        0x402 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(stdclean.o)
-                    0x2c20                  _sobuf
-                    0x2e20                  _sibuf
-                    0x3020                  _atexitptr
+                    0x0864                  inprocloop
+                    0x0866                  netisup
+                    0x0868                  apeaks
+                    0x08cc                  diag_option_flags
+                    0x08ce                  measstr
+                    0x08d0                  measidx
+                    0x08d2                  measp
+                    0x08d4                  errcnt
+                    0x08d5                  measretstate
+                    0x08d6                  diagstate
+                    0x08d7                  leddiag
+                    0x08d8                  indiag
+                    0x08da                  testp
+                    0x08dc                  testidx
+                    0x08de                  elketimer
+                    0x08e2                  txseqno
+                    0x08e6                  txseqno_ptt
+                    0x08ea                  host_txseqno
+                    0x08ee                  time_filled
+                    0x08f0                  dec_index
+                    0x08f2                  dec_valprev
+                    0x08f4                  dec_buffer
+                    0x0a34                  enc_lastdelta
+                    0x0a35                  enc_prev_index
+                    0x0a36                  enc_prev_valprev
+                    0x0a38                  enc_index
+                    0x0a3a                  enc_valprev
+                    0x0a3c                  indipsw
+                    0x0a3e                  indisplay
+                    0x0a40                  apeak
+                    0x0a42                  amin
+                    0x0a44                  amax
+                    0x0a46                  discounteru
+                    0x0a4a                  discounterl
+                    0x0a4e                  discfactor
+                    0x0a52                  dnsnotify
+                    0x0a54                  sendgps
+                    0x0a56                  mydigest
+                    0x0a5a                  resp_digest
+                    0x0a5e                  digest
+                    0x0a62                  last_samplecnt
+                    0x0a64                  real_time
+                    0x0a68                  last_adcsample
+                    0x0a6a                  samplecnt
+                    0x0a6c                  next_index
+                    0x0a70                  next_time
+                    0x0a74                  timing_index
+                    0x0a76                  timing_time
+                    0x0a7a                  dnsdone
+                    0x0a7c                  dnstimer
+                    0x0a7e                  CurVoterAddr
+                    0x0a82                  LastVoterAddr
+                    0x0a86                  MyVoterAddr
+                    0x0a8a                  inread
+                    0x0a8c                  aborted
+                    0x0a8e                  dwLastIP
+                    0x0a92                  udpServerNode
+                    0x0a9c                  udpSocketUser
+                    0x0a9e                  ppswarn
+                    0x0aa0                  gpswarn
+                    0x0aa2                  attempttimer
+                    0x0aa4                  gpsforcetimer
+                    0x0aa6                  ppstimer
+                    0x0aa8                  gpstimer
+                    0x0aac                  ptt
+                    0x0aae                  lastrxtime
+                    0x0ab6                  txaudio
+                    0x23b6                  last_drainindex
+                    0x23b8                  txdrainindex
+                    0x23ba                  option_flags
+                    0x23bc                  lastcor
+                    0x23be                  wascor
+                    0x23c0                  vnoise256
+                    0x23c4                  vnoise32
+                    0x23c6                  sqlcount
+                    0x23c7                  adcindex
+                    0x23c8                  adcothers
+                    0x23ce                  adcother
+                    0x23d0                  lockcnt
+                    0x23d2                  last_interval
+                    0x23d6                  ppscount
+                    0x23d8                  gps_time
+                    0x23dc                  gotpps
+                    0x23de                  gpssync
+                    0x23e0                  gps_nsat
+                    0x23e1                  gps_state
+                    0x23e2                  TSIPwasdle
+                    0x23e3                  gps_bufindex
+                    0x23e4                  gps_buf
+                    0x2484                  rssi
+                    0x2486                  connected
+                    0x2488                  audio_buf
+                    0x25ce                  filled
+                    0x25d0                  fillindex
+                    0x25d2                  filling_buffer
+                    0x25d4                  aliveCntrDec
+                    0x25d6                  aliveCntrMain
+                    0x25d7                  inputs2
+                    0x25d8                  inputs1
+                    0x25d9                  AN0String
+                    0x25e2                  AppConfig
+                    0x2722                  system_time
+                    0x272a                  dummy_loc
+ .bss               0x281a        0x408 UART.o
+ .bss               0x2c22        0x402 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(stdclean.o)
+                    0x2c22                  _sobuf
+                    0x2e22                  _sibuf
+                    0x3022                  _atexitptr
 
-.data               0x3022        0x500
- .data              0x3022        0x1d0 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt.o)
- .data              0x31f2        0x1d0 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt_cdfFnopsuxX.o)
- .data              0x33c2        0x160 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(powers.o)
-                    0x33c2                  _npowers_
-                    0x3472                  _powers_
+.data               0x3024        0x500
+ .data              0x3024        0x1d0 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt.o)
+ .data              0x31f4        0x1d0 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt_cdfFnopsuxX.o)
+ .data              0x33c4        0x160 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(powers.o)
+                    0x33c4                  _npowers_
+                    0x3474                  _powers_
 
-.dconst             0x3522        0x118
- .dconst            0x3522        0x118 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(strftime.o)
+.dconst             0x3524        0x118
+ .dconst            0x3524        0x118 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(strftime.o)
 
-.bss                0x363a        0x144
- .bss               0x363a         0xac TCP.o
- .bss               0x36e6         0x98 UDP.o
-                    0x36e6                  UDPRxCount
-                    0x36e8                  UDPTxCount
-                    0x36ea                  activeUDPSocket
-                    0x36ec                  UDPSocketInfo
+.bss                0x363c        0x144
+ .bss               0x363c         0xac TCP.o
+ .bss               0x36e8         0x98 UDP.o
+                    0x36e8                  UDPRxCount
+                    0x36ea                  UDPTxCount
+                    0x36ec                  activeUDPSocket
+                    0x36ee                  UDPSocketInfo
 
-.data               0x377e         0xbc
- .data              0x377e         0x62 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(stdclean.o)
-                    0x377e                  _Files
-                    0x3780                  _iob
- .data              0x37e0         0x5a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(strftime.o)
+.data               0x3780         0xbc
+ .data              0x3780         0x62 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(stdclean.o)
+                    0x3780                  _Files
+                    0x3782                  _iob
+ .data              0x37e2         0x5a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(strftime.o)
 
-.dconst             0x383a         0x3c
- .dconst            0x383a         0x3c c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(ctime.o)
+.dconst             0x383c         0x3c
+ .dconst            0x383c         0x3c c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(ctime.o)
 
-.bss                0x3876         0xa2
- .bss               0x3876         0x3a DynDNS.o
-                    0x3894                  DDNSClient
- .bss               0x38b0         0x38 squelch.o
-                    0x38b0                  caldiode
-                    0x38b2                  noise_gain
-                    0x38b4                  write_eeprom_cali
-                    0x38b6                  sqled
-                    0x38b8                  cor
- .bss               0x38e8         0x30 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(ctime.o)
-                    0x3916                  time_zone
+.bss                0x3878         0xa2
+ .bss               0x3878         0x3a DynDNS.o
+                    0x3896                  DDNSClient
+ .bss               0x38b2         0x38 squelch.o
+                    0x38b2                  caldiode
+                    0x38b4                  noise_gain
+                    0x38b6                  write_eeprom_cali
+                    0x38b8                  sqled
+                    0x38ba                  cor
+ .bss               0x38ea         0x30 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(ctime.o)
+                    0x3918                  time_zone
 
-.dconst             0x3918         0x54
- .dconst            0x3918         0x2a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt.o)
- .dconst            0x3942         0x2a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt_cdfFnopsuxX.o)
+.dconst             0x391a         0x54
+ .dconst            0x391a         0x2a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt.o)
+ .dconst            0x3944         0x2a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doprnt_cdfFnopsuxX.o)
 
-.bss                0x396c         0x4e
- .bss               0x396c         0x28 DHCP.o
- .bss               0x3994         0x26 SPIEEPROM.o
+.bss                0x396e         0x4e
+ .bss               0x396e         0x28 DHCP.o
+ .bss               0x3996         0x26 SPIEEPROM.o
 
-.data               0x39ba         0x1c
- .data              0x39ba         0x1c DynDNS.o
+.data               0x39bc         0x1c
+ .data              0x39bc         0x1c DynDNS.o
 
-.bss                0x39d6         0x6a
- .bss               0x39d6         0x1a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(strftime.o)
- .bss               0x39f0         0x18 DNS.o
- .bss               0x3a08         0x16 ARP.o
- .bss               0x3a1e         0x14 ICMP.o
- .bss               0x3a32          0xe StackTsk.o
-                    0x3a34                  remoteNode
+.bss                0x39d8         0x6a
+ .bss               0x39d8         0x1a c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(strftime.o)
+ .bss               0x39f2         0x18 DNS.o
+ .bss               0x3a0a         0x16 ARP.o
+ .bss               0x3a20         0x14 ICMP.o
+ .bss               0x3a34          0xe StackTsk.o
+                    0x3a36                  remoteNode
 
-.data               0x3a40          0xc
- .data              0x3a40          0xc c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(ctime.o)
-                    0x3a40                  moninit
+.data               0x3a42          0xc
+ .data              0x3a42          0xc c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(ctime.o)
+                    0x3a42                  moninit
 
-.bss                0x3a4c         0x18
- .bss               0x3a4c          0xa Tick.o
- .bss               0x3a56          0x8 ENC28J60.o
- .bss               0x3a5e          0x6 Telnet.o
-                    0x3a60                  TelnetState
+.bss                0x3a4e         0x18
+ .bss               0x3a4e          0xa Tick.o
+ .bss               0x3a58          0x8 ENC28J60.o
+ .bss               0x3a60          0x6 Telnet.o
+                    0x3a62                  TelnetState
 
-.data               0x3a64          0x8
- .data              0x3a64          0x4 DNS.o
- .data              0x3a68          0x4 Helpers.o
+.data               0x3a66          0x8
+ .data              0x3a66          0x4 DNS.o
+ .data              0x3a6a          0x4 Helpers.o
 
-.bss                0x3a6c          0x4
- .bss               0x3a6c          0x4 IP.o
+.bss                0x3a6e          0x4
+ .bss               0x3a6e          0x4 IP.o
 
-.data               0x3a70          0x2
- .data              0x3a70          0x2 DHCP.o
-                    0x3a70                  DHCPClientInitializedOnce
+.data               0x3a72          0x2
+ .data              0x3a72          0x2 DHCP.o
+                    0x3a72                  DHCPClientInitializedOnce
 
-.pbss               0x3a72          0x2
- .pbss              0x3a72          0x2 DNS.o
+.pbss               0x3a74          0x2
+ .pbss              0x3a74          0x2 DNS.o
 
-.data               0x3a74          0x2
- .data              0x3a74          0x2 UDP.o
+.data               0x3a76          0x2
+ .data              0x3a76          0x2 UDP.o
 
-.pbss               0x3a76          0x2
- .pbss              0x3a76          0x2 UDP.o
+.pbss               0x3a78          0x2
+ .pbss              0x3a78          0x2 UDP.o
 
-.data               0x3a78          0x2
- .data              0x3a78          0x2 TCP.o
+.data               0x3a7a          0x2
+ .data              0x3a7a          0x2 TCP.o
 
-.pbss               0x3a7a          0x2
- .pbss              0x3a7a          0x2 TCP.o
+.pbss               0x3a7c          0x2
+ .pbss              0x3a7c          0x2 TCP.o
 
-.bss                0x3a7c          0xa
- .bss               0x3a7c          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(fflush.o)
-                    0x3a7c                  _outdone
- .bss               0x3a7e          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doscan_cdnopuxX.o)
- .bss               0x3a80          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(buf.o)
- .bss               0x3a82          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(tfiles.o)
-                    0x3a82                  _tfilesptr
- .bss               0x3a84          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libpic30-coff.a(brk.o)
-                    0x3a84                  __curbrk
+.bss                0x3a7e          0xa
+ .bss               0x3a7e          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(fflush.o)
+                    0x3a7e                  _outdone
+ .bss               0x3a80          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(doscan_cdnopuxX.o)
+ .bss               0x3a82          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(buf.o)
+ .bss               0x3a84          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libc-coff.a(tfiles.o)
+                    0x3a84                  _tfilesptr
+ .bss               0x3a86          0x2 c:/program files/microchip/mplabc30/v3.25/bin/bin/../../lib\libpic30-coff.a(brk.o)
+                    0x3a86                  __curbrk
 
-.heap               0x3a86        0x400
- .heap              0x3a86        0x400 heap
+.heap               0x3a88        0x400
+ .heap              0x3a88        0x400 heap
 
 .const              0x9df0       0x3a10 load address 0x011df0  
  .const             0x9df0       0x37a4 Voter.o
@@ -3259,8 +3262,8 @@ __c30_signature
  .const             0xd7fa          0x6 TCP.o
                     0xd7fa                  TCPSocketInitializer
 
-.text             0x006c0a       0x7cfa
- .text            0x006c0a       0x38d0 Voter.o
+.text             0x006c0a       0x7d92
+ .text            0x006c0a       0x3968 Voter.o
                   0x006e12                  _CNInterrupt
                   0x00701e                  _ADC1Interrupt
                   0x007376                  _DAC1LInterrupt
@@ -3291,192 +3294,192 @@ __c30_signature
                   0x00867e                  IOExp_Read
                   0x0086f0                  main
                   0x009514                  main_processing_loop
-                  0x00a268                  read
-                  0x00a44e                  write
- .text            0x00a4da       0x1b72 TCP.o
-                  0x00a514                  TCPWasReset
-                  0x00a526                  TCPIsConnected
-                  0x00a538                  TCPIsPutReady
-                  0x00a566                  TCPGetTxFIFOFull
-                  0x00a580                  TCPIsGetReady
-                  0x00a59c                  TCPGetRxFIFOFree
-                  0x00a754                  TCPGetRemoteInfo
-                  0x00a768                  TCPInit
-                  0x00aac0                  TCPAdjustFIFOSize
-                  0x00aba0                  TCPDiscard
-                  0x00abbc                  TCPFlush
-                  0x00abd2                  TCPDisconnect
-                  0x00ac48                  TCPClose
-                  0x00ac5a                  TCPOpen
-                  0x00ad56                  TCPProcess
-                  0x00b4c8                  TCPTick
-                  0x00b7fc                  TCPFindArrayEx
-                  0x00bd98                  TCPFindEx
-                  0x00bdac                  TCPPeekArray
-                  0x00be16                  TCPPeek
-                  0x00be28                  TCPGetArray
-                  0x00beac                  TCPGet
-                  0x00bf0c                  TCPPutArray
-                  0x00bfb0                  TCPPutString
-                  0x00bfc8                  TCPPut
- .text            0x00c04c        0xd04 ENC28J60.o
-                  0x00c04c                  MACGet
-                  0x00c07c                  MACGetArray
-                  0x00c126                  MACPut
-                  0x00c160                  MACPutArray
-                  0x00c2a2                  MACSetReadPtrInRx
-                  0x00c2c4                  MACPutHeader
-                  0x00c352                  MACDiscardRx
-                  0x00c3d6                  SetCLKOUT
-                  0x00c3ec                  WritePHYReg
-                  0x00c424                  ReadPHYReg
-                  0x00c482                  MACIsLinked
-                  0x00c494                  MACBurp
-                  0x00c4d6                  GetCLKOUT
-                  0x00c4f2                  MACPowerUp
-                  0x00c510                  MACPowerDown
-                  0x00c53a                  MACIsMemCopyDone
-                  0x00c550                  MACMemCopyAsync
-                  0x00c748                  CalcIPBufferChecksum
-                  0x00c87c                  MACCalcRxChecksum
-                  0x00c8d8                  MACSetReadPtr
-                  0x00c912                  MACSetWritePtr
-                  0x00c94c                  MACFlush
-                  0x00cace                  MACGetHeader
-                  0x00cb6c                  MACGetFreeRxSize
-                  0x00cbf2                  MACIsTxReady
-                  0x00cc08                  MACInit
- .text            0x00cd50        0xa8c DynDNS.o
-                  0x00cd50                  DDNSInit
-                  0x00cd86                  DDNSTask
-                  0x00d7ac                  DDNSForceUpdate
-                  0x00d7bc                  DDNSSetService
-                  0x00d7d0                  DDNSGetLastIP
-                  0x00d7d8                  DDNSGetLastStatus
- .text            0x00d7dc        0xa3a Helpers.o
-                  0x00d7dc                  LFSRRand
-                  0x00d9d2                  LFSRSeedRand
-                  0x00da0c                  GenerateRandomDWORD
-                  0x00dab8                  StringToIPAddress
-                  0x00db66                  Base64Encode
-                  0x00dd08                  uitoa
-                  0x00ddaa                  hexatob
-                  0x00de10                  btohexa_high
-                  0x00de24                  btohexa_low
-                  0x00de36                  stricmppgm2ram
-                  0x00de84                  swaps
-                  0x00de96                  swapl
-                  0x00dec4                  CalcIPChecksum
-                  0x00df86                  strupr
-                  0x00dfa6                  FormatNetBIOSName
-                  0x00e0d0                  strnchr
- .text            0x00e216        0x6ee DHCP.o
-                  0x00e216                  DHCPInit
-                  0x00e242                  DHCPDisable
-                  0x00e258                  DHCPEnable
-                  0x00e268                  DHCPIsEnabled
-                  0x00e272                  DHCPIsBound
-                  0x00e278                  DHCPStateChanged
-                  0x00e288                  DHCPIsServerDetected
-                  0x00e68a                  DHCPTask
+                  0x00a270                  read
+                  0x00a4b0                  write
+ .text            0x00a572       0x1b72 TCP.o
+                  0x00a5ac                  TCPWasReset
+                  0x00a5be                  TCPIsConnected
+                  0x00a5d0                  TCPIsPutReady
+                  0x00a5fe                  TCPGetTxFIFOFull
+                  0x00a618                  TCPIsGetReady
+                  0x00a634                  TCPGetRxFIFOFree
+                  0x00a7ec                  TCPGetRemoteInfo
+                  0x00a800                  TCPInit
+                  0x00ab58                  TCPAdjustFIFOSize
+                  0x00ac38                  TCPDiscard
+                  0x00ac54                  TCPFlush
+                  0x00ac6a                  TCPDisconnect
+                  0x00ace0                  TCPClose
+                  0x00acf2                  TCPOpen
+                  0x00adee                  TCPProcess
+                  0x00b560                  TCPTick
+                  0x00b894                  TCPFindArrayEx
+                  0x00be30                  TCPFindEx
+                  0x00be44                  TCPPeekArray
+                  0x00beae                  TCPPeek
+                  0x00bec0                  TCPGetArray
+                  0x00bf44                  TCPGet
+                  0x00bfa4                  TCPPutArray
+                  0x00c048                  TCPPutString
+                  0x00c060                  TCPPut
+ .text            0x00c0e4        0xd04 ENC28J60.o
+                  0x00c0e4                  MACGet
+                  0x00c114                  MACGetArray
+                  0x00c1be                  MACPut
+                  0x00c1f8                  MACPutArray
+                  0x00c33a                  MACSetReadPtrInRx
+                  0x00c35c                  MACPutHeader
+                  0x00c3ea                  MACDiscardRx
+                  0x00c46e                  SetCLKOUT
+                  0x00c484                  WritePHYReg
+                  0x00c4bc                  ReadPHYReg
+                  0x00c51a                  MACIsLinked
+                  0x00c52c                  MACBurp
+                  0x00c56e                  GetCLKOUT
+                  0x00c58a                  MACPowerUp
+                  0x00c5a8                  MACPowerDown
+                  0x00c5d2                  MACIsMemCopyDone
+                  0x00c5e8                  MACMemCopyAsync
+                  0x00c7e0                  CalcIPBufferChecksum
+                  0x00c914                  MACCalcRxChecksum
+                  0x00c970                  MACSetReadPtr
+                  0x00c9aa                  MACSetWritePtr
+                  0x00c9e4                  MACFlush
+                  0x00cb66                  MACGetHeader
+                  0x00cc04                  MACGetFreeRxSize
+                  0x00cc8a                  MACIsTxReady
+                  0x00cca0                  MACInit
+ .text            0x00cde8        0xa8c DynDNS.o
+                  0x00cde8                  DDNSInit
+                  0x00ce1e                  DDNSTask
+                  0x00d844                  DDNSForceUpdate
+                  0x00d854                  DDNSSetService
+                  0x00d868                  DDNSGetLastIP
+                  0x00d870                  DDNSGetLastStatus
+ .text            0x00d874        0xa3a Helpers.o
+                  0x00d874                  LFSRRand
+                  0x00da6a                  LFSRSeedRand
+                  0x00daa4                  GenerateRandomDWORD
+                  0x00db50                  StringToIPAddress
+                  0x00dbfe                  Base64Encode
+                  0x00dda0                  uitoa
+                  0x00de42                  hexatob
+                  0x00dea8                  btohexa_high
+                  0x00debc                  btohexa_low
+                  0x00dece                  stricmppgm2ram
+                  0x00df1c                  swaps
+                  0x00df2e                  swapl
+                  0x00df5c                  CalcIPChecksum
+                  0x00e01e                  strupr
+                  0x00e03e                  FormatNetBIOSName
+                  0x00e168                  strnchr
+ .text            0x00e2ae        0x6ee DHCP.o
+                  0x00e2ae                  DHCPInit
+                  0x00e2da                  DHCPDisable
+                  0x00e2f0                  DHCPEnable
+                  0x00e300                  DHCPIsEnabled
+                  0x00e30a                  DHCPIsBound
+                  0x00e310                  DHCPStateChanged
+                  0x00e320                  DHCPIsServerDetected
+                  0x00e722                  DHCPTask
 
-.dinit            0x00e904        0x614
- .dinit           0x00e904        0x614 data_init
+.dinit            0x00e99c        0x614
+ .dinit           0x00e99c        0x614 data_init
 
-.text             0x00ef18       0x212c
- .text            0x00ef18        0x510 UDP.o
-                  0x00ef18                  UDPClose
-                  0x00ef30                  UDPInit
-                  0x00ef5e                  UDPTask
-                  0x00ef64                  UDPOpen
-                  0x00f02e                  UDPSetTxBuffer
-                  0x00f03e                  UDPSetRxBuffer
-                  0x00f04c                  UDPIsPutReady
-                  0x00f072                  UDPPut
-                  0x00f098                  UDPPutArray
-                  0x00f0c2                  UDPPutString
-                  0x00f0d6                  UDPFlush
-                  0x00f180                  UDPIsGetReady
-                  0x00f1a6                  UDPGet
-                  0x00f1d0                  UDPGetArray
-                  0x00f1fe                  UDPDiscard
-                  0x00f218                  UDPProcess
- .text            0x00f428        0x506 DNS.o
-                  0x00f428                  DNSBeginUsage
-                  0x00f43c                  DNSEndUsage
-                  0x00f45e                  DNSResolve
-                  0x00f51a                  DNSIsResolved
- .text            0x00f92e        0x480 UART.o
-                  0x00f92e                  _U1RXInterrupt
-                  0x00f9a2                  _U1TXInterrupt
-                  0x00f9d0                  _U2RXInterrupt
-                  0x00fa2e                  _U2TXInterrupt
-                  0x00fa5a                  InitUARTS
-                  0x00fa9e                  DataRdyUART
-                  0x00fab4                  ReadUART
-                  0x00fac8                  ReadStringUART
-                  0x00fafa                  WriteUART
-                  0x00fb2a                  putsUART
-                  0x00fb40                  putrsUART
-                  0x00fb56                  getsUART
-                  0x00fc26                  BusyUART
-                  0x00fc40                  WriteUART2
-                  0x00fc6e                  putsUART2
-                  0x00fc84                  putrsUART2
-                  0x00fc9a                  DataRdyUART2
-                  0x00fcb0                  ReadUART2
-                  0x00fcc4                  getsUART2
-                  0x00fd94                  BusyUART2
- .text            0x00fdae        0x34c squelch.o
-                  0x00fdae                  set_atten
-                  0x00fdf8                  init_squelch
-                  0x00fe2a                  service_squelch
- .text            0x0100fa        0x2ec SPIEEPROM.o
-                  0x0100fa                  XEEInit
-                  0x010112                  XEEBeginRead
-                  0x01011c                  XEEEndRead
-                  0x01011e                  XEEBeginWrite
-                  0x010128                  XEEReadArray
-                  0x0101c4                  XEERead
-                  0x0101fc                  XEEIsBusy
-                  0x010328                  XEEEndWrite
-                  0x010332                  XEEWrite
-                  0x010352                  XEEWriteArray
- .text            0x0103e6        0x294 ARP.o
-                  0x0103e6                  ARPInit
-                  0x010412                  ARPIsResolved
-                  0x0104b0                  SwapARPPacket
-                  0x01052c                  ARPResolve
-                  0x0105ba                  ARPProcess
- .text            0x01067a        0x23e Telnet.o
-                  0x01067a                  TelnetTask
-                  0x010830                  GetTelnetConsole
-                  0x01085c                  PutTelnetConsole
-                  0x01089e                  CloseTelnetConsole
- .text            0x0108b8        0x1e4 ICMP.o
-                  0x0108b8                  ICMPProcess
-                  0x01095c                  ICMPSendPing
-                  0x010976                  ICMPSendPingToHost
-                  0x010990                  ICMPGetReply
-                  0x010a82                  ICMPBeginUsage
-                  0x010a96                  ICMPEndUsage
- .text            0x010a9c        0x1d8 Delay.o
-                  0x010a9c                  Delay10us
-                  0x010ac8                  DelayMs
- .text            0x010c74        0x17a StackTsk.o
-                  0x010c74                  StackInit
-                  0x010c9e                  StackTask
-                  0x010dea                  StackApplications
- .text            0x010dee        0x12a IP.o
-                  0x010dee                  IPSetRxBuffer
-                  0x010e10                  IPPutHeader
-                  0x010e98                  IPGetHeader
- .text            0x010f18         0xde Tick.o
-                  0x010f18                  TickInit
-                  0x010f80                  TickGet
-                  0x010f88                  TickGetDiv256
-                  0x010fac                  TickGetDiv64K
-                  0x010fd0                  TickConvertToMilliseconds
-                  0x010fe2                  _T1Interrupt
- .text            0x010ff6         0x4e doubleify.o
-                  0x010ff6                  doubleify
+.text             0x00efb0       0x212c
+ .text            0x00efb0        0x510 UDP.o
+                  0x00efb0                  UDPClose
+                  0x00efc8                  UDPInit
+                  0x00eff6                  UDPTask
+                  0x00effc                  UDPOpen
+                  0x00f0c6                  UDPSetTxBuffer
+                  0x00f0d6                  UDPSetRxBuffer
+                  0x00f0e4                  UDPIsPutReady
+                  0x00f10a                  UDPPut
+                  0x00f130                  UDPPutArray
+                  0x00f15a                  UDPPutString
+                  0x00f16e                  UDPFlush
+                  0x00f218                  UDPIsGetReady
+                  0x00f23e                  UDPGet
+                  0x00f268                  UDPGetArray
+                  0x00f296                  UDPDiscard
+                  0x00f2b0                  UDPProcess
+ .text            0x00f4c0        0x506 DNS.o
+                  0x00f4c0                  DNSBeginUsage
+                  0x00f4d4                  DNSEndUsage
+                  0x00f4f6                  DNSResolve
+                  0x00f5b2                  DNSIsResolved
+ .text            0x00f9c6        0x480 UART.o
+                  0x00f9c6                  _U1RXInterrupt
+                  0x00fa3a                  _U1TXInterrupt
+                  0x00fa68                  _U2RXInterrupt
+                  0x00fac6                  _U2TXInterrupt
+                  0x00faf2                  InitUARTS
+                  0x00fb36                  DataRdyUART
+                  0x00fb4c                  ReadUART
+                  0x00fb60                  ReadStringUART
+                  0x00fb92                  WriteUART
+                  0x00fbc2                  putsUART
+                  0x00fbd8                  putrsUART
+                  0x00fbee                  getsUART
+                  0x00fcbe                  BusyUART
+                  0x00fcd8                  WriteUART2
+                  0x00fd06                  putsUART2
+                  0x00fd1c                  putrsUART2
+                  0x00fd32                  DataRdyUART2
+                  0x00fd48                  ReadUART2
+                  0x00fd5c                  getsUART2
+                  0x00fe2c                  BusyUART2
+ .text            0x00fe46        0x34c squelch.o
+                  0x00fe46                  set_atten
+                  0x00fe90                  init_squelch
+                  0x00fec2                  service_squelch
+ .text            0x010192        0x2ec SPIEEPROM.o
+                  0x010192                  XEEInit
+                  0x0101aa                  XEEBeginRead
+                  0x0101b4                  XEEEndRead
+                  0x0101b6                  XEEBeginWrite
+                  0x0101c0                  XEEReadArray
+                  0x01025c                  XEERead
+                  0x010294                  XEEIsBusy
+                  0x0103c0                  XEEEndWrite
+                  0x0103ca                  XEEWrite
+                  0x0103ea                  XEEWriteArray
+ .text            0x01047e        0x294 ARP.o
+                  0x01047e                  ARPInit
+                  0x0104aa                  ARPIsResolved
+                  0x010548                  SwapARPPacket
+                  0x0105c4                  ARPResolve
+                  0x010652                  ARPProcess
+ .text            0x010712        0x23e Telnet.o
+                  0x010712                  TelnetTask
+                  0x0108c8                  GetTelnetConsole
+                  0x0108f4                  PutTelnetConsole
+                  0x010936                  CloseTelnetConsole
+ .text            0x010950        0x1e4 ICMP.o
+                  0x010950                  ICMPProcess
+                  0x0109f4                  ICMPSendPing
+                  0x010a0e                  ICMPSendPingToHost
+                  0x010a28                  ICMPGetReply
+                  0x010b1a                  ICMPBeginUsage
+                  0x010b2e                  ICMPEndUsage
+ .text            0x010b34        0x1d8 Delay.o
+                  0x010b34                  Delay10us
+                  0x010b60                  DelayMs
+ .text            0x010d0c        0x17a StackTsk.o
+                  0x010d0c                  StackInit
+                  0x010d36                  StackTask
+                  0x010e82                  StackApplications
+ .text            0x010e86        0x12a IP.o
+                  0x010e86                  IPSetRxBuffer
+                  0x010ea8                  IPPutHeader
+                  0x010f30                  IPGetHeader
+ .text            0x010fb0         0xde Tick.o
+                  0x010fb0                  TickInit
+                  0x011018                  TickGet
+                  0x011020                  TickGetDiv256
+                  0x011044                  TickGetDiv64K
+                  0x011068                  TickConvertToMilliseconds
+                  0x01107a                  _T1Interrupt
+ .text            0x01108e         0x4e doubleify.o
+                  0x01108e                  doubleify
