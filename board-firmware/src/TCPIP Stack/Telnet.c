@@ -315,12 +315,20 @@ BYTE GetTelnetConsole(void)
 BOOL PutTelnetConsole(char c)
 {
 
-	BYTE		vTelnetSession;
+	BYTE		vTelnetSession,nconn;
 	TCP_SOCKET	MySocket;
 
-	StackTask();
-	StackApplications();
 
+	nconn = 0;
+	for(vTelnetSession = 0; vTelnetSession < MAX_TELNET_CONNECTIONS; vTelnetSession++)
+	{
+		if (vTelnetStates[vTelnetSession] == SM_AUTHENTICATED) nconn++;
+	}
+	if (nconn > 0)
+	{
+		StackTask();
+		StackApplications();
+	}
 	for(vTelnetSession = 0; vTelnetSession < MAX_TELNET_CONNECTIONS; vTelnetSession++)
 	{
 		// Load up static state information for this session

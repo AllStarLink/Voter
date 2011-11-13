@@ -68,7 +68,7 @@ extern char dummy_loc;
 _FGS( GSS_OFF & GCP_OFF & GWRP_OFF )
 _FOSCSEL( FNOSC_PRIPLL & IESO_OFF )
 _FOSC( FCKSM_CSDCMD & IOL1WAY_OFF & OSCIOFNC_OFF & POSCMD_XT )
-_FWDT( FWDTEN_OFF )
+_FWDT( FWDTEN_OFF & WINDIS_OFF & WDTPRE_PR32 & WDTPOST_PS4096)
 _FPOR(ALTI2C_OFF & FPWRT_PWR1 )	
 _FICD(JTAGEN_OFF & ICS_PGD3 )
 
@@ -79,7 +79,7 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 
 // dsPIC33F processor
-#define GetSystemClock()		(80000000ul)      // Hz
+#define GetSystemClock()		(76800000ul)      // Hz
 #define GetInstructionClock()	(GetSystemClock()/2)
 #define GetPeripheralClock()	GetInstructionClock()
 

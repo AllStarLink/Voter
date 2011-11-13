@@ -2362,6 +2362,7 @@ void main_processing_loop(void)
 	static DWORD  tsecWait = 0;           //General purpose wait timer
 	static WORD mynoise;
 
+	ClrWdt();
 	inprocloop = 1;
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
@@ -2944,6 +2945,8 @@ int read(int handle, void *buffer, unsigned int len)
 BYTE *dest,c;
 int count,x;
 
+	ClrWdt();
+
 	if ((!ininput) || inprocloop) return(0);
 
 	inread = 1;
@@ -3217,7 +3220,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.42  11/13/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.43  11/13/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3486,6 +3489,9 @@ int main(void)
     // down into smaller pieces so that other tasks can have CPU time.
 __builtin_nop();
 
+	ClrWdt();
+	RCONbits.SWDTEN = 1;
+	ClrWdt();
 
 	printf(signon);
 
