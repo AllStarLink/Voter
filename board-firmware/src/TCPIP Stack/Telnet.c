@@ -75,6 +75,8 @@
 #define	TELNET_USERNAME AppConfig.TelnetUsername
 #define	TELNET_PASSWORD AppConfig.TelnetPassword
 
+#define	MAXTERMBUF 100  // Make sure this is <= Telnet TX FIFO size!!
+
 // Demo title string
 static ROM BYTE strTitle[]			= "\r\n\nVOTER System Serial # ",
 	strTitle1[] = " Remote Console Access\r\n\nLogin: ";
@@ -117,6 +119,10 @@ enum
 static TCP_SOCKET hTelnetSockets[MAX_TELNET_CONNECTIONS];
 static BYTE vTelnetStates[MAX_TELNET_CONNECTIONS];
 static BOOL bInitialized = FALSE;
+
+static BYTE termbuf[MAXTERMBUF];
+extern WORD termbufidx;
+extern WORD termbuftimer;
 
 void TelnetTask(void)
 {
@@ -314,6 +320,63 @@ BYTE GetTelnetConsole(void)
 
 BOOL PutTelnetConsole(char c)
 {
+	TCP_SOCKET	MySocket;
+	WORD i;
+	BOOL rv;
+
+	MySocket = hTelnetSockets[0];
+	if (vTelnetStates[0] != SM_AUTHENTICATED) return 1;
+	rv = 0;
+
+	if (termbufidx < MAXTERMBUF)
+	{
+		termbuf[termbufidx++] = c;
+		if (termbufidx < MAXTERMBUF)
+		{
+			termbuftimer = 0;
+			return 1;
+		}
+		rv = 1;
+	}
+	if (TCPIsPutReady(MySocket) < termbufidx) 
+	{
+		StackTask();
+		StackApplications();
+		return 0;
+	}
+	for(i = 0; i < termbufidx; i++) TCPPut(MySocket,termbuf[i]);
+	TCPFlush(MySocket);
+	termbufidx = 0;
+	termbuftimer = 0;
+	return rv;
+}
+
+void ProcessTelnetTimer(void)
+{
+TCP_SOCKET	MySocket;
+WORD i;
+
+	MySocket = hTelnetSockets[0];
+	if (vTelnetStates[0] != SM_AUTHENTICATED) return;
+
+	if (termbufidx < 1) return;
+	if (TCPIsPutReady(MySocket) < termbufidx) 
+	{
+		StackTask();
+		StackApplications();
+		return;
+	}
+	for(i = 0; i < termbufidx; i++) TCPPut(MySocket,termbuf[i]);
+	termbufidx = 0;
+	termbuftimer = 0;
+	TCPFlush(MySocket);
+	return;
+}
+
+#if 0
+
+BOOL PutTelnetConsole(char c)
+{
 
 	BYTE		vTelnetSession,nconn;
 	TCP_SOCKET	MySocket;
@@ -324,6 +387,7 @@ BOOL PutTelnetConsole(char c)
 	{
 		if (vTelnetStates[vTelnetSession] == SM_AUTHENTICATED) nconn++;
 	}
+	nconn = 1;
 	if (nconn > 0)
 	{
 		StackTask();
@@ -352,10 +416,16 @@ BOOL PutTelnetConsole(char c)
 	return 1;
 }
 
+#endif
+
 void CloseTelnetConsole(void)
 {
 	BYTE		vTelnetSession;
 	TCP_SOCKET	MySocket;
+
+	termbufidx = 0;
+	termbuftimer = 0;
+
 
 	for(vTelnetSession = 0; vTelnetSession < MAX_TELNET_CONNECTIONS; vTelnetSession++)
 	{

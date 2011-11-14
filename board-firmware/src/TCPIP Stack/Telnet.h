@@ -61,6 +61,7 @@
 BYTE GetTelnetConsole(void);
 BOOL PutTelnetConsole(char c);
 void CloseTelnetConsole(void);
+void ProcessTelnetTimer(void);
 
 
 #endif	//#ifndef __TELNET_H

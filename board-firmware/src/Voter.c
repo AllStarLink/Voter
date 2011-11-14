@@ -151,6 +151,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
 #define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
 #define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
+#define TELNET_TIME (100 * 8) // Telnet output buffer timer (quasi-Nagle algorithm)
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
@@ -353,6 +354,10 @@ BOOL netisup;
 BOOL inprocloop;
 BOOL ininput;
 BOOL telnet_echo;
+WORD termbufidx;
+WORD termbuftimer;
+
+
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -1147,6 +1152,7 @@ BYTE *cp;
 			elketimer++;
 		}
 		if (!connected) attempttimer++;
+		termbuftimer++;
 	}
 	else
 	{
@@ -2364,6 +2370,9 @@ void main_processing_loop(void)
 
 	ClrWdt();
 	inprocloop = 1;
+
+	if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
+
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
 
@@ -3220,7 +3229,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.43  11/13/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.44  11/14/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3373,6 +3382,8 @@ int main(void)
 	inprocloop = 0;
 	ininput = 0;
 	telnet_echo = 0;
+	termbuftimer = 0;
+	termbufidx = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
