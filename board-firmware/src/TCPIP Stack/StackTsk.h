@@ -105,9 +105,10 @@ typedef struct __attribute__((__packed__))
 	BYTE		NetBIOSName[16];        // NetBIOS name
 	struct
 	{
-		unsigned char : 6;
+		unsigned char : 5;
 		unsigned char bIsDHCPEnabled : 1;
 		unsigned char bInConfigMode : 1;
+		unsigned char bIsDHCPReallyEnabled : 1;
 	} Flags;                            // Flag structure
 	MAC_ADDR	MyMACAddr;              // Application MAC address
 

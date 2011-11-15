@@ -2889,7 +2889,7 @@ void main_processing_loop(void)
 
 		
 		printf(ipinfo);
-		if (AppConfig.Flags.bIsDHCPEnabled)
+		if (AppConfig.Flags.bIsDHCPReallyEnabled)
 			printf(ipwithdhcp);
 		else
 			printf(ipwithstatic);
@@ -3229,7 +3229,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.45  11/14/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.47  11/14/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3506,10 +3506,14 @@ __builtin_nop();
 
 	printf(signon);
 
-	if (AppConfig.Flags.bIsDHCPEnabled)
+	if (AppConfig.Flags.bIsDHCPReallyEnabled)
 		dwLastIP = AppConfig.MyIPAddr.Val;
 
 	SetDynDNS();
+
+	if (!AppConfig.Flags.bIsDHCPReallyEnabled)
+		AppConfig.Flags.bInConfigMode = FALSE;
+
 
     while(1) 
 	{
@@ -3534,7 +3538,7 @@ __builtin_nop();
 			AppConfig.DefaultGateway.v[0],AppConfig.DefaultGateway.v[1],AppConfig.DefaultGateway.v[2],AppConfig.DefaultGateway.v[3],
 			AppConfig.DefaultPrimaryDNSServer.v[0],AppConfig.DefaultPrimaryDNSServer.v[1],AppConfig.DefaultPrimaryDNSServer.v[2],
 			AppConfig.DefaultPrimaryDNSServer.v[3],AppConfig.DefaultSecondaryDNSServer.v[0],AppConfig.DefaultSecondaryDNSServer.v[1],
-			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3],AppConfig.Flags.bIsDHCPEnabled,
+			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3],AppConfig.Flags.bIsDHCPReallyEnabled,
 			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
 			AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
@@ -3644,7 +3648,7 @@ __builtin_nop();
 			case 7: // DHCP Enable
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
-					AppConfig.Flags.bIsDHCPEnabled = i1;
+					AppConfig.Flags.bIsDHCPReallyEnabled = i1;
 					ok = 1;
 				}
 				break;
@@ -4034,6 +4038,7 @@ static void InitAppConfig(void)
 {
 	memset(&AppConfig,0,sizeof(AppConfig));
 	AppConfig.Flags.bIsDHCPEnabled = TRUE;
+	AppConfig.Flags.bIsDHCPReallyEnabled = FALSE;
 	AppConfig.Flags.bInConfigMode = TRUE;
 	memcpypgm2ram((void*)&AppConfig.MyMACAddr, (ROM void*)SerializedMACAddress, sizeof(AppConfig.MyMACAddr));
 	AppConfig.SerialNumber = 1234;
@@ -4109,6 +4114,7 @@ static void InitAppConfig(void)
 	if (AppConfig.DefaultPort) AppConfig.MyPort = AppConfig.DefaultPort;
 	AppConfig.MyMACAddr.v[5] = AppConfig.SerialNumber & 0xff;
 	AppConfig.MyMACAddr.v[4] = AppConfig.SerialNumber >> 8;
+	AppConfig.Flags.bIsDHCPEnabled = TRUE;
 }
 
 #if defined(EEPROM_CS_TRIS) || defined(SPIFLASH_CS_TRIS)

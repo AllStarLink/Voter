@@ -479,7 +479,8 @@ void DHCPTask(void)
 			
 			case SM_DHCP_GET_SOCKET:
 				// Open a socket to send and receive broadcast messages on
-				DHCPClient.hDHCPSocket = UDPOpen(DHCP_CLIENT_PORT, NULL, DHCP_SERVER_PORT);
+				DHCPClient.hDHCPSocket = UDPOpen(DHCP_CLIENT_PORT, NULL, 
+					(AppConfig.Flags.bIsDHCPReallyEnabled) ? DHCP_SERVER_PORT : 2233);
 				if(DHCPClient.hDHCPSocket == INVALID_UDP_SOCKET)
 					break;
 	
@@ -529,7 +530,8 @@ void DHCPTask(void)
 				{
 					// Go back and transmit a new discovery if we didn't get an offer after 2 seconds
 					if(TickGet() - DHCPClient.dwTimer >= DHCP_TIMEOUT)
-						DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+						if (AppConfig.Flags.bIsDHCPReallyEnabled)
+							DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
 					break;
 				}
 	
@@ -569,7 +571,8 @@ void DHCPTask(void)
 				{
 					// Go back and transmit a new discovery if we didn't get an ACK after 2 seconds
 					if(TickGet() - DHCPClient.dwTimer >= DHCP_TIMEOUT)
-						DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+						if (AppConfig.Flags.bIsDHCPReallyEnabled)
+							DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
 					break;
 				}
 	
@@ -653,8 +656,11 @@ void DHCPTask(void)
 					// Go back and transmit a new discovery if we didn't get an ACK after 2 seconds
 					if(TickGet() - DHCPClient.dwTimer >=  DHCP_TIMEOUT)
 					{
-						if(++DHCPClient.smState > SM_DHCP_GET_RENEW_ACK3)
-							DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+						if (AppConfig.Flags.bIsDHCPReallyEnabled) 
+						{
+							if(++DHCPClient.smState > SM_DHCP_GET_RENEW_ACK3)
+								DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+						}
 					}
 					break;
 				}
