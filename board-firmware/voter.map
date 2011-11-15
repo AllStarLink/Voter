@@ -250,10 +250,10 @@ section                    address   length (PC units)   length (bytes) (dec)
 .text                       0x3400              0x380a          0x540f  (21519)
 .text                       0x6c0a              0x7f10          0xbe98  (48792)
 .dinit                      0xeb1a               0x614           0x91e  (2334)
-.text                       0xf12e              0x21b2          0x328b  (12939)
+.text                       0xf12e              0x21ac          0x3282  (12930)
 .const                     0x11d72              0x3a8e          0x57d5  (22485)
 
-                     Total program memory used (bytes):        0x1a625  (108069) 96%
+                     Total program memory used (bytes):        0x1a61c  (108060) 96%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -715,7 +715,7 @@ External Symbols in Program Memory (by address):
                   0x008692                  _IOExp_Read
                   0x008704                  _main
                   0x009534                  _main_processing_loop
-                  0x00a2a2                  _read
+                  0x00a2a0                  _read
                   0x00a504                  _write
                   0x00a600                  _TCPWasReset
                   0x00a612                  _TCPIsConnected
@@ -854,34 +854,34 @@ External Symbols in Program Memory (by address):
                   0x0105fc                  _TelnetTask
                   0x0107b2                  _GetTelnetConsole
                   0x0107de                  _PutTelnetConsole
-                  0x010850                  _ProcessTelnetTimer
-                  0x0108a0                  _CloseTelnetConsole
-                  0x0108c0                  _ARPInit
-                  0x0108ec                  _ARPIsResolved
-                  0x01098a                  _SwapARPPacket
-                  0x010a06                  _ARPResolve
-                  0x010a94                  _ARPProcess
-                  0x010b54                  _ICMPProcess
-                  0x010bf8                  _ICMPSendPing
-                  0x010c12                  _ICMPSendPingToHost
-                  0x010c2c                  _ICMPGetReply
-                  0x010d1e                  _ICMPBeginUsage
-                  0x010d32                  _ICMPEndUsage
-                  0x010d38                  _Delay10us
-                  0x010d64                  _DelayMs
-                  0x010f10                  _StackInit
-                  0x010f3a                  _StackTask
-                  0x011086                  _StackApplications
-                  0x01108a                  _IPSetRxBuffer
-                  0x0110ac                  _IPPutHeader
-                  0x011134                  _IPGetHeader
-                  0x0111b4                  _TickInit
-                  0x01121c                  _TickGet
-                  0x011224                  _TickGetDiv256
-                  0x011248                  _TickGetDiv64K
-                  0x01126c                  _TickConvertToMilliseconds
-                  0x01127e                  __T1Interrupt
-                  0x011292                  _doubleify
+                  0x01084a                  _ProcessTelnetTimer
+                  0x01089a                  _CloseTelnetConsole
+                  0x0108ba                  _ARPInit
+                  0x0108e6                  _ARPIsResolved
+                  0x010984                  _SwapARPPacket
+                  0x010a00                  _ARPResolve
+                  0x010a8e                  _ARPProcess
+                  0x010b4e                  _ICMPProcess
+                  0x010bf2                  _ICMPSendPing
+                  0x010c0c                  _ICMPSendPingToHost
+                  0x010c26                  _ICMPGetReply
+                  0x010d18                  _ICMPBeginUsage
+                  0x010d2c                  _ICMPEndUsage
+                  0x010d32                  _Delay10us
+                  0x010d5e                  _DelayMs
+                  0x010f0a                  _StackInit
+                  0x010f34                  _StackTask
+                  0x011080                  _StackApplications
+                  0x011084                  _IPSetRxBuffer
+                  0x0110a6                  _IPPutHeader
+                  0x01112e                  _IPGetHeader
+                  0x0111ae                  _TickInit
+                  0x011216                  _TickGet
+                  0x01121e                  _TickGetDiv256
+                  0x011242                  _TickGetDiv64K
+                  0x011266                  _TickConvertToMilliseconds
+                  0x011278                  __T1Interrupt
+                  0x01128c                  _doubleify
                   0x011d72                  _ulawtabletx
                   0x011f72                  _ulawtable
                   0x012f72                  _gpsmsg9
@@ -898,16 +898,16 @@ External Symbols in Program Memory (by address):
 
 External Symbols in Program Memory (by name):
 
-                  0x0108c0                  _ARPInit
-                  0x0108ec                  _ARPIsResolved
-                  0x010a94                  _ARPProcess
-                  0x010a06                  _ARPResolve
+                  0x0108ba                  _ARPInit
+                  0x0108e6                  _ARPIsResolved
+                  0x010a8e                  _ARPProcess
+                  0x010a00                  _ARPResolve
                   0x00dd7c                  _Base64Encode
                   0x00fe3c                  _BusyUART
                   0x00ffaa                  _BusyUART2
                   0x00c95e                  _CalcIPBufferChecksum
                   0x00e0da                  _CalcIPChecksum
-                  0x0108a0                  _CloseTelnetConsole
+                  0x01089a                  _CloseTelnetConsole
                   0x00d9c2                  _DDNSForceUpdate
                   0x00d9e6                  _DDNSGetLastIP
                   0x00d9ee                  _DDNSGetLastStatus
@@ -928,26 +928,26 @@ External Symbols in Program Memory (by name):
                   0x00f674                  _DNSResolve
                   0x00fcb4                  _DataRdyUART
                   0x00feb0                  _DataRdyUART2
-                  0x010d38                  _Delay10us
-                  0x010d64                  _DelayMs
+                  0x010d32                  _Delay10us
+                  0x010d5e                  _DelayMs
                   0x00e1bc                  _FormatNetBIOSName
                   0x00dc22                  _GenerateRandomDWORD
                   0x00c6ec                  _GetCLKOUT
                   0x0107b2                  _GetTelnetConsole
                   0x007414                  _HasCOR
                   0x007432                  _HasCTCSS
-                  0x010d1e                  _ICMPBeginUsage
-                  0x010d32                  _ICMPEndUsage
-                  0x010c2c                  _ICMPGetReply
-                  0x010b54                  _ICMPProcess
-                  0x010bf8                  _ICMPSendPing
-                  0x010c12                  _ICMPSendPingToHost
+                  0x010d18                  _ICMPBeginUsage
+                  0x010d2c                  _ICMPEndUsage
+                  0x010c26                  _ICMPGetReply
+                  0x010b4e                  _ICMPProcess
+                  0x010bf2                  _ICMPSendPing
+                  0x010c0c                  _ICMPSendPingToHost
                   0x00866c                  _IOExpInit
                   0x008692                  _IOExp_Read
                   0x007ec8                  _IOExp_Write
-                  0x011134                  _IPGetHeader
-                  0x0110ac                  _IPPutHeader
-                  0x01108a                  _IPSetRxBuffer
+                  0x01112e                  _IPGetHeader
+                  0x0110a6                  _IPPutHeader
+                  0x011084                  _IPSetRxBuffer
                   0x00fc70                  _InitUARTS
                   0x00d9f2                  _LFSRRand
                   0x00dbe8                  _LFSRSeedRand
@@ -972,7 +972,7 @@ External Symbols in Program Memory (by name):
                   0x00caee                  _MACSetReadPtr
                   0x00c4b8                  _MACSetReadPtrInRx
                   0x00cb28                  _MACSetWritePtr
-                  0x010850                  _ProcessTelnetTimer
+                  0x01084a                  _ProcessTelnetTimer
                   0x0107de                  _PutTelnetConsole
                   0x00c63a                  _ReadPHYReg
                   0x00fcde                  _ReadStringUART
@@ -984,11 +984,11 @@ External Symbols in Program Memory (by name):
                   0x008648                  _SetLED
                   0x008610                  _SetPTT
                   0x007462                  _SetTxTone
-                  0x011086                  _StackApplications
-                  0x010f10                  _StackInit
-                  0x010f3a                  _StackTask
+                  0x011080                  _StackApplications
+                  0x010f0a                  _StackInit
+                  0x010f34                  _StackTask
                   0x00dcce                  _StringToIPAddress
-                  0x01098a                  _SwapARPPacket
+                  0x010984                  _SwapARPPacket
                   0x00abf8                  _TCPAdjustFIFOSize
                   0x00ad80                  _TCPClose
                   0x00acd8                  _TCPDiscard
@@ -1016,11 +1016,11 @@ External Symbols in Program Memory (by name):
                   0x00b6d8                  _TCPTick
                   0x00a600                  _TCPWasReset
                   0x0105fc                  _TelnetTask
-                  0x01126c                  _TickConvertToMilliseconds
-                  0x01121c                  _TickGet
-                  0x011224                  _TickGetDiv256
-                  0x011248                  _TickGetDiv64K
-                  0x0111b4                  _TickInit
+                  0x011266                  _TickConvertToMilliseconds
+                  0x011216                  _TickGet
+                  0x01121e                  _TickGetDiv256
+                  0x011242                  _TickGetDiv64K
+                  0x0111ae                  _TickInit
                   0x008630                  _ToggleLED
                   0x00f12e                  _UDPClose
                   0x00f414                  _UDPDiscard
@@ -1060,7 +1060,7 @@ External Symbols in Program Memory (by name):
                   0x007402                  __MathError
                   0x0073e4                  __OscillatorFail
                   0x0073fc                  __StackError
-                  0x01127e                  __T1Interrupt
+                  0x011278                  __T1Interrupt
                   0x00fb44                  __U1RXInterrupt
                   0x00fbb8                  __U1TXInterrupt
                   0x00fbe6                  __U2RXInterrupt
@@ -1144,7 +1144,7 @@ External Symbols in Program Memory (by name):
                   0x00e03a                  _btohexa_low
                   0x004384                  _ctime
                   0x0155ca                  _ddnsServiceHosts
-                  0x011292                  _doubleify
+                  0x01128c                  _doubleify
                   0x005b12                  _fclose
                   0x004828                  _fflush
                   0x00498c                  _fgetc
@@ -1192,7 +1192,7 @@ External Symbols in Program Memory (by name):
                   0x00468e                  _puts
                   0x00fd40                  _putsUART
                   0x00fe84                  _putsUART2
-                  0x00a2a2                  _read
+                  0x00a2a0                  _read
                   0x010040                  _service_squelch
                   0x00ffc4                  _set_atten
                   0x004818                  _strchr
@@ -1603,7 +1603,7 @@ __FUID3
                   0x000014          0x4 LONG 0x73d2 DEFINED (__INT0Interrupt)?<code 339> (__INT0Interrupt):<code 339> (__DefaultInterrupt)
                   0x000016          0x4 LONG 0x73d2 DEFINED (__IC1Interrupt)?<code 339> (__IC1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000018          0x4 LONG 0x73d2 DEFINED (__OC1Interrupt)?<code 339> (__OC1Interrupt):<code 339> (__DefaultInterrupt)
-                  0x00001a          0x4 LONG 0x1127e DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
+                  0x00001a          0x4 LONG 0x11278 DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
                   0x00001c          0x4 LONG 0x73d2 DEFINED (__DMA0Interrupt)?<code 339> (__DMA0Interrupt):<code 339> (__DefaultInterrupt)
                   0x00001e          0x4 LONG 0x73d2 DEFINED (__IC2Interrupt)?<code 339> (__IC2Interrupt):<code 339> (__DefaultInterrupt)
                   0x000020          0x4 LONG 0x73d2 DEFINED (__OC2Interrupt)?<code 339> (__OC2Interrupt):<code 339> (__DefaultInterrupt)
@@ -1731,7 +1731,7 @@ __FUID3
                   0x000114          0x4 LONG 0x73d2 DEFINED (__AltINT0Interrupt)?<code 339> (__AltINT0Interrupt):DEFINED (__INT0Interrupt)?<code 339> (__INT0Interrupt):<code 339> (__DefaultInterrupt)
                   0x000116          0x4 LONG 0x73d2 DEFINED (__AltIC1Interrupt)?<code 339> (__AltIC1Interrupt):DEFINED (__IC1Interrupt)?<code 339> (__IC1Interrupt):<code 339> (__DefaultInterrupt)
                   0x000118          0x4 LONG 0x73d2 DEFINED (__AltOC1Interrupt)?<code 339> (__AltOC1Interrupt):DEFINED (__OC1Interrupt)?<code 339> (__OC1Interrupt):<code 339> (__DefaultInterrupt)
-                  0x00011a          0x4 LONG 0x1127e DEFINED (__AltT1Interrupt)?<code 339> (__AltT1Interrupt):DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
+                  0x00011a          0x4 LONG 0x11278 DEFINED (__AltT1Interrupt)?<code 339> (__AltT1Interrupt):DEFINED (__T1Interrupt)?<code 339> (__T1Interrupt):<code 339> (__DefaultInterrupt)
                   0x00011c          0x4 LONG 0x73d2 DEFINED (__AltDMA0Interrupt)?<code 339> (__AltDMA0Interrupt):DEFINED (__DMA0Interrupt)?<code 339> (__DMA0Interrupt):<code 339> (__DefaultInterrupt)
                   0x00011e          0x4 LONG 0x73d2 DEFINED (__AltIC2Interrupt)?<code 339> (__AltIC2Interrupt):DEFINED (__IC2Interrupt)?<code 339> (__IC2Interrupt):<code 339> (__DefaultInterrupt)
                   0x000120          0x4 LONG 0x73d2 DEFINED (__AltOC2Interrupt)?<code 339> (__AltOC2Interrupt):DEFINED (__OC2Interrupt)?<code 339> (__OC2Interrupt):<code 339> (__DefaultInterrupt)
@@ -3308,7 +3308,7 @@ __c30_signature
                   0x008692                  IOExp_Read
                   0x008704                  main
                   0x009534                  main_processing_loop
-                  0x00a2a2                  read
+                  0x00a2a0                  read
                   0x00a504                  write
  .text            0x00a5c6       0x1c9c TCP.o
                   0x00a600                  TCPWasReset
@@ -3400,7 +3400,7 @@ __c30_signature
 .dinit            0x00eb1a        0x614
  .dinit           0x00eb1a        0x614 data_init
 
-.text             0x00f12e       0x21b2
+.text             0x00f12e       0x21ac
  .text            0x00f12e        0x510 UDP.o
                   0x00f12e                  UDPClose
                   0x00f146                  UDPInit
@@ -3459,42 +3459,42 @@ __c30_signature
                   0x01053e                  XEEEndWrite
                   0x010548                  XEEWrite
                   0x010568                  XEEWriteArray
- .text            0x0105fc        0x2c4 Telnet.o
+ .text            0x0105fc        0x2be Telnet.o
                   0x0105fc                  TelnetTask
                   0x0107b2                  GetTelnetConsole
                   0x0107de                  PutTelnetConsole
-                  0x010850                  ProcessTelnetTimer
-                  0x0108a0                  CloseTelnetConsole
- .text            0x0108c0        0x294 ARP.o
-                  0x0108c0                  ARPInit
-                  0x0108ec                  ARPIsResolved
-                  0x01098a                  SwapARPPacket
-                  0x010a06                  ARPResolve
-                  0x010a94                  ARPProcess
- .text            0x010b54        0x1e4 ICMP.o
-                  0x010b54                  ICMPProcess
-                  0x010bf8                  ICMPSendPing
-                  0x010c12                  ICMPSendPingToHost
-                  0x010c2c                  ICMPGetReply
-                  0x010d1e                  ICMPBeginUsage
-                  0x010d32                  ICMPEndUsage
- .text            0x010d38        0x1d8 Delay.o
-                  0x010d38                  Delay10us
-                  0x010d64                  DelayMs
- .text            0x010f10        0x17a StackTsk.o
-                  0x010f10                  StackInit
-                  0x010f3a                  StackTask
-                  0x011086                  StackApplications
- .text            0x01108a        0x12a IP.o
-                  0x01108a                  IPSetRxBuffer
-                  0x0110ac                  IPPutHeader
-                  0x011134                  IPGetHeader
- .text            0x0111b4         0xde Tick.o
-                  0x0111b4                  TickInit
-                  0x01121c                  TickGet
-                  0x011224                  TickGetDiv256
-                  0x011248                  TickGetDiv64K
-                  0x01126c                  TickConvertToMilliseconds
-                  0x01127e                  _T1Interrupt
- .text            0x011292         0x4e doubleify.o
-                  0x011292                  doubleify
+                  0x01084a                  ProcessTelnetTimer
+                  0x01089a                  CloseTelnetConsole
+ .text            0x0108ba        0x294 ARP.o
+                  0x0108ba                  ARPInit
+                  0x0108e6                  ARPIsResolved
+                  0x010984                  SwapARPPacket
+                  0x010a00                  ARPResolve
+                  0x010a8e                  ARPProcess
+ .text            0x010b4e        0x1e4 ICMP.o
+                  0x010b4e                  ICMPProcess
+                  0x010bf2                  ICMPSendPing
+                  0x010c0c                  ICMPSendPingToHost
+                  0x010c26                  ICMPGetReply
+                  0x010d18                  ICMPBeginUsage
+                  0x010d2c                  ICMPEndUsage
+ .text            0x010d32        0x1d8 Delay.o
+                  0x010d32                  Delay10us
+                  0x010d5e                  DelayMs
+ .text            0x010f0a        0x17a StackTsk.o
+                  0x010f0a                  StackInit
+                  0x010f34                  StackTask
+                  0x011080                  StackApplications
+ .text            0x011084        0x12a IP.o
+                  0x011084                  IPSetRxBuffer
+                  0x0110a6                  IPPutHeader
+                  0x01112e                  IPGetHeader
+ .text            0x0111ae         0xde Tick.o
+                  0x0111ae                  TickInit
+                  0x011216                  TickGet
+                  0x01121e                  TickGetDiv256
+                  0x011242                  TickGetDiv64K
+                  0x011266                  TickConvertToMilliseconds
+                  0x011278                  _T1Interrupt
+ .text            0x01128c         0x4e doubleify.o
+                  0x01128c                  doubleify

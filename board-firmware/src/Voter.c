@@ -2368,10 +2368,7 @@ void main_processing_loop(void)
 	static DWORD  tsecWait = 0;           //General purpose wait timer
 	static WORD mynoise;
 
-	ClrWdt();
 	inprocloop = 1;
-
-	if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
 
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
@@ -2653,6 +2650,8 @@ void main_processing_loop(void)
        
        // This tasks invokes each of the core stack application tasks
        StackApplications();
+
+	   if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
 
 	   if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
 
@@ -2978,6 +2977,7 @@ int count,x;
 		dest[count] = 0;
 		for(;;)
 		{
+			ClrWdt();
 			if (DataRdyUART())
 			{
 				c = ReadUART() & 0x7f;
@@ -3229,7 +3229,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.44  11/14/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.45  11/14/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",

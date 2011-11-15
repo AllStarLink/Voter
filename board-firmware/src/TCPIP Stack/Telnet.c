@@ -322,21 +322,15 @@ BOOL PutTelnetConsole(char c)
 {
 	TCP_SOCKET	MySocket;
 	WORD i;
-	BOOL rv;
 
 	MySocket = hTelnetSockets[0];
 	if (vTelnetStates[0] != SM_AUTHENTICATED) return 1;
-	rv = 0;
 
 	if (termbufidx < MAXTERMBUF)
 	{
 		termbuf[termbufidx++] = c;
-		if (termbufidx < MAXTERMBUF)
-		{
-			termbuftimer = 0;
-			return 1;
-		}
-		rv = 1;
+		termbuftimer = 0;
+		return 1;
 	}
 	if (TCPIsPutReady(MySocket) < termbufidx) 
 	{
@@ -348,7 +342,7 @@ BOOL PutTelnetConsole(char c)
 	TCPFlush(MySocket);
 	termbufidx = 0;
 	termbuftimer = 0;
-	return rv;
+	return 0;
 }
 
 void ProcessTelnetTimer(void)
