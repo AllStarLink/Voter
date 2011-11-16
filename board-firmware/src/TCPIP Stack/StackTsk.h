@@ -138,6 +138,9 @@ typedef struct __attribute__((__packed__))
 	BYTE GPSProto;
 	BYTE CORType;
 	DWORD Elkes;
+	BYTE Filler1;
+	IP_ADDR		BootIPAddr;               // IP address
+	BYTE BootIPCheck;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

@@ -1607,6 +1607,15 @@ static char *myfgets(char *s, int size, FILE *stream)
 	return(r);
 }
 
+BYTE GetBootCS(void)
+{
+BYTE x = 0x69,i;
+
+	for(i = 0; i < 4; i++) x += AppConfig.BootIPAddr.v[i];
+	return(x);
+}
+
+
 /*
 * Break up a delimited string into a table of substrings
 *
@@ -3208,7 +3217,6 @@ static void DiagMenu()
 				diagstate = 0;
 				printf("\n\n");
 				continue;
-
 			default:
 				printf(invalselection);
 				continue;
@@ -3229,7 +3237,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.47  11/14/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.49  11/16/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3265,6 +3273,7 @@ int main(void)
 		"26 - External CTCSS (0=Ignore, 1=Non-Inverted, 2=Inverted) (%d)\n"
 		"27 - COR Type (0=Normal, 1=IGNORE COR, 2=No Receiver) (%d)\n"
 		"28 - Debug Level (%d), "
+		"29 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
 		"97 - RX Level, "
 		"98 - Status, "
 		"99 - Save Values to EEPROM\n"
@@ -3520,6 +3529,7 @@ __builtin_nop();
 		char cmdstr[50],ok;
 		unsigned int i1,i2,i3,i4,x;
 		unsigned long l;
+		BOOL bootok;
 
 		SetTxTone(0);
 		if ((!netisup) && 
@@ -3532,6 +3542,7 @@ __builtin_nop();
 		}
 		indiag = 0;
 		SetAudioSrc();
+		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
 		printf(menu,AppConfig.SerialNumber,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
 			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3],AppConfig.DefaultMask.v[0],
 			AppConfig.DefaultMask.v[1],AppConfig.DefaultMask.v[2],AppConfig.DefaultMask.v[3],
@@ -3542,7 +3553,9 @@ __builtin_nop();
 			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
 			AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
 			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
-			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
+			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel,
+			AppConfig.BootIPAddr.v[0],AppConfig.BootIPAddr.v[1],AppConfig.BootIPAddr.v[2],AppConfig.BootIPAddr.v[3],
+				(bootok) ? "OK" : "BAD");
 
 		aborted = 0;
 		while(!aborted)
@@ -3570,7 +3583,7 @@ __builtin_nop();
 				continue;
 		}
 		sel = atoi(cmdstr);
-		if (((sel >= 1) && (sel <= 28)) || (sel == 11780))
+		if (((sel >= 1) && (sel <= 29)) || (sel == 11780))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -3827,6 +3840,18 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+			case 29: // BootLoader IP Address
+				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) &&
+					(i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256))
+				{
+					AppConfig.BootIPAddr.v[0] = i1;
+					AppConfig.BootIPAddr.v[1] = i2;
+					AppConfig.BootIPAddr.v[2] = i3;
+					AppConfig.BootIPAddr.v[3] = i4;
+					AppConfig.BootIPCheck = GetBootCS();
+					ok = 1;
+				}
+				break;
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();
@@ -4046,6 +4071,11 @@ static void InitAppConfig(void)
 	AppConfig.DefaultIPAddr.v[1] = 168;
 	AppConfig.DefaultIPAddr.v[2] = 1;
 	AppConfig.DefaultIPAddr.v[3] = 10;
+	AppConfig.BootIPAddr.v[0] = 192;
+	AppConfig.BootIPAddr.v[1] = 168;
+	AppConfig.BootIPAddr.v[2] = 1;
+	AppConfig.BootIPAddr.v[3] = 11;
+	AppConfig.BootIPCheck = GetBootCS();
 	AppConfig.DefaultMask.v[0] = 255;
 	AppConfig.DefaultMask.v[1] = 255;
 	AppConfig.DefaultMask.v[2] = 255;
