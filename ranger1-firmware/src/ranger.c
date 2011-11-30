@@ -22,8 +22,9 @@
 #define	MAX_BUFLEN 1920 // 0.5 seconds of buffer or so
 #define	NCOLS 75
 #define	FRAME_SIZE 160
-#define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
-#define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
+#define GPS_FORCE_TIME (1500 * 4)  // Force a GPS (Keepalive) every 1500ms regardless
+#define ATTEMPT_TIME (500 * 4) // Try connection every 500 ms
+#define LASTRX_TIME (3000 * 4) // Try connection every 500 ms
 #define	MULAW_SILENCE 0xff
 
 #define OPTION_FLAG_FLATAUDIO 1	// Send Flat Audio
@@ -110,6 +111,7 @@ BYTE dnsnotify;
 WORD midx;
 WORD gpsforcetimer;
 WORD attempttimer;
+WORD lastrxtimer;
 long host_txseqno;
 long txseqno_ptt;
 long txseqno;
@@ -372,7 +374,11 @@ extern volatile DWORD dwInternalTicks;
 		TMR1H = TMR1VAL >> 8;
 		T1CONbits.TMR1ON = 1;
 		ADCON0bits.GO = 1; 
-		if (connected) gpsforcetimer++;
+		if (connected)
+		{
+			gpsforcetimer++;
+			lastrxtimer++;
+		}
 		else attempttimer++;
 		cp = txaudio0;
 		cp += txdrainindex;
@@ -597,6 +603,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				connected = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
+				lastrxtimer = 0;
 				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
 				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
 			}
@@ -620,6 +627,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							txseqno = 0;
 							txseqno_ptt = 0;
 							digest = 0;
+							lastrxtimer = 0;
 						}
 					}
 					else
@@ -628,12 +636,14 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						txseqno = 0;
 						txseqno_ptt = 0;
 						digest = 0;
+						lastrxtimer = 0;
 					}
 				}
 				else
 				{
 					if (!connected) gpsforcetimer = 0;
 					connected = 1;
+					lastrxtimer = 0;
 					if (ntohs(audio_packet.vph.payload_type) == 4) 
 					{
 						long index;
@@ -760,6 +770,15 @@ void main_processing_loop(void)
 				}
 			}
 		}
+	}
+
+	if (lastrxtimer >= LASTRX_TIME)
+	{
+		connected = 0;
+		txseqno = 0;
+		txseqno_ptt = 0;
+		digest = 0;
+		lastrxtimer = 0;
 	}
 
     if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
@@ -1196,6 +1215,7 @@ void main()
 	connected = 0;
 	gpsforcetimer = 0;
 	attempttimer = 0;
+	lastrxtimer = 0;
 	host_txseqno = 0;
 	txseqno_ptt = 0;
 	txseqno = 0;
@@ -1277,7 +1297,7 @@ void main()
 	if (!AppConfig.Flags.bIsDHCPReallyEnabled)
 		AppConfig.Flags.bInConfigMode = FALSE;
 
-  	printf((ARGH)"\nRANGER Module System verson 0.1  11/27/2011, Jim Dixon WB6NIL\n");
+  	printf((ARGH)"\nRANGER Module System verson 0.2  11/30/2011, Jim Dixon WB6NIL\n");
 
 	while(1)
 	{
