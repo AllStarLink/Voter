@@ -151,6 +151,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
 #define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
 #define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
+#define LASTRX_TIME (3000 * 8) // Timeout if nothing heard after 3 seconds
 #define TELNET_TIME (100 * 8) // Telnet output buffer timer (quasi-Nagle algorithm)
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 #define	NCOLS 75
@@ -239,7 +240,8 @@ extern void DumpETHReg(void);
 
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
-BOOL set_atten(BYTE val);
+BOOL set_atten(BYTE val);
+
 /////////////////////////////////////////////////
 //Global variables 
 BYTE inputs1;
@@ -292,6 +294,7 @@ DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
 WORD attempttimer;
+WORD lastrxtimer;
 BOOL gpswarn;
 BOOL ppswarn;
 UDP_SOCKET udpSocketUser;
@@ -1152,6 +1155,7 @@ BYTE *cp;
 			elketimer++;
 		}
 		if (!connected) attempttimer++;
+		else lastrxtimer++;
 		termbuftimer++;
 	}
 	else
@@ -1836,6 +1840,7 @@ extern float doubleify(BYTE *p);
 			resp_digest = 0;
 			digest = 0;
 			their_challenge[0] = 0;
+			lastrxtimer = 0;
 		}
 	}
 	if (AppConfig.GPSProto == GPS_NMEA)
@@ -1893,6 +1898,7 @@ extern float doubleify(BYTE *p);
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				lastrxtimer = 0;
 			}
 		}
 		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
@@ -1963,6 +1969,7 @@ extern float doubleify(BYTE *p);
 					resp_digest = 0;
 					digest = 0;
 					their_challenge[0] = 0;
+					lastrxtimer = 0;
 				}
 				gpssync = 0;
 				gotpps = 0;
@@ -2197,6 +2204,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				connected = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
+				lastrxtimer = 0;
 				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
 				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
 			}
@@ -2220,6 +2228,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							txseqno = 0;
 							txseqno_ptt = 0;
 							digest = 0;
+							lastrxtimer = 0;
 						}
 						else SetAudioSrc();
 					}
@@ -2229,12 +2238,14 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						txseqno = 0;
 						txseqno_ptt = 0;
 						digest = 0;
+						lastrxtimer = 0;
 					}
 				}
 				else
 				{
 					if (!connected) gpsforcetimer = 0;
 					connected = 1;
+					lastrxtimer = 0;
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
@@ -2250,6 +2261,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
 							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
 							index *= FRAME_SIZE;
+							index -= (FRAME_SIZE * 2);
 //printf("%ld %ld %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec),myhost_txseqno);
 						}
 						else
@@ -2262,7 +2274,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
 
                         /* if in bounds */
-                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
+                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 1))))
                         {
 							if (!USE_PPS)
 							{
@@ -2418,6 +2430,18 @@ void main_processing_loop(void)
 				}
 			}
 	}
+
+	if (connected && (lastrxtimer > LASTRX_TIME))
+	{
+			connected = 0;
+			txseqno = 0;
+			txseqno_ptt = 0;
+			resp_digest = 0;
+			digest = 0;
+			their_challenge[0] = 0;
+			lastrxtimer = 0;
+	}
+
       if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
         case SM_UDP_SEND_ARP:
             if (ARPIsTxReady()) {
@@ -2467,6 +2491,7 @@ void main_processing_loop(void)
 					resp_digest = 0;
 					digest = 0;
 					their_challenge[0] = 0;
+					lastrxtimer = 0;
 				}
 				gpssync = 0;
 				gotpps = 0;
@@ -2491,6 +2516,7 @@ void main_processing_loop(void)
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				lastrxtimer = 0;
 			}
 		}
 
@@ -3095,6 +3121,7 @@ static void DiagMenu()
 	resp_digest = 0;
 	digest = 0;
 	their_challenge[0] = 0;
+	lastrxtimer = 0;
  }
  gpssync = 0;
  gotpps = 0;
@@ -3237,7 +3264,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.49  11/16/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.50  11/30/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3308,6 +3335,7 @@ int main(void)
 	filled = 0;
 	time_filled = 0;
 	connected = 0;
+	lastrxtimer = 0;
 	memclr((char *)audio_buf,FRAME_SIZE * 2);
 	gps_bufindex = 0;
 	TSIPwasdle = 0;
