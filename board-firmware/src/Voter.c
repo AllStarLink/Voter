@@ -2274,7 +2274,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
 
                         /* if in bounds */
-                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 1))))
+                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
 							if (!USE_PPS)
 							{
@@ -3264,7 +3264,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.50  11/30/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.51  11/30/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
