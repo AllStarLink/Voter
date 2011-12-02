@@ -359,8 +359,7 @@ BOOL ininput;
 BOOL telnet_echo;
 WORD termbufidx;
 WORD termbuftimer;
-
-
+BYTE linkstate;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -2391,6 +2390,25 @@ void main_processing_loop(void)
 
 	inprocloop = 1;
 
+	if(!MACIsLinked())
+	{
+			connected = 0;
+			txseqno = 0;
+			txseqno_ptt = 0;
+			resp_digest = 0;
+			digest = 0;
+			their_challenge[0] = 0;
+			lastrxtimer = 0;
+			/* if MAC was linked and now isnt, advance linkstate */
+			if (linkstate == 1) linkstate++;
+	}
+	else
+	{
+			/* if first time having link, advance linkstate */
+			if (linkstate == 0) linkstate++;
+			/* if had link, lost it, and now have it again, reset processor (silly TCP/IP stack!) */
+			if (linkstate == 2) Reset();
+	}
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
 
@@ -3264,7 +3282,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.51  11/30/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.52  12/02/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3421,6 +3439,7 @@ int main(void)
 	telnet_echo = 0;
 	termbuftimer = 0;
 	termbufidx = 0;
+	linkstate = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
