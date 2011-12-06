@@ -1,6 +1,6 @@
 /* "PCGM" -- A Programmable Clock Generator Module which takes 10.0 MHz and
 	generates a clock for driving Digitally Synthesized radios.
-    Jim Dixon, WB6NIL  Ver. 0.1 12/06/11
+    Jim Dixon, WB6NIL  Ver. 0.2 12/06/11
 	This program is placed in the public domain, and may be used
 	by anyone in any way for any legal purpose */
 
@@ -39,7 +39,7 @@
 extern int __C30_UART;
 
 #define GetPeripheralClock() (16000000ul)
-#define	BAUD_RATE1 9600
+#define	BAUD_RATE1 57600
 #define	LED_COUNT 50000
 
 
@@ -396,7 +396,7 @@ char a[20],a1[20];
 	khz = read_freq();
 	if (!khz) khz = DESIRED_FREQ_KHZ;
 
-	printf("\nPCGM (Programmable Clock Generator Module) Ver. 0.1 12/06/2011\n\n");
+	printf("\nPCGM (Programmable Clock Generator Module) Ver. 0.2 12/06/2011\n\n");
 
 	while(1)
 	{
@@ -457,8 +457,8 @@ char a[20],a1[20];
 		else
 		{
 			l = atol(a);
-			if (l >= 1000) khz = l;
-			else printf("Invalid Freq. (must be >= 1000 KHz)\n\n");
+			if ((l >= 6000) && (l <= 200000)) khz = l;
+			else printf("Invalid Freq. (must be >= 6000 KHz)\n\n");
 		
 		}	
 	}
