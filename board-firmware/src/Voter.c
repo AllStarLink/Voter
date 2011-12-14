@@ -2547,7 +2547,7 @@ void main_processing_loop(void)
 	
 		process_gps();
 	
-		if ((gotpps || (!USE_PPS)) && (sqlcount++ >= 32))
+		if ((gotpps || (!USE_PPS)) && (sqlcount >= 32))
 		{
 			BOOL qualcor;
 
