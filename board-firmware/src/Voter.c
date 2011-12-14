@@ -269,6 +269,7 @@ BOOL adcother;
 WORD adcothers[ADCOTHERS];
 BYTE adcindex;
 BYTE sqlcount;
+BOOL sql2;
 WORD vnoise32;
 DWORD vnoise256;
 BOOL wascor;
@@ -2546,20 +2547,25 @@ void main_processing_loop(void)
 	
 		process_gps();
 	
-		if ((gotpps || (!USE_PPS)) && (sqlcount++ >= 64))
+		if ((gotpps || (!USE_PPS)) && (sqlcount++ >= 32))
 		{
 			BOOL qualcor;
 
 			sqlcount = 0;
 			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+			sql2 ^= 1;
+
 			qualcor = (HasCOR() && HasCTCSS());	
-			if (qualcor && (!wascor))
+			if (!sql2)
 			{
-				vnoise32 = adcothers[ADCSQNOISE] << 3;
-				vnoise256 = (DWORD)adcothers[ADCSQNOISE] << 3;
+				if (qualcor && (!wascor))
+				{
+					vnoise32 = adcothers[ADCSQNOISE] << 3;
+					vnoise256 = (DWORD)adcothers[ADCSQNOISE] << 3;
+				}
+				else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
+				vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
 			}
-			else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
-			vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
 			mynoise = (WORD) vnoise256;
 			if (mynoise < NOISE_SLOW_THRESHOLD) mynoise = vnoise32; 
 			rssi = rssitable[mynoise >> 3];
@@ -3282,7 +3288,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.52  12/02/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.53  12/14/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3367,6 +3373,7 @@ int main(void)
 	adcindex = 0;
 	memclr(adcothers,sizeof(adcothers));
 	sqlcount = 0;
+	sql2 = 0;
 	wascor = 0;
 	lastcor = 0;
 	vnoise32 = 0;
