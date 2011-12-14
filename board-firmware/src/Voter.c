@@ -2654,10 +2654,10 @@ void main_processing_loop(void)
 			if (HasCOR() && HasCTCSS())
 			{
 				mypeak = apeak / (7200 / LEVDISP_FACTOR);
-				if (mypeak < dispcnt) SetLED(GPSLED,1);
-				else SetLED(GPSLED,0);
-				if (mypeak > (dispcnt + LEVDISP_FACTOR)) SetLED(CONNLED,1);
+				if (mypeak < dispcnt) SetLED(CONNLED,1);
 				else SetLED(CONNLED,0);
+				if (mypeak > (dispcnt + LEVDISP_FACTOR)) SetLED(GPSLED,1);
+				else SetLED(GPSLED,0);
 			}
 			else
 			{
@@ -2874,8 +2874,12 @@ void main_processing_loop(void)
 						errcnt++;
 						printf(diagerr3);
 					}
+#if defined(SMT_BOARD)					U2MODEbits.URXINV = AppConfig.GPSPolarity;
+					U2STAbits.UTXINV = AppConfig.GPSPolarity;
+#else
 					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
 					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+#endif
 					// Perform measurement sequence with no filters on audio
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc();
@@ -3263,8 +3267,12 @@ static void DiagMenu()
 				measp = 0;
 				measidx = 0;
 				measstr = 0;
+#if defined(SMT_BOARD)				U2MODEbits.URXINV = AppConfig.GPSPolarity;
+				U2STAbits.UTXINV = AppConfig.GPSPolarity;
+#else
 				U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
 				U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+#endif
 				diagstate = 0;
 				printf("\n\n");
 				continue;
@@ -3288,7 +3296,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.53  12/14/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.54  12/14/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
@@ -3485,10 +3493,17 @@ int main(void)
 		U1BRG = CLOSEST_U1BRG_VALUE;
 
 		U2MODE = 0x8000;			// Set UARTEN.  Note: this must be done before setting UTXEN
-		U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+#if !defined(SMT_BOARD)		U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+#else
+		U2MODEbits.URXINV = AppConfig.GPSPolarity;
+#endif
 
 		U2STA = 0x0400;		// UTXEN set
+#if !defined(SMT_BOARD)
 		U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+#else
+		U2STAbits.UTXINV = AppConfig.GPSPolarity;
+#endif
 		#define CLOSEST_U2BRG_VALUE ((GetPeripheralClock()+8ul*AppConfig.GPSBaudRate)/16/AppConfig.GPSBaudRate-1)
 		U2BRG = CLOSEST_U2BRG_VALUE;
 
