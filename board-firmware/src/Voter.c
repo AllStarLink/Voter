@@ -2565,13 +2565,14 @@ void main_processing_loop(void)
 				}
 				else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
 				vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
+				wascor = qualcor;
 			}
 			mynoise = (WORD) vnoise256;
 			if (mynoise < NOISE_SLOW_THRESHOLD) mynoise = vnoise32; 
 			rssi = rssitable[mynoise >> 3];
 			if ((rssi < 1) && (qualcor)) rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssi = 0;
-			wascor = qualcor;
+
 			lastcor = HasCOR();
 			if (write_eeprom_cali)
 			{
@@ -3296,7 +3297,7 @@ int main(void)
 	time_t t;
 	BYTE i;
 
-    static ROM char signon[] = "\nVOTER Client System verson 0.54  12/14/2011, Jim Dixon WB6NIL\n";
+    static ROM char signon[] = "\nVOTER Client System verson 0.55  12/16/2011, Jim Dixon WB6NIL\n";
 
 	static ROM char entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
