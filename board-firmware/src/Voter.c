@@ -193,7 +193,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		VERSION[] = "0.59  12/23/2011";
+		VERSION[] = "0.60  12/23/2011";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -382,6 +382,7 @@ WORD failtimer;
 WORD hangtimer;
 WORD dsecondtimer;
 BOOL repeatit;
+BOOL needburp;
 
 char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
 
@@ -2674,6 +2675,7 @@ void main_processing_loop(void)
 				}
 				else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
 				vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
+				if ((!connected) && (!qualcor) && wascor && (AppConfig.FailMode == 2)) needburp = 1;
 				wascor = qualcor;
 			}
 			mynoise = (WORD) vnoise256;
@@ -2703,7 +2705,7 @@ void main_processing_loop(void)
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 		if (!indiag)
 		{
-			if ((!connected) && (AppConfig.FailMode == 2) && HasCOR() && HasCTCSS())
+			if ((!connected) && (AppConfig.FailMode == 3) && HasCOR() && HasCTCSS())
 			{
 				repeatit = 1;
 				hangtimer = AppConfig.HangTime + 1;
@@ -3110,6 +3112,14 @@ void main_processing_loop(void)
 			domorse((char *)AppConfig.FailString);
 			failtimer = 0;
 		}
+	}
+	if (connected) needburp = 0;
+	if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0])
+	{
+		needburp = 0;
+		if (!connfail) connfail = 2;
+		domorse((char *)AppConfig.FailString);
+		failtimer = 0;
 	}
        // If the local IP address has changed (ex: due to DHCP lease change)
        // write the new IP address to the LCD display, UART, and Announce 
@@ -3698,7 +3708,7 @@ static void OffLineMenu()
 		int sel;
 
 	static ROM char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
-		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Repeater) (%d)\n"
+		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
 		"2  - CW Speed (%u) (1/8000 secs)\n"
 		"3  - Pre-CW Delay (%u) (1/8000 secs)\n"
 		"4  - Post-CW Delay (%u) (1/8000 secs)\n"
@@ -3755,7 +3765,7 @@ static void OffLineMenu()
 		switch(sel)
 		{
 			case 1: // Fail Mode
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 3))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 3))
 				{
 					AppConfig.FailMode = i1;
 					ok = 1;
@@ -3989,6 +3999,7 @@ int main(void)
 	hangtimer = 0;
 	dsecondtimer = 0;
 	repeatit = 0;
+	needburp = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
