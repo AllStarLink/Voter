@@ -141,6 +141,14 @@ typedef struct __attribute__((__packed__))
 	BYTE Filler1;
 	IP_ADDR		BootIPAddr;               // IP address
 	BYTE BootIPCheck;
+	WORD CWBeforeTime;
+	WORD CWAfterTime;
+	WORD CWSpeed;
+	BYTE FailString[20];
+	BYTE UnFailString[20];
+	BYTE FailMode;
+	WORD FailTime;
+	WORD HangTime;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
