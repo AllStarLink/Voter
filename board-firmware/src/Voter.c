@@ -193,7 +193,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		VERSION[] = "0.57  12/23/2011";
+		VERSION[] = "0.59  12/23/2011";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -1442,7 +1442,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else if (!connected) 
 		{
 			myflags = 0;
-			if (!USE_PPS) myflags = 1;
+			if (AppConfig.CORType) myflags = 1;
 		}
 		else myflags = option_flags;
 		if (myflags & 1)_LATB3 = 1;
@@ -1586,7 +1586,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else if (!connected) 
 		{
 			myflags = 0;
-			if (!USE_PPS) myflags = 1;
+			if (AppConfig.CORType) myflags = 1;
 		}
 		else myflags = option_flags;
 		oldout = IOExpOutB;
@@ -2182,7 +2182,7 @@ void adpcm_decoder(BYTE *indata)
 	
 		/* Step 7 - Output value */
 		vout = valpred + 32768;
-		w = (vout  & 0xffff) >> 4;
+		w = (vout  & 0xffff) >> 5;
 		dec_buffer[i] = ulawtable[w];
     }
 
@@ -3534,6 +3534,7 @@ static void IPMenu()
 				printf(newvalnotchanged);
 				continue;
 			}
+			if (aborted) continue;
 		}
 		ok = 0;
 		switch(sel)
@@ -3748,6 +3749,7 @@ static void OffLineMenu()
 				printf(newvalnotchanged);
 				continue;
 			}
+			if (aborted) continue;
 		}
 		ok = 0;
 		switch(sel)
@@ -4193,6 +4195,7 @@ __builtin_nop();
 				printf(newvalnotchanged);
 				continue;
 			}
+			if (aborted) continue;
 		}
 		ok = 0;
 		switch(sel)
@@ -4334,7 +4337,6 @@ __builtin_nop();
 				indisplay = 0;
 				continue;
 			case 98:
-domorse("HI THERE");
 				t = system_time.vtime_sec;
 				printf(oprdata,VERSION,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
 					AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3],
