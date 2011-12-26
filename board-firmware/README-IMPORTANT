@@ -1,7 +1,0 @@
-*WARNING*
-
-*DO NOT* use MPLAB C30 compiler version 3.30. It has bugs!
-
-The one used and tested for this project was version 3.25.
-
-

@@ -18,6 +18,8 @@
 *
 *   You should have received a copy of the GNU General Public License
 *   along with this project.  If not, see <http://www.gnu.org/licenses/>.
+*
+*   NOTE: Now works with latest (v3.30) MPLAB C30 compiler
 */
 
 /***********************************************************
@@ -192,8 +194,9 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
-		newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		VERSION[] = "0.60  12/23/2011";
+	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
+	badmix[] = "ERROR! Host not acknowledging non-GPS disciplined operation\n",
+	VERSION[] = "0.62  12/26/2011";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -294,7 +297,6 @@ static struct {
 } gps_packet;
 WORD txdrainindex;
 WORD last_drainindex;
-BYTE txaudio[MAX_BUFLEN];
 VTIME lastrxtime;
 BOOL ptt;
 DWORD gpstimer;
@@ -364,8 +366,7 @@ char *measstr;
 BYTE diag_option_flags;
 WORD apeaks[NAPEAKS];
 BOOL netisup;
-BOOL inprocloop;
-BOOL ininput;
+BOOL gotbadmix;
 BOOL telnet_echo;
 WORD termbufidx;
 WORD termbuftimer;
@@ -383,8 +384,10 @@ WORD hangtimer;
 WORD dsecondtimer;
 BOOL repeatit;
 BOOL needburp;
-
-char their_challenge[VOTER_CHALLENGE_LEN],challenge[VOTER_CHALLENGE_LEN];
+char their_challenge[VOTER_CHALLENGE_LEN];
+char challenge[VOTER_CHALLENGE_LEN];
+char cmdstr[50];
+BYTE txaudio[MAX_BUFLEN];
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -936,6 +939,8 @@ static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                          
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB;
 
+void main_processing_loop(void);
+
 void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
 {
 
@@ -1415,6 +1420,8 @@ void __attribute__((interrupt, auto_psv)) _MathError(void)
    Nop();
 }
 
+int myfgets(char *buffer, unsigned int len);
+
 #if defined(SMT_BOARD)
 
 ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
@@ -1696,16 +1703,6 @@ BYTE c;
 	}
 }
 
-static char *myfgets(char *s, int size, FILE *stream)
-{
-	char *r;
-
-	ininput = 1;
-	r = fgets(s,size,stream);
-	ininput = 0;
-	return(r);
-}
-
 BYTE GetBootCS(void)
 {
 BYTE x = 0x69,i;
@@ -1921,6 +1918,7 @@ extern float doubleify(BYTE *p);
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime());
 		printf(gpsmsg3);
+		main_processing_loop();
 	}
 	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED))
 	{
@@ -1959,7 +1957,10 @@ extern float doubleify(BYTE *p);
 			tm.tm_min = twoascii(strs[1] + 2);
 			tm.tm_hour = twoascii(strs[1]);
 			tm.tm_mday = twoascii(strs[9]);
-			tm.tm_mon = twoascii(strs[9] + 2);
+			if (AppConfig.DebugLevel & 128)
+				tm.tm_mon = twoascii(strs[9] + 2);
+			else
+				tm.tm_mon = twoascii(strs[9] + 2) - 1;
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 			gps_time = (DWORD) mktime(&tm);
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
@@ -2026,7 +2027,10 @@ extern float doubleify(BYTE *p);
 			tm.tm_min = gps_buf[12];
 			tm.tm_hour = gps_buf[13];
 			tm.tm_mday = gps_buf[14];
-			tm.tm_mon = gps_buf[15];
+			if (AppConfig.DebugLevel & 128)
+				tm.tm_mon = gps_buf[15]; 
+			else
+				tm.tm_mon = gps_buf[15] - 1; 
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
 			gps_time = (DWORD) mktime(&tm);
@@ -2195,8 +2199,6 @@ void adpcm_decoder(BYTE *indata)
 void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
 
-	ROM char badmix[] = "ERROR! Host not acknowledging non-GPS disciplined operation\n";
-
 	BYTE n,c,i,j,*cp;
 
 	WORD mytxindex;
@@ -2318,11 +2320,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						digest = mydigest;
 						if (!connected) gpsforcetimer = 0;
 						connected = 1;
+						lastrxtimer = 0;
 						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
 						else option_flags = 0;
 						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
 						{
-							if (n > sizeof(VOTER_PACKET_HEADER)) printf(badmix);
+							if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
 							connected = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
@@ -2349,6 +2352,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					wconnected = connected;
 					if (!connected) gpsforcetimer = 0;
 					connected = 1;
+					lastrxtimer = 0;
 					if (!wconnected) SetAudioSrc();
 					lastrxtimer = 0;
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
@@ -2446,56 +2450,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 void main_processing_loop(void)
 {
 
-	static ROM char  cfgwritten[] = "Squelch calibration saved, noise gain = ",diodewritten[] = "Diode calibration saved, value (hex) = ",
-		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-		gothost[] = "  Connection with host established\n", losthost[] = "  Lost Connection with host\n";
-		
-	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
-			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
-			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
-	static ROM char diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
-		diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
-		diagerr3[] = "Error - Failed to read data from GPS UART\n",
-		diagfail[] = "  \nDiagnostics Failed With %d Errors!!!!\n",
-		diagpass[] = " \nDiagnostics Passed Successfully\n",
-		diag1[] = "Testing PTT/External CTCSS\n",
-		diag2[] = "Testing GPS UART\n",
-		measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
-		measmsg[] = "Testing level at %d Hz for %s\n",
-		flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",deemp_test_str[] = "De-Emphasized Audio",
-		sql_test_str[] = "Squelch Noise Detector";
-
-	static ROM struct meas flat_test[] = {
-		{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
-	}, plfilt_test[] = {
-		{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
-	}, deemp_test[] = {
-		{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0} 
-	}, sql_test[] = {
-		{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} 
-	};
-
-
-	static ROM BYTE diaguart[] = {0x55,0xaa,0x69,0};
-
-	static DWORD t = 0, t1 = 0, tdisp = 0,tdiag = 0;
-	long meas,thresh;
-	WORD i,mypeak;
-	long x,y,z;
-	static BYTE dispcnt = 0;
-	struct meas *m;
-
 	//UDP State machine
 	#define SM_UDP_SEND_ARP     0
 	#define SM_UDP_WAIT_RESOLVE 1
 	#define SM_UDP_RESOLVED     2
 
 	static BYTE smUdp = SM_UDP_SEND_ARP;
-
 	static DWORD  tsecWait = 0;           //General purpose wait timer
-	static WORD mynoise;
-
-	inprocloop = 1;
 
 	if(!MACIsLinked())
 	{
@@ -2569,7 +2530,7 @@ void main_processing_loop(void)
 			SetAudioSrc();
 	}
 
-      if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
+    if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
         case SM_UDP_SEND_ARP:
             if (ARPIsTxReady()) {
                 //Remember when we sent last request
@@ -2598,6 +2559,71 @@ void main_processing_loop(void)
 			process_udp(&udpSocketUser,&udpServerNode);
             break;
        }
+	}
+    // This task performs normal stack task including checking
+    // for incoming packet, type of packet and calling
+    // appropriate stack entity to process it.
+    StackTask();
+    
+    // This tasks invokes each of the core stack application tasks
+    StackApplications();
+
+ 	if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
+}
+
+void secondary_processing_loop(void)
+{
+
+	static ROM char  cfgwritten[] = "Squelch calibration saved, noise gain = ",diodewritten[] = "Diode calibration saved, value (hex) = ",
+		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
+		gothost[] = "  Connection with host established\n", losthost[] = "  Lost Connection with host\n";
+		
+	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
+			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
+			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
+	static ROM char diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
+		diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
+		diagerr3[] = "Error - Failed to read data from GPS UART\n",
+		diagfail[] = "  \nDiagnostics Failed With %d Errors!!!!\n",
+		diagpass[] = " \nDiagnostics Passed Successfully\n",
+		diag1[] = "Testing PTT/External CTCSS\n",
+		diag2[] = "Testing GPS UART\n",
+		measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
+		measmsg[] = "Testing level at %d Hz for %s\n",
+		flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",deemp_test_str[] = "De-Emphasized Audio",
+		sql_test_str[] = "Squelch Noise Detector";
+
+	static ROM struct meas flat_test[] = {
+		{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
+	}, plfilt_test[] = {
+		{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
+	}, deemp_test[] = {
+		{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0} 
+	}, sql_test[] = {
+		{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} 
+	};
+
+
+	static ROM BYTE diaguart[] = {0x55,0xaa,0x69,0};
+
+	static DWORD t = 0, t1 = 0, tdisp = 0,tdiag = 0;
+	long meas,thresh;
+	WORD i,mypeak;
+	long x,y,z;
+	static BYTE dispcnt = 0;
+	struct meas *m;
+
+
+
+	static WORD mynoise;
+
+#if !defined(SMT_BOARD)
+	inputs1 = IOExp_Read(IOEXP_GPIOA);
+	inputs2 = IOExp_Read(IOEXP_GPIOB);
+#endif
+
+	if (!indiag)
+	{
 
 		if (gps_state != GPS_STATE_IDLE)
 		{
@@ -2649,12 +2675,6 @@ void main_processing_loop(void)
 			}
 		}
 
-#if !defined(SMT_BOARD)
-	
-		inputs1 = IOExp_Read(IOEXP_GPIOA);
-		inputs2 = IOExp_Read(IOEXP_GPIOB);
-#endif
-	
 		process_gps();
 	
 		if ((gotpps || (!USE_PPS)) && (sqlcount >= 32))
@@ -2675,7 +2695,7 @@ void main_processing_loop(void)
 				}
 				else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
 				vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
-				if ((!connected) && (!qualcor) && wascor && (AppConfig.FailMode == 2)) needburp = 1;
+				if ((!connected) && (!indiag) && (!qualcor) && wascor && (AppConfig.FailMode == 2)) needburp = 1;
 				wascor = qualcor;
 			}
 			mynoise = (WORD) vnoise256;
@@ -2703,68 +2723,62 @@ void main_processing_loop(void)
 		}
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
-		if (!indiag)
+		if ((!connected) && (AppConfig.FailMode == 3) && HasCOR() && HasCTCSS())
 		{
-			if ((!connected) && (AppConfig.FailMode == 3) && HasCOR() && HasCTCSS())
+			repeatit = 1;
+			hangtimer = AppConfig.HangTime + 1;
+		} else repeatit = 0;
+		if (cwptr || cwtimer1 || hangtimer)
+		{
+			ptt = 1;
+			SetPTT(1);
+		}
+		else
+		{
+			if (connected)
 			{
-				repeatit = 1;
-				hangtimer = AppConfig.HangTime + 1;
-			} else repeatit = 0;
-			if (cwptr || cwtimer1 || hangtimer)
-			{
-				ptt = 1;
-				SetPTT(1);
-			}
-			else
-			{
-				if (connected)
+
+				if (!USE_PPS)
 				{
-	
-					if (!USE_PPS)
+					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
+						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
 					{
-						if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
-							(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
-						{
-							ptt = 0;
-							SetPTT(0);
-						}
-						else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
-							(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
-						{
-							ptt = 1;
-							SetPTT(1);
-						}
+						ptt = 0;
+						SetPTT(0);
 					}
-					else
+					else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
+						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
 					{
-						if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000))
-						{
-							y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
-							z = x * 1000;
-							z += y / 1000000;
-							z -= (AppConfig.TxBufferLength - 160) >> 3;
-						}
-						if (ptt && ((z > 60L) || (AppConfig.Elkes && 
-							(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
-						{
-							ptt = 0;
-							SetPTT(0);
-						}
-						else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
-							(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
-						{
-							ptt = 1;
-							SetPTT(1);
-						}
+						ptt = 1;
+						SetPTT(1);
 					}
 				}
-				else SetPTT(0);	
+				else
+				{
+					if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000))
+					{
+						y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+						z = x * 1000;
+						z += y / 1000000;
+						z -= (AppConfig.TxBufferLength - 160) >> 3;
+					}
+					if (ptt && ((z > 60L) || (AppConfig.Elkes && 
+						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
+					{
+						ptt = 0;
+						SetPTT(0);
+					}
+					else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
+						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
+					{
+						ptt = 1;
+						SetPTT(1);
+					}
+				}
 			}
+			else SetPTT(0);	
 		}
-	}
 
-	if (!indiag)
-	{
 		if (LEVDISP)
 		{
 			SetLED(CONNLED,connected);
@@ -2801,18 +2815,17 @@ void main_processing_loop(void)
 				SetLED(SQLED,0);
 		}
 	}
-
-       // Blink LEDs as appropriate
-       if(TickGet() - t1 >= TICK_SECOND / 6ul)
-        {
-		  t1 = TickGet();
-		  if (indiag) ToggleLED(SYSLED);
-	    }
-       // Blink LEDs as appropriate
-       if(TickGet() - t >= TICK_SECOND / 2ul)
-       {
+    // Blink LEDs as appropriate
+    if(TickGet() - t1 >= TICK_SECOND / 6ul)
+    {
+	  t1 = TickGet();
+	  if (indiag) ToggleLED(SYSLED);
+    }
+    // Blink LEDs as appropriate
+    if(TickGet() - t >= TICK_SECOND / 2ul)
+    {
 		if (dnstimer) dnstimer--;
-        t = TickGet();
+       	t = TickGet();
 		if (!indiag)
 		{
 			ToggleLED(SYSLED);
@@ -2823,91 +2836,75 @@ void main_processing_loop(void)
 			if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 		}
 #ifdef	SILLY
-		printf("%lu\n",sillyval);
-#endif
-       }
+	printf("%lu\n",sillyval);
+#endif	
+	}
 
-       // This task performs normal stack task including checking
-       // for incoming packet, type of packet and calling
-       // appropriate stack entity to process it.
-       StackTask();
-       
-       // This tasks invokes each of the core stack application tasks
-       StackApplications();
+	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
 
-	   if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
+	// Rx Level Display handler
 
-	   if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
+    if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
+	{
+       	tdisp = TickGet();
+		if (indiag || (HasCOR() && HasCTCSS()))
+			meas = apeak;
+		else
+			meas = 0;
+		putchar('|');
+           for(i = 0; i < NCOLS; i++)
+           {
+                   thresh = (meas * (long)NCOLS) / 16384;
+                   if (i < thresh) putchar('=');
+                   else if (i == thresh) putchar('>');
+                   else putchar(' ');
+           }
+		putchar('|');
+		putchar('\r');
+		fflush(stdout);
+		amin = amax = 0;
+	}
 
-	   if (!inread)
-	   {
-			inprocloop = 0;
-			return;
-	   }
+   // Dip Switch diagnostic display handler
+   if(indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul))
+   {
+       	tdisp = TickGet();
+		printf(" (%s) (%s) (%s) (%s)\r",(!JP8) ? "Down" : " Up ",(!JP9) ? "Down" : " Up ",
+			(!JP10) ? "Down" : " Up ",(!JP11) ? "Down" : " Up ");
+		fflush(stdout);
+   } 
+      // LED Flash diagnostic handler
+   if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul))
+   {
+       	tdisp = TickGet();
+		SetLED(SQLED,0);
+		SetLED(GPSLED,0);
+		SetLED(CONNLED,0);
+		SetPTT(0);
+		switch (leddiag)
+		{
+		    case 1:
+				SetLED(SQLED,1);
+			    leddiag = 2;
+				break;
+		    case 2:
+				SetLED(CONNLED,1);
+				leddiag = 3;
+				break;
+		    case 3:
+				SetPTT(1);
+				leddiag = 4;
+				break;
+			case 4:
+				SetLED(GPSLED,1);
+				leddiag = 1;
+				break;
+		}
+   }
 
-	   // Rx Level Display handler
-
-       if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
-	   {
-        	tdisp = TickGet();
-			if (indiag || (HasCOR() && HasCTCSS()))
-				meas = apeak;
-			else
-				meas = 0;
-			putchar('|');
-            for(i = 0; i < NCOLS; i++)
-            {
-                    thresh = (meas * (long)NCOLS) / 16384;
-                    if (i < thresh) putchar('=');
-                    else if (i == thresh) putchar('>');
-                    else putchar(' ');
-            }
-			putchar('|');
-			putchar('\r');
-			fflush(stdout);
-			amin = amax = 0;
-	   }
-
-	   // Dip Switch diagnostic display handler
-       if(indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul))
-	   {
-        	tdisp = TickGet();
-			printf(" (%s) (%s) (%s) (%s)\r",(!JP8) ? "Down" : " Up ",(!JP9) ? "Down" : " Up ",
-				(!JP10) ? "Down" : " Up ",(!JP11) ? "Down" : " Up ");
-			fflush(stdout);
-	   } 
-       // LED Flash diagnostic handler
-       if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul))
-	   {
-        	tdisp = TickGet();
-			SetLED(SQLED,0);
-			SetLED(GPSLED,0);
-			SetLED(CONNLED,0);
-			SetPTT(0);
-			switch (leddiag)
-			{
-			    case 1:
-					SetLED(SQLED,1);
-				    leddiag = 2;
-					break;
-			    case 2:
-					SetLED(CONNLED,1);
-					leddiag = 3;
-					break;
-			    case 3:
-					SetPTT(1);
-					leddiag = 4;
-					break;
-				case 4:
-					SetLED(GPSLED,1);
-					leddiag = 1;
-					break;
-			}
-	   }
-
-       // "Diagnostic Suite" handler
-	   if (indiag && (tdiag < TickGet()))
-       {
+   // "Diagnostic Suite" handler
+   if (indiag && (tdiag < TickGet()))
+   {
 		// If we have a result, perform measurement and check results
 		if (measp && measidx)
 		{
@@ -2915,7 +2912,7 @@ void main_processing_loop(void)
 			DWORD accum = 0;
 			WORD aval;
 			short sqlval = adcothers[ADCSQNOISE] - (AppConfig.SqlDiode - adcothers[ADCDIODE]);
-
+	
 			m = (measp + (measidx - 1));
 			for(i = 0; i < NAPEAKS; i++) accum += apeaks[i];
 			aval = (WORD)(accum / NAPEAKS);
@@ -2999,13 +2996,13 @@ void main_processing_loop(void)
 						errcnt++;
 						printf(diagerr3);
 					}
-#if defined(SMT_BOARD)
+	#if defined(SMT_BOARD)
 					U2MODEbits.URXINV = AppConfig.GPSPolarity;
 					U2STAbits.UTXINV = AppConfig.GPSPolarity;
-#else
+	#else
 					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
 					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
-#endif
+	#endif
 					// Perform measurement sequence with no filters on audio
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc();
@@ -3068,58 +3065,66 @@ void main_processing_loop(void)
 					break;
 			}
 		}
-	   }
-	if ((!connected) && connrep)
-	{
-	    printf(logtime());
-		printf(losthost);
-		connrep = 0;
 	}
-	else if (connected && (!connrep))
+    if (gotbadmix)
 	{
-	    printf(logtime());
-		printf(gothost);
-		connrep = 1;
+		printf(badmix);
+		gotbadmix = 0;
 	}
-	if (connected)
+	if (!indiag)
 	{
-		if (!connfail) connfail = 1;
-		failtimer = 0;
-		hangtimer = 0;
-	}
-	if (AppConfig.FailMode && (!cwptr) && (!cwtimer1))
-	{
+		if ((!connected) && connrep)
+		{
+		    printf(logtime());
+			printf(losthost);
+			connrep = 0;
+		}
+		else if (connected && (!connrep))
+		{
+		    printf(logtime());
+			printf(gothost);
+			connrep = 1;
+		}
 		if (connected)
 		{
-			if ((connfail == 2) && AppConfig.UnFailString[0])
-			{
-				domorse((char *)AppConfig.UnFailString);
-				connfail = 1;
-			}
+			failtimer = 0;
+			hangtimer = 0;
 		}
-		else
+		if (connected && (!connfail)) connfail = 1;
+		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1))
 		{
-			if ((connfail == 1) && AppConfig.FailString[0])
+			if (connected)
+			{
+				if ((connfail == 2) && AppConfig.UnFailString[0])
+				{
+					domorse((char *)AppConfig.UnFailString);
+					connfail = 1;
+				}
+			}
+			else
+			{
+				if ((connfail == 1) && AppConfig.FailString[0])
+				{
+					domorse((char *)AppConfig.FailString);
+					connfail = 2;
+					failtimer = 0;
+				}
+			}
+			if ((connfail == 2) && AppConfig.FailTime && 
+				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0])
 			{
 				domorse((char *)AppConfig.FailString);
-				connfail = 2;
 				failtimer = 0;
 			}
 		}
-		if ((connfail == 2) && AppConfig.FailTime && 
-			(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0])
+		if (connected) needburp = 0;
+		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0])
 		{
+			needburp = 0;
+			if (!connfail) connfail = 2;
 			domorse((char *)AppConfig.FailString);
 			failtimer = 0;
 		}
-	}
-	if (connected) needburp = 0;
-	if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0])
-	{
-		needburp = 0;
-		if (!connfail) connfail = 2;
-		domorse((char *)AppConfig.FailString);
-		failtimer = 0;
 	}
        // If the local IP address has changed (ex: due to DHCP lease change)
        // write the new IP address to the LCD display, UART, and Announce 
@@ -3153,31 +3158,28 @@ void main_processing_loop(void)
 		printf(dnsfailed,AppConfig.VoterServerFQDN);
 	}
 	dnsnotify = 0;
-	inprocloop = 0;
 }
 
 int write(int handle, void *buffer, unsigned int len)
 {
 int i;
 BYTE *cp;
-BOOL instuff;
 
-		instuff = (inread || inprocloop);
 		i = len;
 		if ((handle >= 0) && (handle <= 2))
 		{
 			cp = (BYTE *)buffer;
 			while(i--)
 			{
-				while(BusyUART()) if (!instuff) main_processing_loop();
+				while(BusyUART()) main_processing_loop();
 				if (*cp == '\n')
 				{
 					WriteUART('\r');
-					if (netisup) while(!PutTelnetConsole('\r')) if (!instuff) main_processing_loop();
-					while(BusyUART()) if (!instuff) main_processing_loop();
+					if (netisup) while(!PutTelnetConsole('\r')) main_processing_loop();
+					while(BusyUART())main_processing_loop();
 				}
 				WriteUART(*cp);
-				if (netisup) while (!PutTelnetConsole(*cp)) if (!instuff) main_processing_loop();
+				if (netisup) while (!PutTelnetConsole(*cp)) main_processing_loop();
 				cp++;
 			}
 		}
@@ -3189,29 +3191,22 @@ BOOL instuff;
 	return(len);
 }
 
-int read(int handle, void *buffer, unsigned int len)
+int read(int handle,void *buffer, unsigned int len)
 {
-BYTE *dest,c;
+	return 0;
+}
+
+int myfgets(char *dest, unsigned int len)
+{
+
+BYTE c;
 int count,x;
 
 	ClrWdt();
 
-	if ((!ininput) || inprocloop) return(0);
-
+	fflush(stdout);
 	inread = 1;
 	aborted = 0;
-	if ((handle < 0) || (handle > 2)) 
-	{
-		errno = EBADF;
-		inread = 0;
-		return(-1);
-	}
-	if ((handle == 1) || (handle == 2))
-	{
-		inread = 0;
-		return(0);
-	}
-	dest = (BYTE *)buffer;
 	count = 0;
 	while(count < len)
 	{
@@ -3234,23 +3229,25 @@ int count,x;
 				}
 				if (c) break;
 			}
-			if (!inprocloop) main_processing_loop();
+			main_processing_loop();
+			secondary_processing_loop();
 		}
+		if (c == 127) continue;
 		if (c == 3) 
 		{
-			while(BusyUART()) if (!inprocloop) main_processing_loop();
+			while(BusyUART())  main_processing_loop();
 			WriteUART('^');
-			if (telnet_echo && netisup) while(!PutTelnetConsole('^')) if (!inprocloop) main_processing_loop();
-			while(BusyUART()) if (!inprocloop) main_processing_loop();
+			if (telnet_echo && netisup) while(!PutTelnetConsole('^'))  main_processing_loop();
+			while(BusyUART())  main_processing_loop();
 			WriteUART('C');
-			if (telnet_echo && netisup) while(!PutTelnetConsole('C')) if (!inprocloop) main_processing_loop();
+			if (telnet_echo && netisup) while(!PutTelnetConsole('C'))  main_processing_loop();
 			aborted = 1;
 			dest[0] = '\n';
 			dest[1] = 0;
 			count = 1;
 			break;
 		}
-		if ((c == 8) || (c == 127) || (c == 21))
+		if ((c == 8) || (c == 21))
 		{
 			if (!count) continue;
 			if (c == 21) x = count;
@@ -3259,15 +3256,15 @@ int count,x;
 			{
 				count--;
 				dest[count] = 0;
-				while(BusyUART()) if (!inprocloop) main_processing_loop();
+				while(BusyUART())  main_processing_loop();
 				WriteUART(8);
-				if (netisup) while(!PutTelnetConsole(8)) if (!inprocloop) main_processing_loop();
+				if (netisup) while(!PutTelnetConsole(8))  main_processing_loop();
 				while(BusyUART()) main_processing_loop();
 				WriteUART(' ');
-				if (netisup) while(!PutTelnetConsole(' ')) if (!inprocloop) main_processing_loop();
+				if (netisup) while(!PutTelnetConsole(' '))  main_processing_loop();
 				while(BusyUART()) main_processing_loop();
 				WriteUART(8);
-				if (netisup) while(!PutTelnetConsole(8)) if (!inprocloop) main_processing_loop();
+				if (netisup) while(!PutTelnetConsole(8))  main_processing_loop();
 			}
 			continue;
 		}
@@ -3282,17 +3279,17 @@ int count,x;
 		dest[count++] = c;
 		dest[count] = 0;
 		if (c == '\n') break;
-		while(BusyUART()) if (!inprocloop) main_processing_loop();
+		while(BusyUART())  main_processing_loop();
 		WriteUART(c);
-		if (telnet_echo && netisup) while(!PutTelnetConsole(c)) if (!inprocloop) main_processing_loop();
+		if (telnet_echo && netisup) while(!PutTelnetConsole(c))  main_processing_loop();
 
 	}
-	while(BusyUART()) if (!inprocloop) main_processing_loop();
+	while(BusyUART())  main_processing_loop();
 	WriteUART('\r');
-	if (netisup) while(!PutTelnetConsole('\r')) if (!inprocloop) main_processing_loop();
-	while(BusyUART()) if (!inprocloop) main_processing_loop();
+	if (netisup) while(!PutTelnetConsole('\r'))  main_processing_loop();
+	while(BusyUART())  main_processing_loop();
 	WriteUART('\n');
-	if (netisup) while(!PutTelnetConsole('\n')) if (!inprocloop) main_processing_loop();
+	if (netisup) while(!PutTelnetConsole('\n'))  main_processing_loop();
 	inread = 0;
 	return(count);
 }
@@ -3331,10 +3328,12 @@ static void DiagMenu()
  }
  gpssync = 0;
  gotpps = 0;
+ hangtimer = 0;
+ connfail = 0;
+ connrep = 0;
 
  while(1) 
 	{
-		char cmdstr[50];
 		int i,sel;
 
 	static ROM char menu[] = "Select the following Diagnostic functions:\n\n" 
@@ -3374,7 +3373,7 @@ static void DiagMenu()
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
 		if (aborted) continue;
@@ -3399,7 +3398,7 @@ static void DiagMenu()
 		        printf(diagcable);
  				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				printf("\n\n");
 				continue;
 		}
@@ -3414,7 +3413,7 @@ static void DiagMenu()
 		      	for(i = 0; i < NCOLS; i++) putchar(' ');
 		        printf(rxvoicestr);
 				indisplay = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				indisplay = 0;
 				SetPTT(0);
 				SetTxTone(0);
@@ -3422,7 +3421,7 @@ static void DiagMenu()
 			case 2: // Dip Switch test  
 		        printf(dipstr);
 				indipsw = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				indipsw = 0;
 				printf("\n\n");
 				continue;
@@ -3431,7 +3430,7 @@ static void DiagMenu()
 				leddiag = 1;
  				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				leddiag = 0;
 				printf("\n\n");
 				continue;
@@ -3441,7 +3440,7 @@ static void DiagMenu()
 				errcnt = 0;
 				diagstate = 1;
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				measp = 0;
 				measidx = 0;
 				measstr = 0;
@@ -3462,9 +3461,20 @@ static void DiagMenu()
 	}
 	SetTxTone(0);
 	SetPTT(0);
+	ptt = 0;
+	UDPFlush();
 	set_atten(noise_gain);
-	indiag = 0;
+	hangtimer = 0;
+	connfail = 0;
+	connrep = 0;
+	lastrxtime.vtime_sec = 0;
+	lastrxtime.vtime_nsec = 0;
+	txseqno = 0;
+	txseqno_ptt = 0;
+	host_txseqno = 0;
+	digest = 0;
 	SetAudioSrc();
+	indiag = 0;
 }
 
 static void IPMenu()
@@ -3472,49 +3482,77 @@ static void IPMenu()
 
  while(1) 
 	{
-		char cmdstr[50];
 		unsigned int i1,i2,i3,i4,x;
 		BOOL bootok,ok;
 		int sel;
 
 	static ROM char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
-		"1  - (Static) IP Address (%d.%d.%d.%d)\n"
-		"2  - (Static) Netmask (%d.%d.%d.%d)\n"
-		"3  - (Static) Gateway (%d.%d.%d.%d)\n"
-		"4  - (Static) Primary DNS Server (%d.%d.%d.%d)\n"
-		"5  - (Static) Secondary DNS Server (%d.%d.%d.%d)\n"
+		"1  - (Static) IP Address (%d.%d.%d.%d)\n",
+		menu1[] = 
+		"2  - (Static) Netmask (%d.%d.%d.%d)\n",
+		menu2[] = 
+		"3  - (Static) Gateway (%d.%d.%d.%d)\n",
+		menu3[] = 
+		"4  - (Static) Primary DNS Server (%d.%d.%d.%d)\n",
+		menu4[] = 
+		"5  - (Static) Secondary DNS Server (%d.%d.%d.%d)\n",
+		menu5[] = 
 		"6  - DHCP Enable (%d)\n"
 		"7  - Telnet Port (%d)\n"
 		"8  - Telnet Username (%s)\n"
 		"9  - Telnet Password (%s)\n"
-		"10 - DynDNS Enable (%d)\n"
+		"10 - DynDNS Enable (%d)\n",
+		menu6[] = 
 		"11 - DynDNS Username (%s)\n"
 		"12 - DynDNS Password (%s)\n"
-		"13 - DynDNS Host (%s)\n"
-		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
+		"13 - DynDNS Host (%s)\n",
+		menu7[] = 
+		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n",
+		menu8[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit IP Parameters Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-14,99,c,x,q,r) : ";
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
 		printf(menu,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
-			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3],AppConfig.DefaultMask.v[0],
-			AppConfig.DefaultMask.v[1],AppConfig.DefaultMask.v[2],AppConfig.DefaultMask.v[3],
-			AppConfig.DefaultGateway.v[0],AppConfig.DefaultGateway.v[1],AppConfig.DefaultGateway.v[2],AppConfig.DefaultGateway.v[3],
-			AppConfig.DefaultPrimaryDNSServer.v[0],AppConfig.DefaultPrimaryDNSServer.v[1],AppConfig.DefaultPrimaryDNSServer.v[2],
-			AppConfig.DefaultPrimaryDNSServer.v[3],AppConfig.DefaultSecondaryDNSServer.v[0],AppConfig.DefaultSecondaryDNSServer.v[1],
-			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3],AppConfig.Flags.bIsDHCPReallyEnabled,
-			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable,AppConfig.DynDNSUsername,
-			AppConfig.DynDNSPassword,AppConfig.DynDNSHost,
-			AppConfig.BootIPAddr.v[0],AppConfig.BootIPAddr.v[1],AppConfig.BootIPAddr.v[2],AppConfig.BootIPAddr.v[3],
-				(bootok) ? "OK" : "BAD");
+			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3]);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu1,AppConfig.DefaultMask.v[0],AppConfig.DefaultMask.v[1],
+			AppConfig.DefaultMask.v[2],AppConfig.DefaultMask.v[3]);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu2,AppConfig.DefaultGateway.v[0],AppConfig.DefaultGateway.v[1],
+			AppConfig.DefaultGateway.v[2],AppConfig.DefaultGateway.v[3]);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu3,AppConfig.DefaultPrimaryDNSServer.v[0],AppConfig.DefaultPrimaryDNSServer.v[1],
+			AppConfig.DefaultPrimaryDNSServer.v[2],AppConfig.DefaultPrimaryDNSServer.v[3]);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu4,AppConfig.DefaultSecondaryDNSServer.v[0],AppConfig.DefaultSecondaryDNSServer.v[1],
+			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3]);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu5,AppConfig.Flags.bIsDHCPReallyEnabled,
+			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu6,AppConfig.DynDNSUsername,AppConfig.DynDNSPassword,AppConfig.DynDNSHost);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu7,AppConfig.BootIPAddr.v[0],AppConfig.BootIPAddr.v[1],AppConfig.BootIPAddr.v[2],
+			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD");
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu8);
 		fflush(stdout);
 		aborted = 0;
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
 		if (aborted) continue;
@@ -3539,7 +3577,7 @@ static void IPMenu()
 		{
 			printf(entnewval);
 			if (aborted) continue;
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) || (strlen(cmdstr) < 2))
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2))
 			{
 				printf(newvalnotchanged);
 				continue;
@@ -3702,7 +3740,6 @@ static void OffLineMenu()
 
  while(1) 
 	{
-		char cmdstr[50];
 		unsigned int i1,x;
 		BOOL ok;
 		int sel;
@@ -3711,24 +3748,31 @@ static void OffLineMenu()
 		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
 		"2  - CW Speed (%u) (1/8000 secs)\n"
 		"3  - Pre-CW Delay (%u) (1/8000 secs)\n"
-		"4  - Post-CW Delay (%u) (1/8000 secs)\n"
+		"4  - Post-CW Delay (%u) (1/8000 secs)\n",
+		menu1[] = 
 		"5  - CW \"Offline\" (ID) String (%s)\n"
 		"6  - CW \"Online\" String (%s)\n"
 		"7  - \"Offline\" (CW ID) Period Time (%u) (1/10 secs)\n"
-		"8  - Offline Repeat Hang Time (%u) (1/10 secs)\n"
+		"8  - Offline Repeat Hang Time (%u) (1/10 secs)\n",
+		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
 
-		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime,
-			AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
+		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu2);
 		fflush(stdout);
 		aborted = 0;
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
 		if (aborted) continue;
@@ -3753,7 +3797,7 @@ static void OffLineMenu()
 		{
 			printf(entnewval);
 			if (aborted) continue;
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) || 
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || 
 				((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6))))
 			{
 				printf(newvalnotchanged);
@@ -3850,21 +3894,25 @@ int main(void)
 	static ROM char defwritten[] = "\nDefault Values Written to EEPROM\n",
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
-	static ROM char menu[] = "\nSelect the following values to View/Modify:\n\n" 
-		"1  - Serial # (%d) (which is MAC ADDR 00:04:A3:00:%02X:%02X)\n"
+	static ROM char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
+		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
+		menu2[] = 
 		"2  - VOTER Server Address (FQDN) (%s)\n"
 		"3  - VOTER Server Port (%d),  "
 		"4  - Local Port (Override) (%d)\n"
 		"5  - Client Password (%s),  "
-		"6  - Host Password (%s)\n"
+		"6  - Host Password (%s)\n",
+		menu3[] = 
 		"7  - Tx Buffer Length (%d)\n"
 		"8  - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"9  - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
-		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n"
+		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n",
+		menu4[] = 
 		"11 - GPS Baud Rate (%lu)\n"
 		"12 - External CTCSS (0=Ignore, 1=Non-Inverted, 2=Inverted) (%d)\n"
 		"13 - COR Type (0=Normal, 1=IGNORE COR, 2=No Receiver) (%d)\n"
-		"14 - Debug Level (%d)\n"
+		"14 - Debug Level (%d)\n",
+		menu5[] = 
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
@@ -3874,25 +3922,34 @@ int main(void)
 
 
 	static ROM char oprdata[] = "S/W Version: %s\n"
-		"IP Address: %d.%d.%d.%d\n"
-		"Netmask: %d.%d.%d.%d\n"
-		"Gateway: %d.%d.%d.%d\n"
-		"Primary DNS: %d.%d.%d.%d\n"
-		"Secondary DNS: %d.%d.%d.%d\n"
+		"IP Address: %d.%d.%d.%d\n",
+		oprdata1[] = 
+		"Netmask: %d.%d.%d.%d\n",
+		oprdata2[] = 
+		"Gateway: %d.%d.%d.%d\n",
+		oprdata3[] = 
+		"Primary DNS: %d.%d.%d.%d\n",
+		oprdata4[] = 
+		"Secondary DNS: %d.%d.%d.%d\n",
+		oprdata5[] = 
 		"DHCP: %d\n"
-		"VOTER Server IP: %d.%d.%d.%d\n"
+		"VOTER Server IP: %d.%d.%d.%d\n",
+		oprdata6[] = 
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
 		"GPS Lock: %d\n"
 		"Connected: %d\n"
-		"COR: %d\n"
+		"COR: %d\n",
+		oprdata7[] = 
 		"EXT CTCSS IN: %d\n"
 		"PTT: %d\n"
 		"RSSI: %d\n"
 		"Current Samples / Sec.: %d\n"
-		"Current Peak Audio Level: %u\n"
+		"Current Peak Audio Level: %u\n",
+		oprdata8[] = 
 		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL pot %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
+
 
 	filling_buffer = 0;
 	fillindex = 0;
@@ -3981,8 +4038,7 @@ int main(void)
 	measidx = 0;
 	diag_option_flags = 0;
 	netisup = 0;
-	inprocloop = 0;
-	ininput = 0;
+	gotbadmix = 0;
 	telnet_echo = 0;
 	termbuftimer = 0;
 	termbufidx = 0;
@@ -4141,7 +4197,7 @@ __builtin_nop();
 
     while(1) 
 	{
-		char cmdstr[50],ok;
+		char ok;
 		unsigned int i1,x;
 		unsigned long l;
 
@@ -4156,17 +4212,28 @@ __builtin_nop();
 		}
 		indiag = 0;
 		SetAudioSrc();
-		printf(menu,AppConfig.SerialNumber,AppConfig.SerialNumber >> 8,AppConfig.SerialNumber & 0xff,
-			AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword,
-			AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity,AppConfig.GPSBaudRate,
-			AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
+		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
+			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5]);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu2,AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,
+			AppConfig.HostPassword);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu5);
 
 		aborted = 0;
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) continue;
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
 			if (!strchr(cmdstr,'!')) break;
 		}
 		if (aborted) continue;
@@ -4201,7 +4268,7 @@ __builtin_nop();
 		{
 			printf(entnewval);
 			if (aborted) continue;
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1,stdin)) || (strlen(cmdstr) < 2))
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2))
 			{
 				printf(newvalnotchanged);
 				continue;
@@ -4326,8 +4393,7 @@ __builtin_nop();
 			case 14: // Debug Level
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 10000))
 				{
-				//	AppConfig.DebugLevel = i1;
-					SetTxTone(i1);
+					AppConfig.DebugLevel = i1;
 					ok = 1;
 				}
 				break;
@@ -4336,7 +4402,7 @@ __builtin_nop();
 				DumpETHReg();
  				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				continue;
 #endif
 			case 97: // Display RX Level Quasi-Graphically  
@@ -4344,24 +4410,46 @@ __builtin_nop();
 		      	for(i = 0; i < NCOLS; i++) putchar(' ');
 		        printf(rxvoicestr);
 				indisplay = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				indisplay = 0;
 				continue;
 			case 98:
 				t = system_time.vtime_sec;
-				printf(oprdata,VERSION,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
-					AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3],
-					AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3],
-					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
-					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3],
-					AppConfig.Flags.bIsDHCPEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
-					AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor,CTCSSIN ? 1 : 0,ptt,rssi,last_samplecnt,apeak,
-					AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
+				printf(oprdata,VERSION,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata1,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata2,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata3,AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3]);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata4,AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],
+					AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata5,AppConfig.Flags.bIsDHCPEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssi,last_samplecnt,apeak);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
+				main_processing_loop();
+				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+				main_processing_loop();
+				secondary_processing_loop();
 				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1,stdin);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				continue;
 			case 99:
 				SaveAppConfig();
