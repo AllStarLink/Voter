@@ -1,6 +1,6 @@
 /* "PCGM" -- A Programmable Clock Generator Module which takes 10.0 MHz and
 	generates a clock for driving Digitally Synthesized radios.
-    Jim Dixon, WB6NIL  Ver. 0.3 12/28/11
+    Jim Dixon, WB6NIL  Ver. 0.4 12/28/11
 	This program is placed in the public domain, and may be used
 	by anyone in any way for any legal purpose */
 
@@ -112,32 +112,33 @@ unsigned int mygets(unsigned int length,char *buffer)
 
 
 // Calculate the divisors and stuff for the synth chip
-float ics_mkdiv(DWORD khz,BYTE *p)
+double ics_mkdiv(DWORD khz,BYTE *p)
 {
 
-float rv,fvdw,frdw,fvco,fmin,fr,outfac;
+float fvdw,frdw,fvco,fmin,fr;
+double rv,outfac;
 WORD s123,rdw,vdw;
 
 	s123 = 0;
 	fvco = khz * 10.0;
-	outfac = 1.0;
+	outfac = 10.0;
 	if (khz > 15000)
 	{
 		s123 = 4;
 		fvco = khz * 5.0;
-		outfac = 2.0;
+		outfac = 5.0;
 	}
 	if (khz > 30000)
 	{
 		s123 = 6;
 		fvco = khz * 3.0;
-		outfac = 3.33333333333333;
+		outfac = 3.0;
 	}
 	if (khz > 60000)
 	{
 		s123 = 1;
 		fvco = khz * 2.0;
-		outfac = 5.0;
+		outfac = 2.0;
 	}
     fmin = 10000.0;
     rv = -999999999;
@@ -158,11 +159,11 @@ WORD s123,rdw,vdw;
 				p[1] = vdw >> 1;
 				p[2] = rdw;
 				if (vdw & 1) p[2] |= 0x80;
-				rv = fr / 10.0;
+				rv = (double)fr / outfac;
             }
     	}
 	}
-	return(rv * outfac);
+	return(rv);
 }
 
 /* write a byte to SPI */
@@ -342,14 +343,13 @@ void myutoa3(WORD Value, char* Buffer)
 	*Buffer = '\0';
 }
 
-
 int main(void) {
 
 WORD i;
 DWORD khz,l;
 static BYTE b[3];
-float f;
 char a[20],a1[20];
+double f;
 
 	CLKDIV = 0; 
 	__builtin_write_OSCCONH(0x01);
@@ -387,7 +387,7 @@ char a[20],a1[20];
 	khz = read_freq();
 	if (!khz) khz = DESIRED_FREQ_KHZ;
 
-	printf("\nPCGM (Programmable Clock Generator Module) Ver. 0.3 12/28/2011\n\n");
+	printf("\nPCGM (Programmable Clock Generator Module) Ver. 0.4 12/28/2011\n\n");
 
 	while(1)
 	{
@@ -399,7 +399,7 @@ char a[20],a1[20];
 		myultoa(khz,a);
 		printf("Desired Freq: %s KHz\n",a);
 	
-		l = f * 1000;
+		l = f * 1000.0;
 		myultoa(l,a);
 		strcpy(a1,a);
 		i = strlen(a);
@@ -440,6 +440,13 @@ char a[20],a1[20];
 		myfgets(a,sizeof(a) - 1);
 		if (aborted) continue;
 		if (strlen(a) < 2) continue;
+		if (strstr(a,"FROG"))
+		{
+			printf("\n\nA frog in a blender with a base diameter of 3 inches going\n");
+			printf("75139293848.398697 RPM will be travelling at warp factor 1.000000,\n");
+			printf("based upon the Jacobsen Frog Corollary.\n\n");
+			continue;
+		}
 		if (strstr(a,"SAVE"))
 		{
 			write_freq(khz);
