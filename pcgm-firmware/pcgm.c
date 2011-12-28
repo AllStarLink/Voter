@@ -1,6 +1,6 @@
 /* "PCGM" -- A Programmable Clock Generator Module which takes 10.0 MHz and
 	generates a clock for driving Digitally Synthesized radios.
-    Jim Dixon, WB6NIL  Ver. 0.2 12/06/11
+    Jim Dixon, WB6NIL  Ver. 0.3 12/28/11
 	This program is placed in the public domain, and may be used
 	by anyone in any way for any legal purpose */
 
@@ -15,12 +15,8 @@
    stuff work, so if you see anything that makes you wonder "why in the heck
    was this done this way", you will understand why. 
 
-   ALSO, this source *MUST* be used with the C30 v3.25 (and no later) compiler.
-   This code will only compile and run successfully under that version for several
-   reasons (e.g. the config fuses are intentionally wrong here because of a little
-   compiler boo boo, which is fixed in the next version of the compiler, but that
-   one has the annoying broken stdin implementation that breaks the character input
-   stuff). This is as un-broken as it can be at the moment.
+   This program now works with the latest current version of the C30 compiler
+   (v3.30c), along with previous versions.
 
 */
 
@@ -56,9 +52,9 @@ extern int __C30_UART;
 
 _FBS( BWRP_OFF & BSS_OFF )
 _FGS( GSS0_OFF & GWRP_OFF )
-_FOSCSEL( FNOSC_FRCPLL & IESO_OFF & INTOSCSEL_OFF)
+_FOSCSEL( FNOSC_FRCPLL & IESO_OFF & SOSCSRC_DIG)
 _FOSC( FCKSM_CSECMD & OSCIOFNC_ON & POSCMOD_NONE  )
-_FPOR( BOREN_BOR3 & RETVRDIS_DISABLED & PWRTEN_OFF & BORV_V27 & MCLRE_ON)	
+_FPOR( BOREN_BOR3 & LVRCFG_OFF & PWRTEN_OFF & BORV_V27 & MCLRE_ON)	
 _FICD( ICS_PGx2 )
 
 BOOL aborted;
@@ -223,22 +219,17 @@ BYTE *cp;
 
 int read(int handle, void *buffer, unsigned int len)
 {
-BYTE *dest,c;
+	return 0;
+}
+
+int myfgets(char *dest,unsigned int len)
+{
+BYTE c;
 int count,x;
 
 	ClrWdt();
 
 	aborted = 0;
-	if ((handle < 0) || (handle > 2)) 
-	{
-		errno = EBADF;
-		return(-1);
-	}
-	if ((handle == 1) || (handle == 2))
-	{
-		return(0);
-	}
-	dest = (BYTE *)buffer;
 	count = 0;
 	while(count < len)
 	{
@@ -396,7 +387,7 @@ char a[20],a1[20];
 	khz = read_freq();
 	if (!khz) khz = DESIRED_FREQ_KHZ;
 
-	printf("\nPCGM (Programmable Clock Generator Module) Ver. 0.2 12/06/2011\n\n");
+	printf("\nPCGM (Programmable Clock Generator Module) Ver. 0.3 12/28/2011\n\n");
 
 	while(1)
 	{
@@ -446,7 +437,7 @@ char a[20],a1[20];
 		printf("Enter New Freq. in KHz, or \"SAVE\" : \n");
 		fflush(stdout);
 
-		fgets(a,sizeof(a) - 1,stdin);
+		myfgets(a,sizeof(a) - 1);
 		if (aborted) continue;
 		if (strlen(a) < 2) continue;
 		if (strstr(a,"SAVE"))
