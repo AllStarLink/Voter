@@ -196,7 +196,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "ERROR! Host not acknowledging non-GPS disciplined operation\n",
-	VERSION[] = "0.62  12/26/2011";
+	VERSION[] = "0.63  12/30/2011";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -299,6 +299,7 @@ WORD txdrainindex;
 WORD last_drainindex;
 VTIME lastrxtime;
 BOOL ptt;
+BOOL host_ptt;
 DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
@@ -388,6 +389,10 @@ char their_challenge[VOTER_CHALLENGE_LEN];
 char challenge[VOTER_CHALLENGE_LEN];
 char cmdstr[50];
 BYTE txaudio[MAX_BUFLEN];
+long tone_v1;
+long tone_v2;
+long tone_v3;
+long tone_fac;
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -1376,6 +1381,14 @@ void __attribute__((interrupt, no_auto_psv)) _DAC1LInterrupt(void)
 			s1 = last_index << 4;
 			s += s1 - 32768;
 		}
+		if (ptt && (!host_ptt) && tone_fac)
+		{  
+	      	tone_v1 = tone_v2;
+	        tone_v2 = tone_v3;
+	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
+			s += tone_v3;
+		}
+
 #ifdef	DMWDIAG
 		DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
 		if (mwp > 7) mwp = 0;
@@ -1623,6 +1636,27 @@ BOOL HasCTCSS(void)
 	if ((AppConfig.ExternalCTCSS == 2) && (!CTCSSIN)) return(1);
 	return (0);
 }
+
+void SetCTCSSTone(float freq, WORD gain)
+{
+
+	if ((freq <= 0.0) || (gain < 1))
+	{
+		tone_fac = 0;
+		tone_v1 = 0;
+		tone_v2 = 0;
+		tone_v3 = 0;
+		return;
+	}
+
+	tone_v1 = 0;
+	// Last previous two samples
+	tone_v2 = sin(-4.0 * M_PI * (freq / 8000.0)) * gain;
+	tone_v3 = sin(-2.0 * M_PI * (freq / 8000.0)) * gain;
+	// Frequency factor
+	tone_fac = 2.0 * cos(2.0 * M_PI * (freq / 8000.0)) * 32768.0;
+}
+
 
 void SetTxTone(int freq)
 {
@@ -1940,6 +1974,8 @@ extern float doubleify(BYTE *p);
 	if (AppConfig.GPSProto == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
+		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
+			printf("%s\n",gps_buf);
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 		if (n < 1) return;
 		if (!strcmp(strs[0],gpgsv))
@@ -1962,7 +1998,12 @@ extern float doubleify(BYTE *p);
 			else
 				tm.tm_mon = twoascii(strs[9] + 2) - 1;
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
-			gps_time = (DWORD) mktime(&tm);
+			if (AppConfig.DebugLevel & 64)
+				gps_time = (DWORD) mktime(&tm) + 1;
+			else
+				gps_time = (DWORD) mktime(&tm);
+			if (AppConfig.DebugLevel & 32)
+				printf("mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
@@ -2730,6 +2771,7 @@ void secondary_processing_loop(void)
 		} else repeatit = 0;
 		if (cwptr || cwtimer1 || hangtimer)
 		{
+			host_ptt = 0;
 			ptt = 1;
 			SetPTT(1);
 		}
@@ -2743,12 +2785,14 @@ void secondary_processing_loop(void)
 					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
 						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
 					{
+						host_ptt = 0;
 						ptt = 0;
 						SetPTT(0);
 					}
 					else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
 						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
 					{
+						host_ptt = 1;
 						ptt = 1;
 						SetPTT(1);
 					}
@@ -2765,18 +2809,25 @@ void secondary_processing_loop(void)
 					if (ptt && ((z > 60L) || (AppConfig.Elkes && 
 						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
 					{
+						host_ptt = 0;
 						ptt = 0;
 						SetPTT(0);
 					}
 					else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
 						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
 					{
+						host_ptt = 1;
 						ptt = 1;
 						SetPTT(1);
 					}
 				}
 			}
-			else SetPTT(0);	
+			else 
+			{
+				host_ptt = 0;
+				ptt = 0;
+				SetPTT(0);
+			}
 		}
 
 		if (LEVDISP)
@@ -3743,6 +3794,7 @@ static void OffLineMenu()
 		unsigned int i1,x;
 		BOOL ok;
 		int sel;
+		float f;
 
 	static ROM char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
 		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
@@ -3754,6 +3806,9 @@ static void OffLineMenu()
 		"6  - CW \"Online\" String (%s)\n"
 		"7  - \"Offline\" (CW ID) Period Time (%u) (1/10 secs)\n"
 		"8  - Offline Repeat Hang Time (%u) (1/10 secs)\n",
+		menu1a[] = 
+		"9  - Offline CTCSS Tone (%.1f) Hz\n"
+		"10 - Offline CTCSS Level (0-32767) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -3763,6 +3818,8 @@ static void OffLineMenu()
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
+		main_processing_loop();
+		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu2);
@@ -3793,7 +3850,7 @@ static void OffLineMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 9))
+		if ((sel >= 1) && (sel <= 10))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -3867,6 +3924,23 @@ static void OffLineMenu()
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
 					AppConfig.HangTime = i1;
+					ok = 1;
+				}
+				break;
+			case 9: // CTCSS Tone
+				f = atof(cmdstr);
+				if ((f >= 60.0) && (f <= 300.0))
+				{
+					AppConfig.CTCSSTone = f;
+					SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
+					ok = 1;
+				}
+				break;
+			case 10: // CTCSS Level
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 32767))
+				{
+					AppConfig.CTCSSLevel = i1;
+					SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 					ok = 1;
 				}
 				break;
@@ -4056,6 +4130,11 @@ int main(void)
 	dsecondtimer = 0;
 	repeatit = 0;
 	needburp = 0;
+	tone_v1 = 0;
+	tone_v2 = 0;
+	tone_v3 = 0;
+	tone_fac = 0;
+	host_ptt = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -4183,6 +4262,8 @@ __builtin_nop();
 	ClrWdt();
 	RCONbits.SWDTEN = 1;
 	ClrWdt();
+
+	SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 
 	printf(signon,VERSION);
 
@@ -4679,6 +4760,8 @@ static void InitAppConfig(void)
 	strcpy((char *)AppConfig.FailString,"OFF LINE");
 	strcpy((char *)AppConfig.UnFailString,"OK");
 	AppConfig.HangTime = 150;
+	AppConfig.CTCSSTone = 0.0;
+	AppConfig.CTCSSLevel = 3000;
 
 	#if defined(EEPROM_CS_TRIS)
 	{

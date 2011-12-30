@@ -149,6 +149,8 @@ typedef struct __attribute__((__packed__))
 	BYTE FailMode;
 	WORD FailTime;
 	WORD HangTime;
+	float CTCSSTone;
+	WORD CTCSSLevel;
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
