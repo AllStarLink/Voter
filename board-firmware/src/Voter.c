@@ -196,7 +196,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "ERROR! Host not acknowledging non-GPS disciplined operation\n",
-	VERSION[] = "0.63  12/30/2011";
+	VERSION[] = "0.64  12/30/2011";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2717,8 +2717,7 @@ void secondary_processing_loop(void)
 		}
 
 		process_gps();
-	
-		if ((gotpps || (!USE_PPS)) && (sqlcount >= 32))
+		if (sqlcount >= 32)
 		{
 			BOOL qualcor;
 
@@ -2736,7 +2735,11 @@ void secondary_processing_loop(void)
 				}
 				else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
 				vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
-				if ((!connected) && (!indiag) && (!qualcor) && wascor && (AppConfig.FailMode == 2)) needburp = 1;
+				if ((!connected) && (!indiag) && (!qualcor) && wascor)
+				{
+					if (AppConfig.FailMode == 2) needburp = 1;
+					if ((AppConfig.FailMode == 3) && (!connfail)) needburp = 1;
+				}
 				wascor = qualcor;
 			}
 			mynoise = (WORD) vnoise256;
@@ -3929,7 +3932,7 @@ static void OffLineMenu()
 				break;
 			case 9: // CTCSS Tone
 				f = atof(cmdstr);
-				if ((f >= 60.0) && (f <= 300.0))
+				if ((f == 0.0) || ((f >= 60.0) && (f <= 300.0)))
 				{
 					AppConfig.CTCSSTone = f;
 					SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
