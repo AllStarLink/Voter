@@ -153,7 +153,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
 #define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
 #define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
-#define LASTRX_TIME (3000 * 8) // Timeout if nothing heard after 3 seconds
+#define LASTRX_TIME (6000ul * 8ul) // Timeout if nothing heard after 6 seconds
 #define TELNET_TIME (100 * 8) // Telnet output buffer timer (quasi-Nagle algorithm)
 #define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
 #define BEFORECW_TIME (700 * 8) // Delay to hold PTT before cw sent
@@ -199,8 +199,8 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-	badmix[] = "ERROR! Host not acknowledging non-GPS disciplined operation\n",
-	VERSION[] = "0.65  01/02/2012";
+	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
+	VERSION[] = "0.66  01/02/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -308,7 +308,7 @@ DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
 WORD attempttimer;
-WORD lastrxtimer;
+DWORD lastrxtimer;
 WORD cwtimer;
 BOOL gpswarn;
 BOOL ppswarn;
@@ -397,6 +397,7 @@ long tone_v1;
 long tone_v2;
 long tone_v3;
 long tone_fac;
+BOOL hosttimedout;
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -2506,6 +2507,7 @@ void main_processing_loop(void)
 
 	if (connected && (lastrxtimer > LASTRX_TIME))
 	{
+			hosttimedout = 1;
 			connected = 0;
 			txseqno = 0;
 			txseqno_ptt = 0;
@@ -3067,8 +3069,15 @@ void secondary_processing_loop(void)
 	}
     if (gotbadmix)
 	{
+		printf(logtime());
 		printf(badmix);
 		gotbadmix = 0;
+	}
+    if (hosttimedout)
+	{
+		printf(logtime());
+		printf(hosttmomsg);
+		hosttimedout = 0;
 	}
 	if (!indiag)
 	{
@@ -4083,6 +4092,7 @@ int main(void)
 	tone_v3 = 0;
 	tone_fac = 0;
 	host_ptt = 0;
+	hosttimedout = 0;
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -4473,7 +4483,8 @@ __builtin_nop();
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
-				if (gpssync && connected) printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec)
+					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
