@@ -200,7 +200,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "0.66  01/02/2012";
+	VERSION[] = "0.67  01/02/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -3222,6 +3222,9 @@ int count,x;
 		for(;;)
 		{
 			ClrWdt();
+			if ((!netisup) && 
+				((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
+					netisup = 1;
 			if (DataRdyUART())
 			{
 				c = ReadUART() & 0x7f;
