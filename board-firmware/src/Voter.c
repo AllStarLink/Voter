@@ -200,7 +200,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "0.67  01/02/2012";
+	VERSION[] = "1.0  01/10/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -1907,7 +1907,7 @@ extern float doubleify(BYTE *p);
 	{
 		if (!getGPSStr()) return;
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
-			printf("%s\n",gps_buf);
+			printf("GPS-DEBUG: %s\n",gps_buf);
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 		if (n < 1) return;
 		if (!strcmp(strs[0],gpgsv))
@@ -1935,7 +1935,7 @@ extern float doubleify(BYTE *p);
 			else
 				gps_time = (DWORD) mktime(&tm);
 			if (AppConfig.DebugLevel & 32)
-				printf("mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
@@ -2017,9 +2017,15 @@ extern float doubleify(BYTE *p);
 			float f;
 
 			happy = 1;
-			if (gps_buf[13] || gps_buf[14]) happy = 0;
+			if (gps_buf[13]) happy = 0;
+			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) happy = 0;
 			if (gps_buf[9] || gps_buf[10]) happy = 0;
 			if ((gps_buf[12] & 0x1f) | gps_buf[11]) happy = 0;
+			if (AppConfig.DebugLevel & 32)
+			{
+				printf("GPS-DEBUG: TSIP: ok %d, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
+					happy,gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+			}
 			gpswarn = 0;
 			gpstimer = 0;
 			if (gps_state == GPS_STATE_IDLE)
@@ -4096,6 +4102,7 @@ int main(void)
 	tone_fac = 0;
 	host_ptt = 0;
 	hosttimedout = 0;
+	
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -4708,7 +4715,7 @@ static void InitAppConfig(void)
 	AppConfig.GPSBaudRate = 4800;
 	strcpy(AppConfig.Password,"radios");
 	strcpy(AppConfig.HostPassword,"BLAH");
-	strcpy(AppConfig.VoterServerFQDN,"devel.lambdatel.com");
+	strcpy(AppConfig.VoterServerFQDN,"voter-demo.allstarlink.org");
 	AppConfig.TelnetPort = 23;
 	strcpy((char *)AppConfig.TelnetUsername,"admin");
 	strcpy((char *)AppConfig.TelnetPassword,"radios");
