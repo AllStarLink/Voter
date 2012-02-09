@@ -151,6 +151,10 @@ typedef struct __attribute__((__packed__))
 	WORD HangTime;
 	float CTCSSTone;
 	WORD CTCSSLevel;
+	BOOL OffLineNoDeemp;
+	char AltVoterServerFQDN[50];  // FQDN of Voter Server
+	WORD AltVoterServerPort;	// UDP Port of Voter Server
+
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

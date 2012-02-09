@@ -159,6 +159,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define BEFORECW_TIME (700 * 8) // Delay to hold PTT before cw sent
 #define AFTERCW_TIME (350 * 8) // Delay to hold PTT after cw sent
 #define DSECOND_TIME (100 * 8) // Delay to hold PTT after cw sent
+#define	MAX_ALT_TIME (15 * 2) // Seconds to try alt host if not connected
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
@@ -200,7 +201,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.0  01/10/2012";
+	VERSION[] = "1.01  02/09/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -319,6 +320,8 @@ BOOL aborted;
 BOOL inread;
 IP_ADDR MyVoterAddr;
 IP_ADDR LastVoterAddr;
+IP_ADDR MyAltVoterAddr;
+IP_ADDR LastAltVoterAddr;
 IP_ADDR CurVoterAddr;
 WORD dnstimer;
 BOOL dnsdone;
@@ -337,6 +340,7 @@ DWORD resp_digest;
 DWORD mydigest;
 BOOL sendgps;
 BYTE dnsnotify;
+BYTE altdnsnotify;
 long discfactor;
 long discounterl;
 long discounteru;
@@ -398,6 +402,12 @@ long tone_v2;
 long tone_v3;
 long tone_fac;
 BOOL hosttimedout;
+BOOL altdns;
+BOOL althost;
+BOOL altconnected;
+WORD alttimer;
+BOOL altchange;
+BOOL altchange1;
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -1395,7 +1405,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else if (!connected) 
 		{
 			myflags = 0;
-			if (AppConfig.CORType) myflags = 1;
+			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags = 1;
 		}
 		else myflags = option_flags;
 		if (myflags & 1)_LATB3 = 1;
@@ -1539,7 +1549,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else if (!connected) 
 		{
 			myflags = 0;
-			if (AppConfig.CORType) myflags = 1;
+			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags = 1;
 		}
 		else myflags = option_flags;
 		oldout = IOExpOutB;
@@ -2450,6 +2460,8 @@ void main_processing_loop(void)
 
 	static BYTE smUdp = SM_UDP_SEND_ARP;
 	static DWORD  tsecWait = 0;           //General purpose wait timer
+	IP_ADDR vaddr;
+	char *cp;
 
 	if(!MACIsLinked())
 	{
@@ -2473,58 +2485,114 @@ void main_processing_loop(void)
 	}
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
-
-		if (AppConfig.VoterServerFQDN[0])
+		if (altdns)
 		{
-			if (!dnstimer)
+			if (AppConfig.AltVoterServerFQDN[0]) cp = AppConfig.AltVoterServerFQDN;
+			else cp = AppConfig.VoterServerFQDN;
+			if (*cp)
 			{
-				DNSEndUsage();
-				dnstimer = 120;
-				dnsdone = 0;
-				if(DNSBeginUsage()) 
-					DNSResolve((BYTE *)AppConfig.VoterServerFQDN,DNS_TYPE_A);
-			}
-			else
-			{
-
-				if ((!dnsdone) && (DNSIsResolved(&MyVoterAddr)))
+				if (!dnstimer)
 				{
-					if (DNSEndUsage())
+					DNSEndUsage();
+					dnstimer = 60;
+					dnsdone = 0;
+					if(DNSBeginUsage()) 
+						DNSResolve((BYTE *)cp,DNS_TYPE_A);
+				}
+				else
+				{
+					if ((!dnsdone) && (DNSIsResolved(&vaddr)))
 					{
-						if (memcmp(&LastVoterAddr,&MyVoterAddr,sizeof(IP_ADDR)))
+						if (DNSEndUsage())
 						{
-
-							if (udpSocketUser != INVALID_UDP_SOCKET) UDPClose(udpSocketUser);
-	   						memclr(&udpServerNode, sizeof(udpServerNode));
-							udpServerNode.IPAddr = MyVoterAddr;
-							udpSocketUser = UDPOpen(AppConfig.MyPort, &udpServerNode, AppConfig.VoterServerPort);
-							smUdp = SM_UDP_SEND_ARP;
-							dnsnotify = 1;
-							CurVoterAddr = MyVoterAddr;
-						}
-						LastVoterAddr = MyVoterAddr;
-					} 
-					else dnsnotify = 2;
-
-					dnsdone = 1;
+							if (memcmp(&MyAltVoterAddr,&vaddr,sizeof(IP_ADDR)))
+								altdnsnotify = 1;
+							MyAltVoterAddr = vaddr;
+						} 
+						else altdnsnotify = 2;
+						dnsdone = 1;
+						altdns = 0;
+					}
 				}
 			}
-	}
+		}
+		else
+		{
+			if (AppConfig.VoterServerFQDN[0])
+			{
+				if (!dnstimer)
+				{
+					DNSEndUsage();
+					dnstimer = 60;
+					dnsdone = 0;
+					if(DNSBeginUsage()) 
+						DNSResolve((BYTE *)AppConfig.VoterServerFQDN,DNS_TYPE_A);
+				}
+				else
+				{
+	
+					if ((!dnsdone) && (DNSIsResolved(&vaddr)))
+					{
+						if (DNSEndUsage())
+						{
+							if (memcmp(&MyVoterAddr,&vaddr,sizeof(IP_ADDR)))
+								dnsnotify = 1;	
+							MyVoterAddr = vaddr;
+						} 
+						else dnsnotify = 2;
+						dnsdone = 1;
+						altdns = 1;
+					}
+				}
+			}
+		}
+		/* if was connected and not connected now */
+		if (altconnected && (!connected))
+		{
+			althost ^= 1;
+			if (althost && (!MyAltVoterAddr.v[0])) althost = 0;
+			alttimer = 0;
+			altchange = 1;
+		}
+		altconnected = connected;
+		if (alttimer >= MAX_ALT_TIME)
+		{
+			althost ^= 1;
+			if (althost && (!MyAltVoterAddr.v[0])) althost = 0;
+			alttimer = 0;
+			altchange = 1;
+		}
+		if (connected) alttimer = 0;
+		if (althost) vaddr = MyAltVoterAddr;
+		else vaddr = MyVoterAddr;
+		if (memcmp(&LastVoterAddr,&vaddr,sizeof(IP_ADDR)))
+		{
+	
+			if (udpSocketUser != INVALID_UDP_SOCKET) UDPClose(udpSocketUser);
+						memclr(&udpServerNode, sizeof(udpServerNode));
+			udpServerNode.IPAddr = vaddr;
+			udpSocketUser = UDPOpen(AppConfig.MyPort, &udpServerNode, 
+				(althost && AppConfig.AltVoterServerPort) ? AppConfig.AltVoterServerPort : AppConfig.VoterServerPort);
+			smUdp = SM_UDP_SEND_ARP;
+			CurVoterAddr = vaddr;
+			altchange1 = 1;
+		}
+		LastVoterAddr = vaddr;
+	
+		if (connected && (lastrxtimer > LASTRX_TIME))
+		{
+				hosttimedout = 1;
+				connected = 0;
+				txseqno = 0;
+				txseqno_ptt = 0;
+				resp_digest = 0;
+				digest = 0;
+				their_challenge[0] = 0;
+				lastrxtimer = 0;
+				SetAudioSrc();
+		}
 
-	if (connected && (lastrxtimer > LASTRX_TIME))
-	{
-			hosttimedout = 1;
-			connected = 0;
-			txseqno = 0;
-			txseqno_ptt = 0;
-			resp_digest = 0;
-			digest = 0;
-			their_challenge[0] = 0;
-			lastrxtimer = 0;
-			SetAudioSrc();
-	}
-
-    if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
+      if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
         case SM_UDP_SEND_ARP:
             if (ARPIsTxReady()) {
                 //Remember when we sent last request
@@ -2570,8 +2638,11 @@ void secondary_processing_loop(void)
 
 	static ROM char  cfgwritten[] = "Squelch calibration saved, noise gain = ",diodewritten[] = "Diode calibration saved, value (hex) = ",
 		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-		gothost[] = "  Connection with host established\n", losthost[] = "  Lost Connection with host\n";
-		
+		altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n", altdnsfailed[] = "  Warning: Unable to resolve DNS for Alternate Voter Host %s\n",
+		altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n", dnshost[] = "  Using Primary Voter Host (%d.%d.%d.%d)\n",
+		dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",
+		gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n", losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";	
+	
 	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
 			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
 			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
@@ -2832,6 +2903,7 @@ void secondary_processing_loop(void)
     if(TickGet() - t >= TICK_SECOND / 2ul)
     {
 		if (dnstimer) dnstimer--;
+		alttimer++;
        	t = TickGet();
 		if (!indiag)
 		{
@@ -3090,13 +3162,13 @@ void secondary_processing_loop(void)
 		if ((!connected) && connrep)
 		{
 		    printf(logtime());
-			printf(losthost);
+			printf(losthost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			connrep = 0;
 		}
 		else if (connected && (!connrep))
 		{
 		    printf(logtime());
-			printf(gothost);
+			printf(gothost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			connrep = 1;
 		}
 		if (connected)
@@ -3172,6 +3244,35 @@ void secondary_processing_loop(void)
 		printf(dnsfailed,AppConfig.VoterServerFQDN);
 	}
 	dnsnotify = 0;
+	if (altdnsnotify == 1)
+	{
+		printf(logtime());
+		printf(altdnschanged,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+	}
+	else if (altdnsnotify == 2) 
+	{
+		printf(logtime());
+		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
+	}
+	altdnsnotify = 0;
+	if (AppConfig.DebugLevel & 1)
+	{
+		if (altchange)
+		{
+			printf(logtime());
+			if (althost)
+				printf(altdnshost,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+			else
+				printf(dnshost,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+		}
+		if (altchange1)
+		{
+			printf(logtime());
+			printf(dnsusing,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+		}
+	}
+	altchange = 0;
+	altchange1 = 0;
 }
 
 int write(int handle, void *buffer, unsigned int len)
@@ -3774,7 +3875,8 @@ static void OffLineMenu()
 		"8  - Offline Repeat Hang Time (%u) (1/10 secs)\n",
 		menu1a[] = 
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
-		"10 - Offline CTCSS Level (0-32767) (%d)\n",
+		"10 - Offline CTCSS Level (0-32767) (%d)\n"
+		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -3785,7 +3887,7 @@ static void OffLineMenu()
 		secondary_processing_loop();
 		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
 		main_processing_loop();
-		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
+		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu2);
@@ -3816,7 +3918,7 @@ static void OffLineMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 10))
+		if ((sel >= 1) && (sel <= 11))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -3910,6 +4012,13 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+			case 11: // DEEMP Override
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
+				{
+					AppConfig.OffLineNoDeemp = i1;
+					ok = 1;
+				}
+				break;
 			case 99:
 				SaveAppConfig();
 				printf(saved);
@@ -3953,6 +4062,8 @@ int main(void)
 		"13 - COR Type (0=Normal, 1=IGNORE COR, 2=No Receiver) (%d)\n"
 		"14 - Debug Level (%d)\n",
 		menu5[] = 
+		"15  - Alt. VOTER Server Address (FQDN) (%s)\n"
+		"16  - Alt. VOTER Server Port (Override) (%d)\n"
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
@@ -4034,8 +4145,10 @@ int main(void)
 	inread = 0;
 	memset(&MyVoterAddr,0,sizeof(MyVoterAddr));
 	memset(&LastVoterAddr,0,sizeof(LastVoterAddr));
+	memset(&MyAltVoterAddr,0,sizeof(MyVoterAddr));
 	memset(&CurVoterAddr,0,sizeof(CurVoterAddr));
 	dnstimer = 0;
+	alttimer = 0;
 	dnsdone = 0;
 	timing_time = 0;		// Time (whole secs) at beginning of next packet to be sent out
 	timing_index = 0;		// Index at beginning of next packet to be sent out
@@ -4102,8 +4215,13 @@ int main(void)
 	tone_fac = 0;
 	host_ptt = 0;
 	hosttimedout = 0;
+	altdns = 0;
+	altchange = 0;
+	althost = 0;
+	altconnected = 0;
+	altchange = 0;
+	altchange1 = 0;
 	
-
 	// Initialize application specific hardware
 	InitializeBoard();
 
@@ -4275,7 +4393,7 @@ __builtin_nop();
 		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu5);
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort);
 
 		aborted = 0;
 		while(!aborted)
@@ -4313,11 +4431,11 @@ __builtin_nop();
 				continue;
 		}
 		sel = atoi(cmdstr);
-		if (((sel >= 1) && (sel <= 14)) || (sel == 11780))
+		if (((sel >= 1) && (sel <= 16)) || (sel == 11780))
 		{
 			printf(entnewval);
 			if (aborted) continue;
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2))
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 15)))
 			{
 				printf(newvalnotchanged);
 				continue;
@@ -4446,6 +4564,23 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+			case 15: // Alt VOTER Server FQDN
+				x = strlen(cmdstr);
+				if ((x > 0) && (x < sizeof(AppConfig.VoterServerFQDN)))
+				{
+					cmdstr[x - 1] = 0;
+					strcpy(AppConfig.AltVoterServerFQDN,cmdstr);
+					ok = 1;
+				}
+				break;
+			case 16: // Alt Voter Server PORT
+				if (sscanf(cmdstr,"%u",&i1) == 1)
+				{
+					AppConfig.AltVoterServerPort = i1;
+					ok = 1;
+				}
+				break;
+
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();
@@ -4769,6 +4904,11 @@ static void InitAppConfig(void)
 	AppConfig.MyMACAddr.v[5] = AppConfig.SerialNumber & 0xff;
 	AppConfig.MyMACAddr.v[4] = AppConfig.SerialNumber >> 8;
 	AppConfig.Flags.bIsDHCPEnabled = TRUE;
+	if (AppConfig.AltVoterServerFQDN[0] == -1)
+	{
+		memset(AppConfig.AltVoterServerFQDN,0,sizeof(AppConfig.AltVoterServerFQDN));
+		AppConfig.AltVoterServerPort = 0;
+	}
 }
 
 #if defined(EEPROM_CS_TRIS) || defined(SPIFLASH_CS_TRIS)
