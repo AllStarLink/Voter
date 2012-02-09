@@ -201,7 +201,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.01  02/09/2012";
+	VERSION[] = "1.02  02/09/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2461,7 +2461,6 @@ void main_processing_loop(void)
 	static BYTE smUdp = SM_UDP_SEND_ARP;
 	static DWORD  tsecWait = 0;           //General purpose wait timer
 	IP_ADDR vaddr;
-	char *cp;
 
 	if(!MACIsLinked())
 	{
@@ -2487,9 +2486,7 @@ void main_processing_loop(void)
 	{
 		if (altdns)
 		{
-			if (AppConfig.AltVoterServerFQDN[0]) cp = AppConfig.AltVoterServerFQDN;
-			else cp = AppConfig.VoterServerFQDN;
-			if (*cp)
+			if (AppConfig.AltVoterServerFQDN[0])
 			{
 				if (!dnstimer)
 				{
@@ -2497,7 +2494,7 @@ void main_processing_loop(void)
 					dnstimer = 60;
 					dnsdone = 0;
 					if(DNSBeginUsage()) 
-						DNSResolve((BYTE *)cp,DNS_TYPE_A);
+						DNSResolve((BYTE *)AppConfig.AltVoterServerFQDN,DNS_TYPE_A);
 				}
 				else
 				{
@@ -2514,6 +2511,10 @@ void main_processing_loop(void)
 						altdns = 0;
 					}
 				}
+			}
+			else
+			{
+				altdns = 0;
 			}
 		}
 		else
@@ -2550,7 +2551,9 @@ void main_processing_loop(void)
 		if (altconnected && (!connected))
 		{
 			althost ^= 1;
-			if (althost && (!MyAltVoterAddr.v[0])) althost = 0;
+			if (althost && 
+				((!AppConfig.AltVoterServerFQDN[0]) ||
+					 (!MyAltVoterAddr.v[0]))) althost = 0;
 			alttimer = 0;
 			altchange = 1;
 		}
@@ -2558,7 +2561,9 @@ void main_processing_loop(void)
 		if (alttimer >= MAX_ALT_TIME)
 		{
 			althost ^= 1;
-			if (althost && (!MyAltVoterAddr.v[0])) althost = 0;
+			if (althost && 
+				((!AppConfig.AltVoterServerFQDN[0]) ||
+					 (!MyAltVoterAddr.v[0]))) althost = 0;
 			alttimer = 0;
 			altchange = 1;
 		}
