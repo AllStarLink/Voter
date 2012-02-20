@@ -182,13 +182,10 @@ struct meas {
 	BOOL issql;
 } ;
 
-// Unfortunately, when a signal gets sufficiently weak, its noise readings go all over the place
-// On a sufficently strong signal, we use a noise average over 32 squelch sample periods (128ms)
-// which is good and responsive to track a fluttery mobile station accurately. On a weaker signal
-// we have to use a longer (1024ms) average, which still gives a good indication of signal strength,
-// but is incapable of tracking to full extent a really fluttery signal. This should be more then
-// sufficient for voting descisions.
-
+// Fortunately now, the problem that we had with weak signals producing RSSI readings all over the place
+// (and was dealt with by using a longer-term, but less responsive average) is now fixed, thanks to Chuck,
+// WB9UUS for pointing out the 16 bit value overflow that was being caused! It works much more better-er now,
+// and produces rock-solid, stable results even on barely or non-readable signals.
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
@@ -201,7 +198,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.02  02/09/2012";
+	VERSION[] = "1.03  02/19/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -284,8 +281,7 @@ WORD adcothers[ADCOTHERS];
 BYTE adcindex;
 BYTE sqlcount;
 BOOL sql2;
-WORD vnoise32;
-DWORD vnoise256;
+DWORD vnoise32;
 BOOL wascor;
 BOOL lastcor;
 BYTE option_flags;
@@ -2759,11 +2755,9 @@ void secondary_processing_loop(void)
 			{
 				if (qualcor && (!wascor))
 				{
-					vnoise32 = adcothers[ADCSQNOISE] << 3;
-					vnoise256 = (DWORD)adcothers[ADCSQNOISE] << 3;
+					vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
 				}
-				else vnoise32 = ((vnoise32 * 31) + (adcothers[ADCSQNOISE] << 3)) >> 5;
-				vnoise256 = ((vnoise256 * 255) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 8;
+				else vnoise32 = ((vnoise32 * 31) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 5;
 				if ((!connected) && (!indiag) && (!qualcor) && wascor)
 				{
 					if (AppConfig.FailMode == 2) needburp = 1;
@@ -2771,8 +2765,7 @@ void secondary_processing_loop(void)
 				}
 				wascor = qualcor;
 			}
-			mynoise = (WORD) vnoise256;
-			if (mynoise < NOISE_SLOW_THRESHOLD) mynoise = vnoise32; 
+			mynoise = (WORD) vnoise32;
 			rssi = rssitable[mynoise >> 3];
 			if ((rssi < 1) && (qualcor)) rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssi = 0;
@@ -4130,7 +4123,6 @@ int main(void)
 	wascor = 0;
 	lastcor = 0;
 	vnoise32 = 0;
-	vnoise256 = 0;
 	option_flags = 0;
 	txdrainindex = 0;
 	last_drainindex = 0;
