@@ -198,7 +198,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.03  02/19/2012";
+	VERSION[] = "1.04  02/23/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -400,6 +400,7 @@ long tone_fac;
 BOOL hosttimedout;
 BOOL altdns;
 BOOL althost;
+BOOL lastalthost;
 BOOL altconnected;
 WORD alttimer;
 BOOL altchange;
@@ -2577,8 +2578,20 @@ void main_processing_loop(void)
 			smUdp = SM_UDP_SEND_ARP;
 			CurVoterAddr = vaddr;
 			altchange1 = 1;
+			if (lastalthost == althost)
+			{
+				connected = 0;
+				txseqno = 0;
+				txseqno_ptt = 0;
+				resp_digest = 0;
+				digest = 0;
+				their_challenge[0] = 0;
+				lastrxtimer = 0;
+				SetAudioSrc();
+			}
 		}
 		LastVoterAddr = vaddr;
+		lastalthost = althost;
 	
 		if (connected && (lastrxtimer > LASTRX_TIME))
 		{
@@ -3155,6 +3168,28 @@ void secondary_processing_loop(void)
 		printf(hosttmomsg);
 		hosttimedout = 0;
 	}
+	if (dnsnotify == 1)
+	{
+		printf(logtime());
+		printf(dnschanged,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+	}
+	else if (dnsnotify == 2) 
+	{
+		printf(logtime());
+		printf(dnsfailed,AppConfig.VoterServerFQDN);
+	}
+	dnsnotify = 0;
+	if (altdnsnotify == 1)
+	{
+		printf(logtime());
+		printf(altdnschanged,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+	}
+	else if (altdnsnotify == 2) 
+	{
+		printf(logtime());
+		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
+	}
+	altdnsnotify = 0;
 	if (!indiag)
 	{
 		if ((!connected) && connrep)
@@ -3231,28 +3266,6 @@ void secondary_processing_loop(void)
 			AnnounceIP();
 		#endif
 	}
-	if (dnsnotify == 1)
-	{
-		printf(logtime());
-		printf(dnschanged,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
-	}
-	else if (dnsnotify == 2) 
-	{
-		printf(logtime());
-		printf(dnsfailed,AppConfig.VoterServerFQDN);
-	}
-	dnsnotify = 0;
-	if (altdnsnotify == 1)
-	{
-		printf(logtime());
-		printf(altdnschanged,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
-	}
-	else if (altdnsnotify == 2) 
-	{
-		printf(logtime());
-		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
-	}
-	altdnsnotify = 0;
 	if (AppConfig.DebugLevel & 1)
 	{
 		if (altchange)
@@ -4215,6 +4228,7 @@ int main(void)
 	altdns = 0;
 	altchange = 0;
 	althost = 0;
+	lastalthost = 0;
 	altconnected = 0;
 	altchange = 0;
 	altchange1 = 0;
