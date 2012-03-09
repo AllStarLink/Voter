@@ -198,7 +198,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.04  02/23/2012";
+	VERSION[] = "1.05  03/09/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -4877,6 +4877,7 @@ static void InitAppConfig(void)
 	AppConfig.HangTime = 150;
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
+	AppConfig.PPSPolarity = 2;
 
 	#if defined(EEPROM_CS_TRIS)
 	{
