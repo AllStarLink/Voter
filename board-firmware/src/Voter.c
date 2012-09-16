@@ -61,6 +61,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #include <errno.h>
 #include <time.h>
 #include <math.h>
+#include <dsp.h>
 
 
 #define M_PI       3.14159265358979323846
@@ -170,10 +171,25 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	DIAG_WAIT_MEAS (TICK_SECOND * 2)
 #define	DIAG_NOISE_GAIN 0x28
 #define	NAPEAKS 50
+#define	QUALCOUNT 4
 
 #define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
 #define CLIP 32635
 
+#define FFT_BLOCK_LENGTH 32
+#define LOG2_BLOCK_LENGTH 5
+#define	FFT_TOP_SAMPLE_BUCKET 16 // 3000 Hz
+#define	FFT_MAX_RESULT 10
+
+fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
+
+#ifndef FFTTWIDCOEFFS_IN_PROGMEM
+fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] 	/* Declare Twiddle Factor array in X-space*/
+__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
+#else
+extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2]	/* Twiddle Factor array in Program memory */
+__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
+#endif
 
 struct meas {
 	WORD freq;
@@ -198,7 +214,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.05  03/09/2012";
+	VERSION[] = "1.07  09/15/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -265,6 +281,7 @@ BOOL filled;
 BYTE audio_buf[2][FRAME_SIZE + 3];
 BOOL connected;
 BYTE rssi;
+BYTE rssiheld;
 BYTE gps_buf[160];
 BYTE gps_bufindex;
 BYTE TSIPwasdle;
@@ -282,6 +299,7 @@ BYTE adcindex;
 BYTE sqlcount;
 BOOL sql2;
 DWORD vnoise32;
+DWORD lastvnoise32[3];
 BOOL wascor;
 BOOL lastcor;
 BYTE option_flags;
@@ -405,6 +423,7 @@ BOOL altconnected;
 WORD alttimer;
 BOOL altchange;
 BOOL altchange1;
+DWORD fftresult;
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -548,7 +567,6 @@ static ROM BYTE rssitable[] = {
 0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0
 };
-
 
 static ROM long crc_32_tab[] = { /* CRC polynomial 0xedb88320 */
 0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -860,7 +878,9 @@ long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
 
- 	// If PPS signal is asserted
+ 	asm volatile ("push CORCON");
+	CORCON = 0x24;
+	// If PPS signal is asserted
 	if (((PORTAbits.RA4) && (AppConfig.PPSPolarity == 0)) ||
 		((!PORTAbits.RA4) && (AppConfig.PPSPolarity == 1)))
 	{
@@ -1019,6 +1039,7 @@ BYTE *cp;
 		}
 	}
 	IFS1bits.CNIF = 0;
+	asm volatile ("pop CORCON");
 }
 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
@@ -1039,6 +1060,8 @@ long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
 
+	asm volatile ("push CORCON");
+	CORCON = 0x24;
 	index = ADC1BUF0;
 	if (adcother)
 	{
@@ -1237,13 +1260,16 @@ BYTE *cp;
 	}
 	adcother ^= 1;
 	IFS0bits.AD1IF = 0;
+	asm volatile ("pop CORCON");
 }
 
-void __attribute__((interrupt, no_auto_psv)) _DAC1LInterrupt(void)
+void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 {
 	BYTE c;
 	short s;
 
+	asm volatile ("push CORCON");
+	CORCON = 0x24;
 	IFS4bits.DAC1LIF = 0;
 	s = 0;
 	// Output Tx sample
@@ -1342,6 +1368,7 @@ void __attribute__((interrupt, no_auto_psv)) _DAC1LInterrupt(void)
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
 	}
+	asm volatile ("pop CORCON");
 }
 
 
@@ -2200,6 +2227,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
 
 	BYTE n,c,i,j,*cp;
+	short x;
+	unsigned int *wp;
+	BOOL qualnoise;
 
 	WORD mytxindex;
 	VTIME mysystem_time;
@@ -2219,12 +2249,50 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		time_filled = 1;
 	}
 
+	for(i = 0; i < FFT_BLOCK_LENGTH; i++)
+	{
+		x = ulawtabletx[audio_buf[filling_buffer ^ 1][i/* + (FRAME_SIZE - FFT_BLOCK_LENGTH)*/]];
+		sigCmpx[i].real = x / 2;
+		sigCmpx[i].imag = 0x0000;
+	}
+
+#ifndef FFTTWIDCOEFFS_IN_PROGMEM
+	FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
+#else
+	FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]), (int) __builtin_psvpage(&twiddleFactors[0]));
+#endif
+
+	/* Store output samples in bit-reversed order of their addresses */
+	BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
+ 
+	/* Compute the square magnitude of the complex FFT output array so we have a Real output vetor */
+	SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
+
+	wp = (unsigned int *)&sigCmpx[0];
+	fftresult = 0;
+	// Get the total energy above CTCSS and below 2000 Hz
+	for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++)
+	{
+		if (i >= 2) fftresult += *wp;
+		wp++;
+	}
+	qualnoise = ((fftresult <= FFT_MAX_RESULT));
+	if (!AppConfig.BEWMode) qualnoise = 1;
+
+	if (!qualnoise)
+	{
+		vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
+		rssiheld = rssitable[vnoise32 >> 3];
+	}
+
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
 		if (gpssync || (!USE_PPS))
 		{
 //TESTBIT ^= 1;
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
+			if (AppConfig.CORType == 1) rssiheld = rssi = 255;
+			if (qualnoise || (!HasCOR())) rssiheld = rssi;
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
@@ -2239,12 +2307,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				for(i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) UDPPut(*cp++);
 				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
+
 	            if (tosend)
 				{
-					if (AppConfig.CORType == 1) rssi = 255;
-					if ((rssi > 0) && HasCOR() && HasCTCSS())
+					
+					if ((rssiheld > 0) && HasCOR() && HasCTCSS())
 					{
-						UDPPut(rssi);
+						UDPPut(rssiheld);
 						for(i = 0; i < j; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
 						elketimer = 0;
 					}
@@ -2259,6 +2328,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	            UDPFlush();
 				attempttimer = 0;
 			}
+		}
+		if (qualnoise)
+		{
+			lastvnoise32[0] = lastvnoise32[1];
+			lastvnoise32[1] = lastvnoise32[2];
+			lastvnoise32[2] = vnoise32;
 		}
 		filled = 0;
 		time_filled = 0;
@@ -2691,6 +2766,8 @@ void secondary_processing_loop(void)
 	long x,y,z;
 	static BYTE dispcnt = 0;
 	struct meas *m;
+	BYTE qualnoise;
+	static BYTE qualcnt = 255;
 
 
 
@@ -2755,22 +2832,34 @@ void secondary_processing_loop(void)
 		}
 
 		process_gps();
-		if (sqlcount >= 32)
+		if (sqlcount >= 33)
 		{
 			BOOL qualcor;
 
 			sqlcount = 0;
 			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
 			sql2 ^= 1;
+//TESTBIT ^= 1;
 
 			qualcor = (HasCOR() && HasCTCSS());	
-			if (!sql2)
+			qualnoise = ((fftresult <= FFT_MAX_RESULT) || (!qualcor)); 
+			if (!AppConfig.BEWMode) qualnoise = 1;
+			if (!qualnoise) qualcnt = 0;
+			if (qualcnt <= QUALCOUNT)
+			{
+				qualcnt++;
+				qualnoise = 0;
+			}
+			if (sql2)
 			{
 				if (qualcor && (!wascor))
 				{
-					vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
+					lastvnoise32[0] = lastvnoise32[1] = vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
 				}
-				else vnoise32 = ((vnoise32 * 31) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 5;
+				else
+				{
+					if (qualnoise) vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
+				}
 				if ((!connected) && (!indiag) && (!qualcor) && wascor)
 				{
 					if (AppConfig.FailMode == 2) needburp = 1;
@@ -2778,10 +2867,11 @@ void secondary_processing_loop(void)
 				}
 				wascor = qualcor;
 			}
-			mynoise = (WORD) vnoise32;
+
+			if (qualnoise) mynoise = (WORD)lastvnoise32[1];
 			rssi = rssitable[mynoise >> 3];
-			if ((rssi < 1) && (qualcor)) rssi = 1;
-			if (!AppConfig.SqlNoiseGain) rssi = 0;
+			if ((rssi < 1) && (qualcor)) rssiheld = rssi = 1;
+			if (!AppConfig.SqlNoiseGain) rssiheld = rssi = 0;
 
 			lastcor = HasCOR();
 			if (write_eeprom_cali)
@@ -3465,7 +3555,7 @@ static void DiagMenu()
 	{
 		int i,sel;
 
-	static ROM char menu[] = "Select the following Diagnostic functions:\n\n" 
+	static char menu[] = "Select the following Diagnostic functions:\n\n" 
 		"1  - Set Initial Tone Level (and assert PTT)\n"
 		"2  - Display Value of DIP Switches\n"
 		"3  - Flash LED's in sequence\n"
@@ -4075,6 +4165,7 @@ int main(void)
 		menu5[] = 
 		"15  - Alt. VOTER Server Address (FQDN) (%s)\n"
 		"16  - Alt. VOTER Server Port (Override) (%d)\n"
+		"17  - DSP/BEW Mode (%d)\n"
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
@@ -4128,6 +4219,7 @@ int main(void)
 	gpssync = 0;
 	ppscount = 0;
 	rssi = 0;
+	rssiheld = 0;
 	adcother = 0;
 	adcindex = 0;
 	memclr(adcothers,sizeof(adcothers));
@@ -4338,6 +4430,9 @@ int main(void)
 
 	init_squelch();
 
+#ifndef FFTTWIDCOEFFS_IN_PROGMEM					/* Generate TwiddleFactor Coefficients */
+	TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactors[0], 0);	/* We need to do this only once at start-up */
+#endif
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
@@ -4404,7 +4499,7 @@ __builtin_nop();
 		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort);
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode);
 
 		aborted = 0;
 		while(!aborted)
@@ -4442,7 +4537,7 @@ __builtin_nop();
 				continue;
 		}
 		sel = atoi(cmdstr);
-		if (((sel >= 1) && (sel <= 16)) || (sel == 11780))
+		if (((sel >= 1) && (sel <= 17)) || (sel == 11780))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -4591,7 +4686,13 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
-
+			case 17: // BEW Mode
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
+				{
+					AppConfig.BEWMode = i1;
+					ok = 1;
+				}
+				break;
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();
@@ -4632,7 +4733,7 @@ __builtin_nop();
 				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssi,last_samplecnt,apeak);
+				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
