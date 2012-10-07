@@ -137,7 +137,11 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #define	FRAME_SIZE 160
 #define	ADPCM_FRAME_SIZE 320
+#ifdef	DSPBEW
+#define	MAX_BUFLEN 4800 // 0.6 seconds of buffer
+#else
 #define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
+#endif
 #define	DEFAULT_TX_BUFFER_LENGTH 3000 // approx 300ms of Buffer
 #define	VOTER_CHALLENGE_LEN 10
 #define	ADCOTHERS 3
@@ -176,6 +180,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
 #define CLIP 32635
 
+#ifdef DSPBEW
+
 #define FFT_BLOCK_LENGTH 32
 #define LOG2_BLOCK_LENGTH 5
 #define	FFT_TOP_SAMPLE_BUCKET 16 // 3000 Hz
@@ -189,6 +195,14 @@ __attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
 #else
 extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2]	/* Twiddle Factor array in Program memory */
 __attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
+#endif
+
+#define ROMNOBEW
+
+#else
+
+#define ROMNOBEW ROM
+
 #endif
 
 struct meas {
@@ -214,7 +228,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.07  09/15/2012";
+	VERSION[] = "1.08  10/07/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -423,7 +437,9 @@ BOOL altconnected;
 WORD alttimer;
 BOOL altchange;
 BOOL altchange1;
+#ifdef DSPBEW
 DWORD fftresult;
+#endif
 
 #ifdef SILLY
 BYTE silly = 0;
@@ -2227,9 +2243,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
 
 	BYTE n,c,i,j,*cp;
+#ifdef	DSPBEW
 	short x;
 	unsigned int *wp;
 	BOOL qualnoise;
+#endif
 
 	WORD mytxindex;
 	VTIME mysystem_time;
@@ -2249,10 +2267,20 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		time_filled = 1;
 	}
 
+#ifdef	DSPBEW
 	for(i = 0; i < FFT_BLOCK_LENGTH; i++)
 	{
 		x = ulawtabletx[audio_buf[filling_buffer ^ 1][i/* + (FRAME_SIZE - FFT_BLOCK_LENGTH)*/]];
-		sigCmpx[i].real = x / 2;
+		if (AppConfig.BEWMode > 1)
+		{
+			if (x > 16383) x = 16383;
+			if (x < -16383) x = -16383;
+			sigCmpx[i].real = x;
+		}
+		else
+		{
+			sigCmpx[i].real = x / 2;
+		}
 		sigCmpx[i].imag = 0x0000;
 	}
 
@@ -2284,6 +2312,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
 		rssiheld = rssitable[vnoise32 >> 3];
 	}
+#endif
 
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
@@ -2292,7 +2321,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 //TESTBIT ^= 1;
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 			if (AppConfig.CORType == 1) rssiheld = rssi = 255;
+#ifdef	DSPBEW
 			if (qualnoise || (!HasCOR())) rssiheld = rssi;
+#else
+			rssiheld = rssi;
+#endif
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
@@ -2329,12 +2362,14 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				attempttimer = 0;
 			}
 		}
+#ifdef	DSPBEW
 		if (qualnoise)
 		{
 			lastvnoise32[0] = lastvnoise32[1];
 			lastvnoise32[1] = lastvnoise32[2];
 			lastvnoise32[2] = vnoise32;
 		}
+#endif
 		filled = 0;
 		time_filled = 0;
 	}
@@ -2766,8 +2801,10 @@ void secondary_processing_loop(void)
 	long x,y,z;
 	static BYTE dispcnt = 0;
 	struct meas *m;
+#ifdef	DSPBEW
 	BYTE qualnoise;
 	static BYTE qualcnt = 255;
+#endif
 
 
 
@@ -2842,6 +2879,7 @@ void secondary_processing_loop(void)
 //TESTBIT ^= 1;
 
 			qualcor = (HasCOR() && HasCTCSS());	
+#ifdef	DSPBEW
 			qualnoise = ((fftresult <= FFT_MAX_RESULT) || (!qualcor)); 
 			if (!AppConfig.BEWMode) qualnoise = 1;
 			if (!qualnoise) qualcnt = 0;
@@ -2850,6 +2888,7 @@ void secondary_processing_loop(void)
 				qualcnt++;
 				qualnoise = 0;
 			}
+#endif
 			if (sql2)
 			{
 				if (qualcor && (!wascor))
@@ -2858,7 +2897,10 @@ void secondary_processing_loop(void)
 				}
 				else
 				{
-					if (qualnoise) vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
+#ifdef	DSPBEW
+					if (qualnoise) 
+#endif
+						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 				if ((!connected) && (!indiag) && (!qualcor) && wascor)
 				{
@@ -2867,8 +2909,10 @@ void secondary_processing_loop(void)
 				}
 				wascor = qualcor;
 			}
-
-			if (qualnoise) mynoise = (WORD)lastvnoise32[1];
+#ifdef	DSPBEW
+			if (qualnoise) 
+#endif
+				mynoise = (WORD)lastvnoise32[1];
 			rssi = rssitable[mynoise >> 3];
 			if ((rssi < 1) && (qualcor)) rssiheld = rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssiheld = rssi = 0;
@@ -3555,7 +3599,7 @@ static void DiagMenu()
 	{
 		int i,sel;
 
-	static char menu[] = "Select the following Diagnostic functions:\n\n" 
+	static ROMNOBEW char menu[] = "Select the following Diagnostic functions:\n\n" 
 		"1  - Set Initial Tone Level (and assert PTT)\n"
 		"2  - Display Value of DIP Switches\n"
 		"3  - Flash LED's in sequence\n"
@@ -3705,7 +3749,7 @@ static void IPMenu()
 		BOOL bootok,ok;
 		int sel;
 
-	static ROM char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+	static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
 		"1  - (Static) IP Address (%d.%d.%d.%d)\n",
 		menu1[] = 
 		"2  - (Static) Netmask (%d.%d.%d.%d)\n",
@@ -4165,7 +4209,11 @@ int main(void)
 		menu5[] = 
 		"15  - Alt. VOTER Server Address (FQDN) (%s)\n"
 		"16  - Alt. VOTER Server Port (Override) (%d)\n"
+#ifdef	DSPBEW
 		"17  - DSP/BEW Mode (%d)\n"
+#else
+		"17  - DSP/BEW Mode NOT SUPPORTED\n"
+#endif
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
@@ -4430,8 +4478,12 @@ int main(void)
 
 	init_squelch();
 
+#ifdef	DSPBEW
+
 #ifndef FFTTWIDCOEFFS_IN_PROGMEM					/* Generate TwiddleFactor Coefficients */
 	TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactors[0], 0);	/* We need to do this only once at start-up */
+#endif
+
 #endif
 
 	udpSocketUser = INVALID_UDP_SOCKET;
@@ -4499,7 +4551,11 @@ __builtin_nop();
 		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
 		main_processing_loop();
 		secondary_processing_loop();
+#ifdef	DSPBEW
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode);
+#else
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort);
+#endif
 
 		aborted = 0;
 		while(!aborted)
@@ -4537,7 +4593,11 @@ __builtin_nop();
 				continue;
 		}
 		sel = atoi(cmdstr);
+#ifdef	DSPBEW
 		if (((sel >= 1) && (sel <= 17)) || (sel == 11780))
+#else
+		if (((sel >= 1) && (sel <= 16)) || (sel == 11780))
+#endif
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -4686,13 +4746,15 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+#ifdef	DSPBEW
 			case 17: // BEW Mode
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
 				{
 					AppConfig.BEWMode = i1;
 					ok = 1;
 				}
 				break;
+#endif
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();

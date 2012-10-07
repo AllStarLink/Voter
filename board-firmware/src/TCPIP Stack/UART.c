@@ -75,7 +75,8 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void)
 {
 	BYTE dummy;
 
-	_LATA1 ^= 1;
+	asm volatile ("push CORCON");
+	CORCON = 0x24;
 
 	while(U1STAbits.URXDA)
 	{
@@ -97,10 +98,13 @@ void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void)
 		}
 	}
 	IFS0bits.U1RXIF = 0;
+	asm volatile ("pop CORCON");
 }
 
 void __attribute__((interrupt, auto_psv)) _U1TXInterrupt(void)
 {
+ 	asm volatile ("push CORCON");
+	CORCON = 0x24;
     if (txputidx != txgetidx) 
 	{
         U1TXREG = txBuf[txgetidx];
@@ -112,12 +116,15 @@ void __attribute__((interrupt, auto_psv)) _U1TXInterrupt(void)
         IEC0bits.U1TXIE = 0;   
     }
 	IFS0bits.U1TXIF = 0;
+	asm volatile ("pop CORCON");
 }
 
 void __attribute__((interrupt, auto_psv)) _U2RXInterrupt(void)
 {
 	BYTE dummy;
 
+ 	asm volatile ("push CORCON");
+	CORCON = 0x24;
 	while(U2STAbits.URXDA)
 	{
 		if (U1STAbits.PERR || U1STAbits.FERR || U1STAbits.OERR)
@@ -139,10 +146,13 @@ void __attribute__((interrupt, auto_psv)) _U2RXInterrupt(void)
 		}
 	}
 	IFS1bits.U2RXIF = 0;
+	asm volatile ("pop CORCON");
 }
 
 void __attribute__((interrupt, auto_psv)) _U2TXInterrupt(void)
 {
+ 	asm volatile ("push CORCON");
+	CORCON = 0x24;
     if (txputidx2 != txgetidx2) 
 	{
         U2TXREG = txBuf2[txgetidx2];
@@ -153,6 +163,7 @@ void __attribute__((interrupt, auto_psv)) _U2TXInterrupt(void)
 	{
         IEC1bits.U2TXIE = 0;   
     }
+	asm volatile ("pop CORCON");
 }
 
 void InitUARTS(void)
