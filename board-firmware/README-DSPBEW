@@ -1,0 +1,30 @@
+Baseband Examination Window
+
+Typically, the discriminator of an FM communications receiver produces 
+results containing audio spectrum from the "sub-audible" range 
+(typically < 100 Hz) to well above frequencies able to be produced by 
+modulating audio. These higher frequencies can be utilized to determine 
+signal quality, since they can only contain noise (or no noise, if a 
+sufficiently strong signal is present).
+
+For receivers (such as the Motorola Quantar, etc) that do not provide 
+sufficient spectral content at these "noise" frequencies (for various 
+reasons), The "DSP/BEW (Digital Signal Processor / Baseband Examination 
+Window)" feature of the RTCM firmware may be utilized. 
+
+These receivers are perfectly capable of providing valid "noise" signal 
+with no modulation on the input of the receiver, but with strong 
+modulation (high frequency audio and high deviation), it severely 
+interferes with proper analysis of signal strength.
+
+This feature provides a means by which a "Window" of baseband (normal 
+audio range) signal is examined by a DSP and a determination of whether 
+or not sufficient audio is present to cause interference of proper 
+signal strength is made. During the VERY brief periods of time when it 
+is determined that sufficient audio is present to cause interference, 
+the signal strength value is "held" (the last valid value previous to 
+the time of interference) until such time that the interfering audio is 
+no longer present.  
+
+The DSP/BEW feature is selectable, and should not be used for a receiver 
+that does not need it.
