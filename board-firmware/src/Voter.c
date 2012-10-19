@@ -228,7 +228,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.08  10/07/2012";
+	VERSION[] = "1.10  10/18/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -285,6 +285,7 @@ BOOL set_atten(BYTE val);
 
 /////////////////////////////////////////////////
 //Global variables 
+WORD portasave;
 BYTE inputs1;
 BYTE inputs2;
 BYTE aliveCntrMain; //Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
@@ -440,7 +441,6 @@ BOOL altchange1;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
-
 #ifdef SILLY
 BYTE silly = 0;
 DWORD sillyval;
@@ -880,7 +880,7 @@ BYTE IOExpOutA,IOExpOutB;
 
 void main_processing_loop(void);
 
-void __attribute__((interrupt, auto_psv)) _CNInterrupt(void)
+void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
 
 //Stuff for ADPCM encode
@@ -894,11 +894,10 @@ long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
 
- 	asm volatile ("push CORCON");
-	CORCON = 0x24;
+	CORCONbits.PSV = 1;
 	// If PPS signal is asserted
-	if (((PORTAbits.RA4) && (AppConfig.PPSPolarity == 0)) ||
-		((!PORTAbits.RA4) && (AppConfig.PPSPolarity == 1)))
+	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) ||
+		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1)))
 	{
 		if (USE_PPS && (!indiag))
 		{
@@ -1055,7 +1054,6 @@ BYTE *cp;
 		}
 	}
 	IFS1bits.CNIF = 0;
-	asm volatile ("pop CORCON");
 }
 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
@@ -1076,8 +1074,7 @@ long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
 
-	asm volatile ("push CORCON");
-	CORCON = 0x24;
+	CORCONbits.PSV = 1;
 	index = ADC1BUF0;
 	if (adcother)
 	{
@@ -1276,7 +1273,6 @@ BYTE *cp;
 	}
 	adcother ^= 1;
 	IFS0bits.AD1IF = 0;
-	asm volatile ("pop CORCON");
 }
 
 void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
@@ -1284,8 +1280,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	BYTE c;
 	short s;
 
-	asm volatile ("push CORCON");
-	CORCON = 0x24;
+	CORCONbits.PSV = 1;
 	IFS4bits.DAC1LIF = 0;
 	s = 0;
 	// Output Tx sample
@@ -1384,7 +1379,6 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
 	}
-	asm volatile ("pop CORCON");
 }
 
 
@@ -2910,9 +2904,11 @@ void secondary_processing_loop(void)
 				wascor = qualcor;
 			}
 #ifdef	DSPBEW
-			if (qualnoise) 
+			if (qualnoise) mynoise = (WORD)lastvnoise32[1];
+#else
+			mynoise = vnoise32;
 #endif
-				mynoise = (WORD)lastvnoise32[1];
+		
 			rssi = rssitable[mynoise >> 3];
 			if ((rssi < 1) && (qualcor)) rssiheld = rssi = 1;
 			if (!AppConfig.SqlNoiseGain) rssiheld = rssi = 0;
@@ -4252,6 +4248,7 @@ int main(void)
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
 
+	portasave = 0;	
 	filling_buffer = 0;
 	fillindex = 0;
 	filled = 0;
@@ -4950,9 +4947,9 @@ static void InitializeBoard(void)
 
 	CNEN1bits.CN0IE = 1;
 	IEC1bits.CNIE = 1;
-	IPC4bits.CNIP = 7;
+	IPC4bits.CNIP = 6;
 
-	INTCON1bits.NSTDIS = 1;
+	INTCON1bits.NSTDIS = 0;
 
 	ENABLE_INTERRUPTS();
 
