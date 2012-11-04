@@ -1,4 +1,4 @@
-Microchip Technology Inc, vv3_31 (A) M
+Microchip Technology Inc, vv3_31 (A) f
 
 Tool Name:
   c:\program files (x86)\microchip\mplab c30\bin\bin\..\bin/pic30-coff-ld.exe
@@ -248,12 +248,12 @@ Program Memory  [Origin = 0x3400, Length = 0x12400]
 section                    address   length (PC units)   length (bytes) (dec)
 -------                    -------   -----------------   --------------------
 .text                       0x3400              0x3848          0x546c  (21612)
-.text                       0x6c48              0x9e94          0xedde  (60894)
-.dinit                     0x10adc               0x440           0x660  (1632)
-.text                      0x10f1c              0x130e          0x1c95  (7317)
+.text                       0x6c48              0x9ea2          0xedf3  (60915)
+.dinit                     0x10aea               0x440           0x660  (1632)
+.text                      0x10f2a              0x130e          0x1c95  (7317)
 .const                     0x123b0              0x3450          0x4e78  (20088)
 
-                     Total program memory used (bytes):        0x1b3b7  (111543) 99%
+                     Total program memory used (bytes):        0x1b3cc  (111564) 99%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -754,400 +754,400 @@ External Symbols in Program Memory (by address):
                   0x006b72                  _ungetc
                   0x006bac                  __filbuf
                   0x006e50                  __CNInterrupt
-                  0x007092                  __ADC1Interrupt
-                  0x00745c                  __DAC1LInterrupt
-                  0x00764e                  __DefaultInterrupt
-                  0x007660                  __OscillatorFail
-                  0x007672                  __AddressError
-                  0x007678                  __StackError
-                  0x00767e                  __MathError
-                  0x007690                  _HasCOR
-                  0x0076ae                  _HasCTCSS
-                  0x0076de                  _SetCTCSSTone
-                  0x007776                  _SetTxTone
-                  0x00789e                  _GetBootCS
-                  0x0078b4                  _htons
-                  0x0078c8                  _ntohs
-                  0x0078dc                  _htonl
-                  0x0078fa                  _ntohl
-                  0x007918                  _getGPSStr
-                  0x007958                  _getTSIPPacket
-                  0x007a20                  _adpcm_decoder
-                  0x007b10                  _read
-                  0x007b50                  _SaveAppConfig
-                  0x007e2a                  _IOExp_Write
-                  0x007e9a                  _SetAudioSrc
-                  0x007efc                  _process_udp
-                  0x0085c0                  _main_processing_loop
-                  0x0088ce                  _write
-                  0x008942                  _process_gps
-                  0x008f30                  _SetPTT
-                  0x008f50                  _ToggleLED
-                  0x008f68                  _SetLED
-                  0x008f8c                  _IOExpInit
-                  0x008fb2                  _IOExp_Read
-                  0x009024                  _secondary_processing_loop
-                  0x009f02                  _myfgets
-                  0x00a4ec                  _main
-                  0x00b6f6                  _TCPWasReset
-                  0x00b708                  _TCPIsConnected
-                  0x00b71a                  _TCPIsPutReady
-                  0x00b748                  _TCPGetTxFIFOFull
-                  0x00b762                  _TCPIsGetReady
-                  0x00b77e                  _TCPGetRxFIFOFree
-                  0x00b936                  _TCPGetRemoteInfo
-                  0x00b94a                  _TCPInit
-                  0x00bcee                  _TCPAdjustFIFOSize
-                  0x00bdce                  _TCPDiscard
-                  0x00bdea                  _TCPFlush
-                  0x00be00                  _TCPDisconnect
-                  0x00be76                  _TCPClose
-                  0x00be88                  _TCPOpen
-                  0x00bfa0                  _TCPProcess
-                  0x00c7ce                  _TCPTick
-                  0x00cb08                  _TCPFindArrayEx
-                  0x00d0a4                  _TCPFindEx
-                  0x00d0b8                  _TCPPeekArray
-                  0x00d122                  _TCPPeek
-                  0x00d134                  _TCPGetArray
-                  0x00d1b8                  _TCPGet
-                  0x00d218                  _TCPPutArray
-                  0x00d2bc                  _TCPPutString
-                  0x00d2d4                  _TCPPut
-                  0x00d358                  _MACGet
-                  0x00d388                  _MACGetArray
-                  0x00d432                  _MACPut
-                  0x00d46c                  _MACPutArray
-                  0x00d5ae                  _MACSetReadPtrInRx
-                  0x00d5d0                  _MACPutHeader
-                  0x00d65e                  _MACDiscardRx
-                  0x00d6e2                  _SetCLKOUT
-                  0x00d6f8                  _WritePHYReg
-                  0x00d730                  _ReadPHYReg
-                  0x00d78e                  _MACIsLinked
-                  0x00d7a0                  _MACBurp
-                  0x00d7e2                  _GetCLKOUT
-                  0x00d7fe                  _MACPowerUp
-                  0x00d81c                  _MACPowerDown
-                  0x00d846                  _MACIsMemCopyDone
-                  0x00d85c                  _MACMemCopyAsync
-                  0x00da54                  _CalcIPBufferChecksum
-                  0x00db88                  _MACCalcRxChecksum
-                  0x00dbe4                  _MACSetReadPtr
-                  0x00dc1e                  _MACSetWritePtr
-                  0x00dc58                  _MACFlush
-                  0x00ddda                  _MACGetHeader
-                  0x00de78                  _MACGetFreeRxSize
-                  0x00defe                  _MACIsTxReady
-                  0x00df14                  _MACInit
-                  0x00e05c                  _DDNSInit
-                  0x00e092                  _DDNSTask
-                  0x00eaf8                  _DDNSForceUpdate
-                  0x00eb08                  _DDNSSetService
-                  0x00eb1c                  _DDNSGetLastIP
-                  0x00eb24                  _DDNSGetLastStatus
-                  0x00eb28                  _LFSRRand
-                  0x00ed1e                  _LFSRSeedRand
-                  0x00ed58                  _GenerateRandomDWORD
-                  0x00ee04                  _StringToIPAddress
-                  0x00eeb2                  _Base64Encode
-                  0x00f054                  _uitoa
-                  0x00f0f6                  _hexatob
-                  0x00f15c                  _btohexa_high
-                  0x00f170                  _btohexa_low
-                  0x00f182                  _stricmppgm2ram
-                  0x00f1d0                  _swaps
-                  0x00f1e2                  _swapl
-                  0x00f210                  _CalcIPChecksum
-                  0x00f2d2                  _strupr
-                  0x00f2f2                  _FormatNetBIOSName
-                  0x00f41c                  _strnchr
-                  0x00f562                  _DHCPInit
-                  0x00f58e                  _DHCPDisable
-                  0x00f5a4                  _DHCPEnable
-                  0x00f5b4                  _DHCPIsEnabled
-                  0x00f5be                  _DHCPIsBound
-                  0x00f5c4                  _DHCPStateChanged
-                  0x00f5d4                  _DHCPIsServerDetected
-                  0x00f9d6                  _DHCPTask
-                  0x00fc64                  _UDPClose
-                  0x00fc7c                  _UDPInit
-                  0x00fcaa                  _UDPTask
-                  0x00fcb0                  _UDPOpen
-                  0x00fd7a                  _UDPSetTxBuffer
-                  0x00fd8a                  _UDPSetRxBuffer
-                  0x00fd98                  _UDPIsPutReady
-                  0x00fdbe                  _UDPPut
-                  0x00fde4                  _UDPPutArray
-                  0x00fe0e                  _UDPPutString
-                  0x00fe22                  _UDPFlush
-                  0x00fecc                  _UDPIsGetReady
-                  0x00fef0                  _UDPGet
-                  0x00ff1a                  _UDPGetArray
-                  0x00ff48                  _UDPDiscard
-                  0x00ff62                  _UDPProcess
-                  0x01016e                  _DNSBeginUsage
-                  0x010182                  _DNSEndUsage
-                  0x0101a2                  _DNSResolve
-                  0x01025e                  _DNSIsResolved
-                  0x010672                  __U1RXInterrupt
-                  0x0106d0                  __U1TXInterrupt
-                  0x0106fe                  __U2RXInterrupt
-                  0x01075c                  __U2TXInterrupt
-                  0x010788                  _InitUARTS
-                  0x0107cc                  _DataRdyUART
-                  0x0107e2                  _ReadUART
-                  0x0107f6                  _ReadStringUART
-                  0x010828                  _WriteUART
-                  0x010858                  _putsUART
-                  0x01086e                  _putrsUART
-                  0x010884                  _getsUART
-                  0x010954                  _BusyUART
-                  0x01096e                  _WriteUART2
-                  0x01099c                  _putsUART2
-                  0x0109b2                  _putrsUART2
-                  0x0109c8                  _DataRdyUART2
-                  0x0109de                  _ReadUART2
-                  0x0109f2                  _getsUART2
-                  0x010ac2                  _BusyUART2
-                  0x010f1c                  _set_atten
-                  0x010f66                  _init_squelch
-                  0x010f98                  _service_squelch
-                  0x011260                  _XEEInit
-                  0x011278                  _XEEBeginRead
-                  0x011282                  _XEEEndRead
-                  0x011284                  _XEEBeginWrite
-                  0x01128e                  _XEEReadArray
-                  0x01132a                  _XEERead
-                  0x011362                  _XEEIsBusy
-                  0x01148e                  _XEEEndWrite
-                  0x011498                  _XEEWrite
-                  0x0114b8                  _XEEWriteArray
-                  0x01154c                  _TelnetTask
-                  0x011702                  _GetTelnetConsole
-                  0x01172e                  _PutTelnetConsole
-                  0x01179a                  _ProcessTelnetTimer
-                  0x0117ea                  _CloseTelnetConsole
-                  0x01180a                  _ARPInit
-                  0x011836                  _ARPIsResolved
-                  0x0118d4                  _SwapARPPacket
-                  0x011950                  _ARPResolve
-                  0x0119de                  _ARPProcess
-                  0x011a9e                  _ICMPProcess
-                  0x011b42                  _ICMPSendPing
-                  0x011b5c                  _ICMPSendPingToHost
-                  0x011b76                  _ICMPGetReply
-                  0x011c68                  _ICMPBeginUsage
-                  0x011c7c                  _ICMPEndUsage
-                  0x011c82                  _Delay10us
-                  0x011cae                  _DelayMs
-                  0x011e5a                  _StackInit
-                  0x011e84                  _StackTask
-                  0x011fd0                  _StackApplications
-                  0x011fd4                  _IPSetRxBuffer
-                  0x011ff6                  _IPPutHeader
-                  0x01207e                  _IPGetHeader
-                  0x0120fe                  _TickInit
-                  0x012166                  _TickGet
-                  0x01216e                  _TickGetDiv256
-                  0x012192                  _TickGetDiv64K
-                  0x0121b6                  _TickConvertToMilliseconds
-                  0x0121c8                  __T1Interrupt
-                  0x0121dc                  _doubleify
+                  0x00709c                  __ADC1Interrupt
+                  0x007466                  __DAC1LInterrupt
+                  0x007658                  __DefaultInterrupt
+                  0x00766a                  __OscillatorFail
+                  0x00767c                  __AddressError
+                  0x007682                  __StackError
+                  0x007688                  __MathError
+                  0x00769a                  _HasCOR
+                  0x0076b8                  _HasCTCSS
+                  0x0076e8                  _SetCTCSSTone
+                  0x007780                  _SetTxTone
+                  0x0078a8                  _GetBootCS
+                  0x0078be                  _htons
+                  0x0078d2                  _ntohs
+                  0x0078e6                  _htonl
+                  0x007904                  _ntohl
+                  0x007922                  _getGPSStr
+                  0x007962                  _getTSIPPacket
+                  0x007a2a                  _adpcm_decoder
+                  0x007b1a                  _read
+                  0x007b5a                  _SaveAppConfig
+                  0x007e34                  _IOExp_Write
+                  0x007ea4                  _SetAudioSrc
+                  0x007f06                  _process_udp
+                  0x0085ca                  _main_processing_loop
+                  0x0088d8                  _write
+                  0x00894c                  _process_gps
+                  0x008f3a                  _SetPTT
+                  0x008f5a                  _ToggleLED
+                  0x008f72                  _SetLED
+                  0x008f96                  _IOExpInit
+                  0x008fbc                  _IOExp_Read
+                  0x00902e                  _secondary_processing_loop
+                  0x009f10                  _myfgets
+                  0x00a4fa                  _main
+                  0x00b704                  _TCPWasReset
+                  0x00b716                  _TCPIsConnected
+                  0x00b728                  _TCPIsPutReady
+                  0x00b756                  _TCPGetTxFIFOFull
+                  0x00b770                  _TCPIsGetReady
+                  0x00b78c                  _TCPGetRxFIFOFree
+                  0x00b944                  _TCPGetRemoteInfo
+                  0x00b958                  _TCPInit
+                  0x00bcfc                  _TCPAdjustFIFOSize
+                  0x00bddc                  _TCPDiscard
+                  0x00bdf8                  _TCPFlush
+                  0x00be0e                  _TCPDisconnect
+                  0x00be84                  _TCPClose
+                  0x00be96                  _TCPOpen
+                  0x00bfae                  _TCPProcess
+                  0x00c7dc                  _TCPTick
+                  0x00cb16                  _TCPFindArrayEx
+                  0x00d0b2                  _TCPFindEx
+                  0x00d0c6                  _TCPPeekArray
+                  0x00d130                  _TCPPeek
+                  0x00d142                  _TCPGetArray
+                  0x00d1c6                  _TCPGet
+                  0x00d226                  _TCPPutArray
+                  0x00d2ca                  _TCPPutString
+                  0x00d2e2                  _TCPPut
+                  0x00d366                  _MACGet
+                  0x00d396                  _MACGetArray
+                  0x00d440                  _MACPut
+                  0x00d47a                  _MACPutArray
+                  0x00d5bc                  _MACSetReadPtrInRx
+                  0x00d5de                  _MACPutHeader
+                  0x00d66c                  _MACDiscardRx
+                  0x00d6f0                  _SetCLKOUT
+                  0x00d706                  _WritePHYReg
+                  0x00d73e                  _ReadPHYReg
+                  0x00d79c                  _MACIsLinked
+                  0x00d7ae                  _MACBurp
+                  0x00d7f0                  _GetCLKOUT
+                  0x00d80c                  _MACPowerUp
+                  0x00d82a                  _MACPowerDown
+                  0x00d854                  _MACIsMemCopyDone
+                  0x00d86a                  _MACMemCopyAsync
+                  0x00da62                  _CalcIPBufferChecksum
+                  0x00db96                  _MACCalcRxChecksum
+                  0x00dbf2                  _MACSetReadPtr
+                  0x00dc2c                  _MACSetWritePtr
+                  0x00dc66                  _MACFlush
+                  0x00dde8                  _MACGetHeader
+                  0x00de86                  _MACGetFreeRxSize
+                  0x00df0c                  _MACIsTxReady
+                  0x00df22                  _MACInit
+                  0x00e06a                  _DDNSInit
+                  0x00e0a0                  _DDNSTask
+                  0x00eb06                  _DDNSForceUpdate
+                  0x00eb16                  _DDNSSetService
+                  0x00eb2a                  _DDNSGetLastIP
+                  0x00eb32                  _DDNSGetLastStatus
+                  0x00eb36                  _LFSRRand
+                  0x00ed2c                  _LFSRSeedRand
+                  0x00ed66                  _GenerateRandomDWORD
+                  0x00ee12                  _StringToIPAddress
+                  0x00eec0                  _Base64Encode
+                  0x00f062                  _uitoa
+                  0x00f104                  _hexatob
+                  0x00f16a                  _btohexa_high
+                  0x00f17e                  _btohexa_low
+                  0x00f190                  _stricmppgm2ram
+                  0x00f1de                  _swaps
+                  0x00f1f0                  _swapl
+                  0x00f21e                  _CalcIPChecksum
+                  0x00f2e0                  _strupr
+                  0x00f300                  _FormatNetBIOSName
+                  0x00f42a                  _strnchr
+                  0x00f570                  _DHCPInit
+                  0x00f59c                  _DHCPDisable
+                  0x00f5b2                  _DHCPEnable
+                  0x00f5c2                  _DHCPIsEnabled
+                  0x00f5cc                  _DHCPIsBound
+                  0x00f5d2                  _DHCPStateChanged
+                  0x00f5e2                  _DHCPIsServerDetected
+                  0x00f9e4                  _DHCPTask
+                  0x00fc72                  _UDPClose
+                  0x00fc8a                  _UDPInit
+                  0x00fcb8                  _UDPTask
+                  0x00fcbe                  _UDPOpen
+                  0x00fd88                  _UDPSetTxBuffer
+                  0x00fd98                  _UDPSetRxBuffer
+                  0x00fda6                  _UDPIsPutReady
+                  0x00fdcc                  _UDPPut
+                  0x00fdf2                  _UDPPutArray
+                  0x00fe1c                  _UDPPutString
+                  0x00fe30                  _UDPFlush
+                  0x00feda                  _UDPIsGetReady
+                  0x00fefe                  _UDPGet
+                  0x00ff28                  _UDPGetArray
+                  0x00ff56                  _UDPDiscard
+                  0x00ff70                  _UDPProcess
+                  0x01017c                  _DNSBeginUsage
+                  0x010190                  _DNSEndUsage
+                  0x0101b0                  _DNSResolve
+                  0x01026c                  _DNSIsResolved
+                  0x010680                  __U1RXInterrupt
+                  0x0106de                  __U1TXInterrupt
+                  0x01070c                  __U2RXInterrupt
+                  0x01076a                  __U2TXInterrupt
+                  0x010796                  _InitUARTS
+                  0x0107da                  _DataRdyUART
+                  0x0107f0                  _ReadUART
+                  0x010804                  _ReadStringUART
+                  0x010836                  _WriteUART
+                  0x010866                  _putsUART
+                  0x01087c                  _putrsUART
+                  0x010892                  _getsUART
+                  0x010962                  _BusyUART
+                  0x01097c                  _WriteUART2
+                  0x0109aa                  _putsUART2
+                  0x0109c0                  _putrsUART2
+                  0x0109d6                  _DataRdyUART2
+                  0x0109ec                  _ReadUART2
+                  0x010a00                  _getsUART2
+                  0x010ad0                  _BusyUART2
+                  0x010f2a                  _set_atten
+                  0x010f74                  _init_squelch
+                  0x010fa6                  _service_squelch
+                  0x01126e                  _XEEInit
+                  0x011286                  _XEEBeginRead
+                  0x011290                  _XEEEndRead
+                  0x011292                  _XEEBeginWrite
+                  0x01129c                  _XEEReadArray
+                  0x011338                  _XEERead
+                  0x011370                  _XEEIsBusy
+                  0x01149c                  _XEEEndWrite
+                  0x0114a6                  _XEEWrite
+                  0x0114c6                  _XEEWriteArray
+                  0x01155a                  _TelnetTask
+                  0x011710                  _GetTelnetConsole
+                  0x01173c                  _PutTelnetConsole
+                  0x0117a8                  _ProcessTelnetTimer
+                  0x0117f8                  _CloseTelnetConsole
+                  0x011818                  _ARPInit
+                  0x011844                  _ARPIsResolved
+                  0x0118e2                  _SwapARPPacket
+                  0x01195e                  _ARPResolve
+                  0x0119ec                  _ARPProcess
+                  0x011aac                  _ICMPProcess
+                  0x011b50                  _ICMPSendPing
+                  0x011b6a                  _ICMPSendPingToHost
+                  0x011b84                  _ICMPGetReply
+                  0x011c76                  _ICMPBeginUsage
+                  0x011c8a                  _ICMPEndUsage
+                  0x011c90                  _Delay10us
+                  0x011cbc                  _DelayMs
+                  0x011e68                  _StackInit
+                  0x011e92                  _StackTask
+                  0x011fde                  _StackApplications
+                  0x011fe2                  _IPSetRxBuffer
+                  0x012004                  _IPPutHeader
+                  0x01208c                  _IPGetHeader
+                  0x01210c                  _TickInit
+                  0x012174                  _TickGet
+                  0x01217c                  _TickGetDiv256
+                  0x0121a0                  _TickGetDiv64K
+                  0x0121c4                  _TickConvertToMilliseconds
+                  0x0121d6                  __T1Interrupt
+                  0x0121ea                  _doubleify
                   0x0123b0                  _ulawtabletx
                   0x0125b0                  _exp_lut
                   0x0126b0                  _VERSION
-                  0x0126c1                  _hosttmomsg
-                  0x0126e1                  _badmix
-                  0x012720                  _newvalnotchanged
-                  0x012742                  _newvalerror
-                  0x012764                  _saved
-                  0x01278e                  _newvalchanged
-                  0x0127aa                  _entnewval
-                  0x0127bd                  _gpsmsg9
-                  0x0127d2                  _gpsmsg8
-                  0x012801                  _gpsmsg7
-                  0x01282a                  _gpsmsg6
-                  0x012859                  _gpsmsg5
-                  0x01287a                  _gpsmsg3
-                  0x012899                  _gpsmsg2
-                  0x0128ce                  _gpsmsg1
+                  0x0126c0                  _hosttmomsg
+                  0x0126e0                  _badmix
+                  0x01271f                  _newvalnotchanged
+                  0x012741                  _newvalerror
+                  0x012763                  _saved
+                  0x01278d                  _newvalchanged
+                  0x0127a9                  _entnewval
+                  0x0127bc                  _gpsmsg9
+                  0x0127d1                  _gpsmsg8
+                  0x012800                  _gpsmsg7
+                  0x012829                  _gpsmsg6
+                  0x012858                  _gpsmsg5
+                  0x012879                  _gpsmsg3
+                  0x012898                  _gpsmsg2
+                  0x0128cd                  _gpsmsg1
                   0x0155ca                  _ddnsServiceHosts
                   0x0157f4                  _TCPSocketInitializer
                   0xf80004                  __FGS.sec
 
 External Symbols in Program Memory (by name):
 
-                  0x01180a                  _ARPInit
-                  0x011836                  _ARPIsResolved
-                  0x0119de                  _ARPProcess
-                  0x011950                  _ARPResolve
-                  0x00eeb2                  _Base64Encode
-                  0x010954                  _BusyUART
-                  0x010ac2                  _BusyUART2
-                  0x00da54                  _CalcIPBufferChecksum
-                  0x00f210                  _CalcIPChecksum
-                  0x0117ea                  _CloseTelnetConsole
-                  0x00eaf8                  _DDNSForceUpdate
-                  0x00eb1c                  _DDNSGetLastIP
-                  0x00eb24                  _DDNSGetLastStatus
-                  0x00e05c                  _DDNSInit
-                  0x00eb08                  _DDNSSetService
-                  0x00e092                  _DDNSTask
-                  0x00f58e                  _DHCPDisable
-                  0x00f5a4                  _DHCPEnable
-                  0x00f562                  _DHCPInit
-                  0x00f5be                  _DHCPIsBound
-                  0x00f5b4                  _DHCPIsEnabled
-                  0x00f5d4                  _DHCPIsServerDetected
-                  0x00f5c4                  _DHCPStateChanged
-                  0x00f9d6                  _DHCPTask
-                  0x01016e                  _DNSBeginUsage
-                  0x010182                  _DNSEndUsage
-                  0x01025e                  _DNSIsResolved
-                  0x0101a2                  _DNSResolve
-                  0x0107cc                  _DataRdyUART
-                  0x0109c8                  _DataRdyUART2
-                  0x011c82                  _Delay10us
-                  0x011cae                  _DelayMs
-                  0x00f2f2                  _FormatNetBIOSName
-                  0x00ed58                  _GenerateRandomDWORD
-                  0x00789e                  _GetBootCS
-                  0x00d7e2                  _GetCLKOUT
-                  0x011702                  _GetTelnetConsole
-                  0x007690                  _HasCOR
-                  0x0076ae                  _HasCTCSS
-                  0x011c68                  _ICMPBeginUsage
-                  0x011c7c                  _ICMPEndUsage
-                  0x011b76                  _ICMPGetReply
-                  0x011a9e                  _ICMPProcess
-                  0x011b42                  _ICMPSendPing
-                  0x011b5c                  _ICMPSendPingToHost
-                  0x008f8c                  _IOExpInit
-                  0x008fb2                  _IOExp_Read
-                  0x007e2a                  _IOExp_Write
-                  0x01207e                  _IPGetHeader
-                  0x011ff6                  _IPPutHeader
-                  0x011fd4                  _IPSetRxBuffer
-                  0x010788                  _InitUARTS
-                  0x00eb28                  _LFSRRand
-                  0x00ed1e                  _LFSRSeedRand
-                  0x00d7a0                  _MACBurp
-                  0x00db88                  _MACCalcRxChecksum
-                  0x00d65e                  _MACDiscardRx
-                  0x00dc58                  _MACFlush
-                  0x00d358                  _MACGet
-                  0x00d388                  _MACGetArray
-                  0x00de78                  _MACGetFreeRxSize
-                  0x00ddda                  _MACGetHeader
-                  0x00df14                  _MACInit
-                  0x00d78e                  _MACIsLinked
-                  0x00d846                  _MACIsMemCopyDone
-                  0x00defe                  _MACIsTxReady
-                  0x00d85c                  _MACMemCopyAsync
-                  0x00d81c                  _MACPowerDown
-                  0x00d7fe                  _MACPowerUp
-                  0x00d432                  _MACPut
-                  0x00d46c                  _MACPutArray
-                  0x00d5d0                  _MACPutHeader
-                  0x00dbe4                  _MACSetReadPtr
-                  0x00d5ae                  _MACSetReadPtrInRx
-                  0x00dc1e                  _MACSetWritePtr
-                  0x01179a                  _ProcessTelnetTimer
-                  0x01172e                  _PutTelnetConsole
-                  0x00d730                  _ReadPHYReg
-                  0x0107f6                  _ReadStringUART
-                  0x0107e2                  _ReadUART
-                  0x0109de                  _ReadUART2
-                  0x007b50                  _SaveAppConfig
-                  0x007e9a                  _SetAudioSrc
-                  0x00d6e2                  _SetCLKOUT
-                  0x0076de                  _SetCTCSSTone
-                  0x008f68                  _SetLED
-                  0x008f30                  _SetPTT
-                  0x007776                  _SetTxTone
-                  0x011fd0                  _StackApplications
-                  0x011e5a                  _StackInit
-                  0x011e84                  _StackTask
-                  0x00ee04                  _StringToIPAddress
-                  0x0118d4                  _SwapARPPacket
-                  0x00bcee                  _TCPAdjustFIFOSize
-                  0x00be76                  _TCPClose
-                  0x00bdce                  _TCPDiscard
-                  0x00be00                  _TCPDisconnect
-                  0x00cb08                  _TCPFindArrayEx
-                  0x00d0a4                  _TCPFindEx
-                  0x00bdea                  _TCPFlush
-                  0x00d1b8                  _TCPGet
-                  0x00d134                  _TCPGetArray
-                  0x00b936                  _TCPGetRemoteInfo
-                  0x00b77e                  _TCPGetRxFIFOFree
-                  0x00b748                  _TCPGetTxFIFOFull
-                  0x00b94a                  _TCPInit
-                  0x00b708                  _TCPIsConnected
-                  0x00b762                  _TCPIsGetReady
-                  0x00b71a                  _TCPIsPutReady
-                  0x00be88                  _TCPOpen
-                  0x00d122                  _TCPPeek
-                  0x00d0b8                  _TCPPeekArray
-                  0x00bfa0                  _TCPProcess
-                  0x00d2d4                  _TCPPut
-                  0x00d218                  _TCPPutArray
-                  0x00d2bc                  _TCPPutString
+                  0x011818                  _ARPInit
+                  0x011844                  _ARPIsResolved
+                  0x0119ec                  _ARPProcess
+                  0x01195e                  _ARPResolve
+                  0x00eec0                  _Base64Encode
+                  0x010962                  _BusyUART
+                  0x010ad0                  _BusyUART2
+                  0x00da62                  _CalcIPBufferChecksum
+                  0x00f21e                  _CalcIPChecksum
+                  0x0117f8                  _CloseTelnetConsole
+                  0x00eb06                  _DDNSForceUpdate
+                  0x00eb2a                  _DDNSGetLastIP
+                  0x00eb32                  _DDNSGetLastStatus
+                  0x00e06a                  _DDNSInit
+                  0x00eb16                  _DDNSSetService
+                  0x00e0a0                  _DDNSTask
+                  0x00f59c                  _DHCPDisable
+                  0x00f5b2                  _DHCPEnable
+                  0x00f570                  _DHCPInit
+                  0x00f5cc                  _DHCPIsBound
+                  0x00f5c2                  _DHCPIsEnabled
+                  0x00f5e2                  _DHCPIsServerDetected
+                  0x00f5d2                  _DHCPStateChanged
+                  0x00f9e4                  _DHCPTask
+                  0x01017c                  _DNSBeginUsage
+                  0x010190                  _DNSEndUsage
+                  0x01026c                  _DNSIsResolved
+                  0x0101b0                  _DNSResolve
+                  0x0107da                  _DataRdyUART
+                  0x0109d6                  _DataRdyUART2
+                  0x011c90                  _Delay10us
+                  0x011cbc                  _DelayMs
+                  0x00f300                  _FormatNetBIOSName
+                  0x00ed66                  _GenerateRandomDWORD
+                  0x0078a8                  _GetBootCS
+                  0x00d7f0                  _GetCLKOUT
+                  0x011710                  _GetTelnetConsole
+                  0x00769a                  _HasCOR
+                  0x0076b8                  _HasCTCSS
+                  0x011c76                  _ICMPBeginUsage
+                  0x011c8a                  _ICMPEndUsage
+                  0x011b84                  _ICMPGetReply
+                  0x011aac                  _ICMPProcess
+                  0x011b50                  _ICMPSendPing
+                  0x011b6a                  _ICMPSendPingToHost
+                  0x008f96                  _IOExpInit
+                  0x008fbc                  _IOExp_Read
+                  0x007e34                  _IOExp_Write
+                  0x01208c                  _IPGetHeader
+                  0x012004                  _IPPutHeader
+                  0x011fe2                  _IPSetRxBuffer
+                  0x010796                  _InitUARTS
+                  0x00eb36                  _LFSRRand
+                  0x00ed2c                  _LFSRSeedRand
+                  0x00d7ae                  _MACBurp
+                  0x00db96                  _MACCalcRxChecksum
+                  0x00d66c                  _MACDiscardRx
+                  0x00dc66                  _MACFlush
+                  0x00d366                  _MACGet
+                  0x00d396                  _MACGetArray
+                  0x00de86                  _MACGetFreeRxSize
+                  0x00dde8                  _MACGetHeader
+                  0x00df22                  _MACInit
+                  0x00d79c                  _MACIsLinked
+                  0x00d854                  _MACIsMemCopyDone
+                  0x00df0c                  _MACIsTxReady
+                  0x00d86a                  _MACMemCopyAsync
+                  0x00d82a                  _MACPowerDown
+                  0x00d80c                  _MACPowerUp
+                  0x00d440                  _MACPut
+                  0x00d47a                  _MACPutArray
+                  0x00d5de                  _MACPutHeader
+                  0x00dbf2                  _MACSetReadPtr
+                  0x00d5bc                  _MACSetReadPtrInRx
+                  0x00dc2c                  _MACSetWritePtr
+                  0x0117a8                  _ProcessTelnetTimer
+                  0x01173c                  _PutTelnetConsole
+                  0x00d73e                  _ReadPHYReg
+                  0x010804                  _ReadStringUART
+                  0x0107f0                  _ReadUART
+                  0x0109ec                  _ReadUART2
+                  0x007b5a                  _SaveAppConfig
+                  0x007ea4                  _SetAudioSrc
+                  0x00d6f0                  _SetCLKOUT
+                  0x0076e8                  _SetCTCSSTone
+                  0x008f72                  _SetLED
+                  0x008f3a                  _SetPTT
+                  0x007780                  _SetTxTone
+                  0x011fde                  _StackApplications
+                  0x011e68                  _StackInit
+                  0x011e92                  _StackTask
+                  0x00ee12                  _StringToIPAddress
+                  0x0118e2                  _SwapARPPacket
+                  0x00bcfc                  _TCPAdjustFIFOSize
+                  0x00be84                  _TCPClose
+                  0x00bddc                  _TCPDiscard
+                  0x00be0e                  _TCPDisconnect
+                  0x00cb16                  _TCPFindArrayEx
+                  0x00d0b2                  _TCPFindEx
+                  0x00bdf8                  _TCPFlush
+                  0x00d1c6                  _TCPGet
+                  0x00d142                  _TCPGetArray
+                  0x00b944                  _TCPGetRemoteInfo
+                  0x00b78c                  _TCPGetRxFIFOFree
+                  0x00b756                  _TCPGetTxFIFOFull
+                  0x00b958                  _TCPInit
+                  0x00b716                  _TCPIsConnected
+                  0x00b770                  _TCPIsGetReady
+                  0x00b728                  _TCPIsPutReady
+                  0x00be96                  _TCPOpen
+                  0x00d130                  _TCPPeek
+                  0x00d0c6                  _TCPPeekArray
+                  0x00bfae                  _TCPProcess
+                  0x00d2e2                  _TCPPut
+                  0x00d226                  _TCPPutArray
+                  0x00d2ca                  _TCPPutString
                   0x0157f4                  _TCPSocketInitializer
-                  0x00c7ce                  _TCPTick
-                  0x00b6f6                  _TCPWasReset
-                  0x01154c                  _TelnetTask
-                  0x0121b6                  _TickConvertToMilliseconds
-                  0x012166                  _TickGet
-                  0x01216e                  _TickGetDiv256
-                  0x012192                  _TickGetDiv64K
-                  0x0120fe                  _TickInit
-                  0x008f50                  _ToggleLED
-                  0x00fc64                  _UDPClose
-                  0x00ff48                  _UDPDiscard
-                  0x00fe22                  _UDPFlush
-                  0x00fef0                  _UDPGet
-                  0x00ff1a                  _UDPGetArray
-                  0x00fc7c                  _UDPInit
-                  0x00fecc                  _UDPIsGetReady
-                  0x00fd98                  _UDPIsPutReady
-                  0x00fcb0                  _UDPOpen
-                  0x00ff62                  _UDPProcess
-                  0x00fdbe                  _UDPPut
-                  0x00fde4                  _UDPPutArray
-                  0x00fe0e                  _UDPPutString
-                  0x00fd8a                  _UDPSetRxBuffer
-                  0x00fd7a                  _UDPSetTxBuffer
-                  0x00fcaa                  _UDPTask
+                  0x00c7dc                  _TCPTick
+                  0x00b704                  _TCPWasReset
+                  0x01155a                  _TelnetTask
+                  0x0121c4                  _TickConvertToMilliseconds
+                  0x012174                  _TickGet
+                  0x01217c                  _TickGetDiv256
+                  0x0121a0                  _TickGetDiv64K
+                  0x01210c                  _TickInit
+                  0x008f5a                  _ToggleLED
+                  0x00fc72                  _UDPClose
+                  0x00ff56                  _UDPDiscard
+                  0x00fe30                  _UDPFlush
+                  0x00fefe                  _UDPGet
+                  0x00ff28                  _UDPGetArray
+                  0x00fc8a                  _UDPInit
+                  0x00feda                  _UDPIsGetReady
+                  0x00fda6                  _UDPIsPutReady
+                  0x00fcbe                  _UDPOpen
+                  0x00ff70                  _UDPProcess
+                  0x00fdcc                  _UDPPut
+                  0x00fdf2                  _UDPPutArray
+                  0x00fe1c                  _UDPPutString
+                  0x00fd98                  _UDPSetRxBuffer
+                  0x00fd88                  _UDPSetTxBuffer
+                  0x00fcb8                  _UDPTask
                   0x0126b0                  _VERSION
-                  0x00d6f8                  _WritePHYReg
-                  0x010828                  _WriteUART
-                  0x01096e                  _WriteUART2
-                  0x011278                  _XEEBeginRead
-                  0x011284                  _XEEBeginWrite
-                  0x011282                  _XEEEndRead
-                  0x01148e                  _XEEEndWrite
-                  0x011260                  _XEEInit
-                  0x011362                  _XEEIsBusy
-                  0x01132a                  _XEERead
-                  0x01128e                  _XEEReadArray
-                  0x011498                  _XEEWrite
-                  0x0114b8                  _XEEWriteArray
-                  0x007092                  __ADC1Interrupt
-                  0x007672                  __AddressError
+                  0x00d706                  _WritePHYReg
+                  0x010836                  _WriteUART
+                  0x01097c                  _WriteUART2
+                  0x011286                  _XEEBeginRead
+                  0x011292                  _XEEBeginWrite
+                  0x011290                  _XEEEndRead
+                  0x01149c                  _XEEEndWrite
+                  0x01126e                  _XEEInit
+                  0x011370                  _XEEIsBusy
+                  0x011338                  _XEERead
+                  0x01129c                  _XEEReadArray
+                  0x0114a6                  _XEEWrite
+                  0x0114c6                  _XEEWriteArray
+                  0x00709c                  __ADC1Interrupt
+                  0x00767c                  __AddressError
                   0x006e50                  __CNInterrupt
-                  0x00745c                  __DAC1LInterrupt
-                  0x00764e                  __DefaultInterrupt
+                  0x007466                  __DAC1LInterrupt
+                  0x007658                  __DefaultInterrupt
                   0xf80004                  __FGS.sec
-                  0x00767e                  __MathError
-                  0x007660                  __OscillatorFail
-                  0x007678                  __StackError
-                  0x0121c8                  __T1Interrupt
-                  0x010672                  __U1RXInterrupt
-                  0x0106d0                  __U1TXInterrupt
-                  0x0106fe                  __U2RXInterrupt
-                  0x01075c                  __U2TXInterrupt
+                  0x007688                  __MathError
+                  0x00766a                  __OscillatorFail
+                  0x007682                  __StackError
+                  0x0121d6                  __T1Interrupt
+                  0x010680                  __U1RXInterrupt
+                  0x0106de                  __U1TXInterrupt
+                  0x01070c                  __U2RXInterrupt
+                  0x01076a                  __U2TXInterrupt
                   0x003f36                  ___adddf3
                   0x0037d0                  ___addsf3
                   0x003e30                  ___divdf3
@@ -1220,92 +1220,92 @@ External Symbols in Program Memory (by name):
                   0x00610e                  __vfprintf_cdnopsuxX
                   0x00610e                  __vfprintf_cdnopuxX
                   0x005e1e                  __vfscanf_cdnopuxX
-                  0x007a20                  _adpcm_decoder
+                  0x007a2a                  _adpcm_decoder
                   0x004332                  _asctime
                   0x004bbe                  _atof
                   0x004754                  _atoi
-                  0x0126e1                  _badmix
-                  0x00f15c                  _btohexa_high
-                  0x00f170                  _btohexa_low
+                  0x0126e0                  _badmix
+                  0x00f16a                  _btohexa_high
+                  0x00f17e                  _btohexa_low
                   0x003938                  _cosf
                   0x0043c4                  _ctime
                   0x0155ca                  _ddnsServiceHosts
-                  0x0121dc                  _doubleify
-                  0x0127aa                  _entnewval
+                  0x0121ea                  _doubleify
+                  0x0127a9                  _entnewval
                   0x0125b0                  _exp_lut
                   0x00495a                  _fflush
                   0x006b0a                  _fgetc
                   0x003c08                  _fmodf
                   0x0046f4                  _fputs
                   0x003e20                  _frexpf
-                  0x007918                  _getGPSStr
-                  0x007958                  _getTSIPPacket
-                  0x010884                  _getsUART
-                  0x0109f2                  _getsUART2
+                  0x007922                  _getGPSStr
+                  0x007962                  _getTSIPPacket
+                  0x010892                  _getsUART
+                  0x010a00                  _getsUART2
                   0x004270                  _gmtime
-                  0x0128ce                  _gpsmsg1
-                  0x012899                  _gpsmsg2
-                  0x01287a                  _gpsmsg3
-                  0x012859                  _gpsmsg5
-                  0x01282a                  _gpsmsg6
-                  0x012801                  _gpsmsg7
-                  0x0127d2                  _gpsmsg8
-                  0x0127bd                  _gpsmsg9
-                  0x00f0f6                  _hexatob
-                  0x0126c1                  _hosttmomsg
-                  0x0078dc                  _htonl
-                  0x0078b4                  _htons
-                  0x010f66                  _init_squelch
+                  0x0128cd                  _gpsmsg1
+                  0x012898                  _gpsmsg2
+                  0x012879                  _gpsmsg3
+                  0x012858                  _gpsmsg5
+                  0x012829                  _gpsmsg6
+                  0x012800                  _gpsmsg7
+                  0x0127d1                  _gpsmsg8
+                  0x0127bc                  _gpsmsg9
+                  0x00f104                  _hexatob
+                  0x0126c0                  _hosttmomsg
+                  0x0078e6                  _htonl
+                  0x0078be                  _htons
+                  0x010f74                  _init_squelch
                   0x0034ba                  _isalpha
                   0x003490                  _isspace
                   0x0034a0                  _isupper
                   0x00431a                  _localtime
-                  0x00a4ec                  _main
-                  0x0085c0                  _main_processing_loop
+                  0x00a4fa                  _main
+                  0x0085ca                  _main_processing_loop
                   0x0046b2                  _memcmp
                   0x004206                  _memcpy
                   0x0041ec                  _memset
                   0x004816                  _mktime
-                  0x009f02                  _myfgets
-                  0x01278e                  _newvalchanged
-                  0x012742                  _newvalerror
-                  0x012720                  _newvalnotchanged
-                  0x0078fa                  _ntohl
-                  0x0078c8                  _ntohs
+                  0x009f10                  _myfgets
+                  0x01278d                  _newvalchanged
+                  0x012741                  _newvalerror
+                  0x01271f                  _newvalnotchanged
+                  0x007904                  _ntohl
+                  0x0078d2                  _ntohs
                   0x0046e6                  _printf
-                  0x008942                  _process_gps
-                  0x007efc                  _process_udp
-                  0x01086e                  _putrsUART
-                  0x0109b2                  _putrsUART2
+                  0x00894c                  _process_gps
+                  0x007f06                  _process_udp
+                  0x01087c                  _putrsUART
+                  0x0109c0                  _putrsUART2
                   0x004712                  _puts
-                  0x010858                  _putsUART
-                  0x01099c                  _putsUART2
-                  0x007b10                  _read
-                  0x012764                  _saved
-                  0x009024                  _secondary_processing_loop
-                  0x010f98                  _service_squelch
-                  0x010f1c                  _set_atten
+                  0x010866                  _putsUART
+                  0x0109aa                  _putsUART2
+                  0x007b1a                  _read
+                  0x012763                  _saved
+                  0x00902e                  _secondary_processing_loop
+                  0x010fa6                  _service_squelch
+                  0x010f2a                  _set_atten
                   0x0038f2                  _sinf
                   0x0049ae                  _strchr
                   0x004214                  _strcmp
                   0x0046a2                  _strcpy
                   0x00444c                  _strftime
-                  0x00f182                  _stricmppgm2ram
+                  0x00f190                  _stricmppgm2ram
                   0x0041fa                  _strlen
-                  0x00f41c                  _strnchr
+                  0x00f42a                  _strnchr
                   0x005d1e                  _strncmp
                   0x00489e                  _strncpy
                   0x004726                  _strstr
                   0x0049da                  _strtod
-                  0x00f2d2                  _strupr
-                  0x00f1e2                  _swapl
-                  0x00f1d0                  _swaps
+                  0x00f2e0                  _strupr
+                  0x00f1f0                  _swapl
+                  0x00f1de                  _swaps
                   0x0034ac                  _tolower
-                  0x00f054                  _uitoa
+                  0x00f062                  _uitoa
                   0x0123b0                  _ulawtabletx
                   0x006b72                  _ungetc
                   0x004d42                  _vfprintf
-                  0x0088ce                  _write
+                  0x0088d8                  _write
 
 Memory Configuration
 
@@ -1679,260 +1679,260 @@ __FUID3
  *(.debug_aranges)
 
 .ivt              0x000004         0xfc
-                  0x000004          0x4 LONG 0x764e DEFINED (__ReservedTrap0)?ABSOLUTE (__ReservedTrap0):ABSOLUTE (__DefaultInterrupt)
-                  0x000006          0x4 LONG 0x7660 DEFINED (__OscillatorFail)?ABSOLUTE (__OscillatorFail):ABSOLUTE (__DefaultInterrupt)
-                  0x000008          0x4 LONG 0x7672 DEFINED (__AddressError)?ABSOLUTE (__AddressError):ABSOLUTE (__DefaultInterrupt)
-                  0x00000a          0x4 LONG 0x7678 DEFINED (__StackError)?ABSOLUTE (__StackError):ABSOLUTE (__DefaultInterrupt)
-                  0x00000c          0x4 LONG 0x767e DEFINED (__MathError)?ABSOLUTE (__MathError):ABSOLUTE (__DefaultInterrupt)
-                  0x00000e          0x4 LONG 0x764e DEFINED (__DMACError)?ABSOLUTE (__DMACError):ABSOLUTE (__DefaultInterrupt)
-                  0x000010          0x4 LONG 0x764e DEFINED (__ReservedTrap6)?ABSOLUTE (__ReservedTrap6):ABSOLUTE (__DefaultInterrupt)
-                  0x000012          0x4 LONG 0x764e DEFINED (__ReservedTrap7)?ABSOLUTE (__ReservedTrap7):ABSOLUTE (__DefaultInterrupt)
-                  0x000014          0x4 LONG 0x764e DEFINED (__INT0Interrupt)?ABSOLUTE (__INT0Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000016          0x4 LONG 0x764e DEFINED (__IC1Interrupt)?ABSOLUTE (__IC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000018          0x4 LONG 0x764e DEFINED (__OC1Interrupt)?ABSOLUTE (__OC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00001a          0x4 LONG 0x121c8 DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00001c          0x4 LONG 0x764e DEFINED (__DMA0Interrupt)?ABSOLUTE (__DMA0Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00001e          0x4 LONG 0x764e DEFINED (__IC2Interrupt)?ABSOLUTE (__IC2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000020          0x4 LONG 0x764e DEFINED (__OC2Interrupt)?ABSOLUTE (__OC2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000022          0x4 LONG 0x764e DEFINED (__T2Interrupt)?ABSOLUTE (__T2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000024          0x4 LONG 0x764e DEFINED (__T3Interrupt)?ABSOLUTE (__T3Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000026          0x4 LONG 0x764e DEFINED (__SPI1ErrInterrupt)?ABSOLUTE (__SPI1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000028          0x4 LONG 0x764e DEFINED (__SPI1Interrupt)?ABSOLUTE (__SPI1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00002a          0x4 LONG 0x10672 DEFINED (__U1RXInterrupt)?ABSOLUTE (__U1RXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00002c          0x4 LONG 0x106d0 DEFINED (__U1TXInterrupt)?ABSOLUTE (__U1TXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00002e          0x4 LONG 0x7092 DEFINED (__ADC1Interrupt)?ABSOLUTE (__ADC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000030          0x4 LONG 0x764e DEFINED (__DMA1Interrupt)?ABSOLUTE (__DMA1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000032          0x4 LONG 0x764e DEFINED (__Interrupt15)?ABSOLUTE (__Interrupt15):ABSOLUTE (__DefaultInterrupt)
-                  0x000034          0x4 LONG 0x764e DEFINED (__SI2C1Interrupt)?ABSOLUTE (__SI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000036          0x4 LONG 0x764e DEFINED (__MI2C1Interrupt)?ABSOLUTE (__MI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000038          0x4 LONG 0x764e DEFINED (__CMPInterrupt)?ABSOLUTE (__CMPInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000004          0x4 LONG 0x7658 DEFINED (__ReservedTrap0)?ABSOLUTE (__ReservedTrap0):ABSOLUTE (__DefaultInterrupt)
+                  0x000006          0x4 LONG 0x766a DEFINED (__OscillatorFail)?ABSOLUTE (__OscillatorFail):ABSOLUTE (__DefaultInterrupt)
+                  0x000008          0x4 LONG 0x767c DEFINED (__AddressError)?ABSOLUTE (__AddressError):ABSOLUTE (__DefaultInterrupt)
+                  0x00000a          0x4 LONG 0x7682 DEFINED (__StackError)?ABSOLUTE (__StackError):ABSOLUTE (__DefaultInterrupt)
+                  0x00000c          0x4 LONG 0x7688 DEFINED (__MathError)?ABSOLUTE (__MathError):ABSOLUTE (__DefaultInterrupt)
+                  0x00000e          0x4 LONG 0x7658 DEFINED (__DMACError)?ABSOLUTE (__DMACError):ABSOLUTE (__DefaultInterrupt)
+                  0x000010          0x4 LONG 0x7658 DEFINED (__ReservedTrap6)?ABSOLUTE (__ReservedTrap6):ABSOLUTE (__DefaultInterrupt)
+                  0x000012          0x4 LONG 0x7658 DEFINED (__ReservedTrap7)?ABSOLUTE (__ReservedTrap7):ABSOLUTE (__DefaultInterrupt)
+                  0x000014          0x4 LONG 0x7658 DEFINED (__INT0Interrupt)?ABSOLUTE (__INT0Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000016          0x4 LONG 0x7658 DEFINED (__IC1Interrupt)?ABSOLUTE (__IC1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000018          0x4 LONG 0x7658 DEFINED (__OC1Interrupt)?ABSOLUTE (__OC1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00001a          0x4 LONG 0x121d6 DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00001c          0x4 LONG 0x7658 DEFINED (__DMA0Interrupt)?ABSOLUTE (__DMA0Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00001e          0x4 LONG 0x7658 DEFINED (__IC2Interrupt)?ABSOLUTE (__IC2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000020          0x4 LONG 0x7658 DEFINED (__OC2Interrupt)?ABSOLUTE (__OC2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000022          0x4 LONG 0x7658 DEFINED (__T2Interrupt)?ABSOLUTE (__T2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000024          0x4 LONG 0x7658 DEFINED (__T3Interrupt)?ABSOLUTE (__T3Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000026          0x4 LONG 0x7658 DEFINED (__SPI1ErrInterrupt)?ABSOLUTE (__SPI1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000028          0x4 LONG 0x7658 DEFINED (__SPI1Interrupt)?ABSOLUTE (__SPI1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00002a          0x4 LONG 0x10680 DEFINED (__U1RXInterrupt)?ABSOLUTE (__U1RXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00002c          0x4 LONG 0x106de DEFINED (__U1TXInterrupt)?ABSOLUTE (__U1TXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00002e          0x4 LONG 0x709c DEFINED (__ADC1Interrupt)?ABSOLUTE (__ADC1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000030          0x4 LONG 0x7658 DEFINED (__DMA1Interrupt)?ABSOLUTE (__DMA1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000032          0x4 LONG 0x7658 DEFINED (__Interrupt15)?ABSOLUTE (__Interrupt15):ABSOLUTE (__DefaultInterrupt)
+                  0x000034          0x4 LONG 0x7658 DEFINED (__SI2C1Interrupt)?ABSOLUTE (__SI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000036          0x4 LONG 0x7658 DEFINED (__MI2C1Interrupt)?ABSOLUTE (__MI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000038          0x4 LONG 0x7658 DEFINED (__CMPInterrupt)?ABSOLUTE (__CMPInterrupt):ABSOLUTE (__DefaultInterrupt)
                   0x00003a          0x4 LONG 0x6e50 DEFINED (__CNInterrupt)?ABSOLUTE (__CNInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00003c          0x4 LONG 0x764e DEFINED (__INT1Interrupt)?ABSOLUTE (__INT1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00003e          0x4 LONG 0x764e DEFINED (__Interrupt21)?ABSOLUTE (__Interrupt21):ABSOLUTE (__DefaultInterrupt)
-                  0x000040          0x4 LONG 0x764e DEFINED (__IC7Interrupt)?ABSOLUTE (__IC7Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000042          0x4 LONG 0x764e DEFINED (__IC8Interrupt)?ABSOLUTE (__IC8Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000044          0x4 LONG 0x764e DEFINED (__DMA2Interrupt)?ABSOLUTE (__DMA2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000046          0x4 LONG 0x764e DEFINED (__OC3Interrupt)?ABSOLUTE (__OC3Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000048          0x4 LONG 0x764e DEFINED (__OC4Interrupt)?ABSOLUTE (__OC4Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00004a          0x4 LONG 0x764e DEFINED (__T4Interrupt)?ABSOLUTE (__T4Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00004c          0x4 LONG 0x764e DEFINED (__T5Interrupt)?ABSOLUTE (__T5Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00004e          0x4 LONG 0x764e DEFINED (__INT2Interrupt)?ABSOLUTE (__INT2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000050          0x4 LONG 0x106fe DEFINED (__U2RXInterrupt)?ABSOLUTE (__U2RXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000052          0x4 LONG 0x1075c DEFINED (__U2TXInterrupt)?ABSOLUTE (__U2TXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000054          0x4 LONG 0x764e DEFINED (__SPI2ErrInterrupt)?ABSOLUTE (__SPI2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000056          0x4 LONG 0x764e DEFINED (__SPI2Interrupt)?ABSOLUTE (__SPI2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000058          0x4 LONG 0x764e DEFINED (__C1RxRdyInterrupt)?ABSOLUTE (__C1RxRdyInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00005a          0x4 LONG 0x764e DEFINED (__C1Interrupt)?ABSOLUTE (__C1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00005c          0x4 LONG 0x764e DEFINED (__DMA3Interrupt)?ABSOLUTE (__DMA3Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00005e          0x4 LONG 0x764e DEFINED (__Interrupt37)?ABSOLUTE (__Interrupt37):ABSOLUTE (__DefaultInterrupt)
-                  0x000060          0x4 LONG 0x764e DEFINED (__Interrupt38)?ABSOLUTE (__Interrupt38):ABSOLUTE (__DefaultInterrupt)
-                  0x000062          0x4 LONG 0x764e DEFINED (__Interrupt39)?ABSOLUTE (__Interrupt39):ABSOLUTE (__DefaultInterrupt)
-                  0x000064          0x4 LONG 0x764e DEFINED (__Interrupt40)?ABSOLUTE (__Interrupt40):ABSOLUTE (__DefaultInterrupt)
-                  0x000066          0x4 LONG 0x764e DEFINED (__Interrupt41)?ABSOLUTE (__Interrupt41):ABSOLUTE (__DefaultInterrupt)
-                  0x000068          0x4 LONG 0x764e DEFINED (__Interrupt42)?ABSOLUTE (__Interrupt42):ABSOLUTE (__DefaultInterrupt)
-                  0x00006a          0x4 LONG 0x764e DEFINED (__Interrupt43)?ABSOLUTE (__Interrupt43):ABSOLUTE (__DefaultInterrupt)
-                  0x00006c          0x4 LONG 0x764e DEFINED (__Interrupt44)?ABSOLUTE (__Interrupt44):ABSOLUTE (__DefaultInterrupt)
-                  0x00006e          0x4 LONG 0x764e DEFINED (__PMPInterrupt)?ABSOLUTE (__PMPInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000070          0x4 LONG 0x764e DEFINED (__DMA4Interrupt)?ABSOLUTE (__DMA4Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000072          0x4 LONG 0x764e DEFINED (__Interrupt47)?ABSOLUTE (__Interrupt47):ABSOLUTE (__DefaultInterrupt)
-                  0x000074          0x4 LONG 0x764e DEFINED (__Interrupt48)?ABSOLUTE (__Interrupt48):ABSOLUTE (__DefaultInterrupt)
-                  0x000076          0x4 LONG 0x764e DEFINED (__Interrupt49)?ABSOLUTE (__Interrupt49):ABSOLUTE (__DefaultInterrupt)
-                  0x000078          0x4 LONG 0x764e DEFINED (__Interrupt50)?ABSOLUTE (__Interrupt50):ABSOLUTE (__DefaultInterrupt)
-                  0x00007a          0x4 LONG 0x764e DEFINED (__Interrupt51)?ABSOLUTE (__Interrupt51):ABSOLUTE (__DefaultInterrupt)
-                  0x00007c          0x4 LONG 0x764e DEFINED (__Interrupt52)?ABSOLUTE (__Interrupt52):ABSOLUTE (__DefaultInterrupt)
-                  0x00007e          0x4 LONG 0x764e DEFINED (__Interrupt53)?ABSOLUTE (__Interrupt53):ABSOLUTE (__DefaultInterrupt)
-                  0x000080          0x4 LONG 0x764e DEFINED (__Interrupt54)?ABSOLUTE (__Interrupt54):ABSOLUTE (__DefaultInterrupt)
-                  0x000082          0x4 LONG 0x764e DEFINED (__Interrupt55)?ABSOLUTE (__Interrupt55):ABSOLUTE (__DefaultInterrupt)
-                  0x000084          0x4 LONG 0x764e DEFINED (__Interrupt56)?ABSOLUTE (__Interrupt56):ABSOLUTE (__DefaultInterrupt)
-                  0x000086          0x4 LONG 0x764e DEFINED (__Interrupt57)?ABSOLUTE (__Interrupt57):ABSOLUTE (__DefaultInterrupt)
-                  0x000088          0x4 LONG 0x764e DEFINED (__Interrupt58)?ABSOLUTE (__Interrupt58):ABSOLUTE (__DefaultInterrupt)
-                  0x00008a          0x4 LONG 0x764e DEFINED (__Interrupt59)?ABSOLUTE (__Interrupt59):ABSOLUTE (__DefaultInterrupt)
-                  0x00008c          0x4 LONG 0x764e DEFINED (__DCIInterrupt)?ABSOLUTE (__DCIInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00008e          0x4 LONG 0x764e DEFINED (__DMA5Interrupt)?ABSOLUTE (__DMA5Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000090          0x4 LONG 0x764e DEFINED (__RTCCInterrupt)?ABSOLUTE (__RTCCInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000092          0x4 LONG 0x764e DEFINED (__Interrupt63)?ABSOLUTE (__Interrupt63):ABSOLUTE (__DefaultInterrupt)
-                  0x000094          0x4 LONG 0x764e DEFINED (__Interrupt64)?ABSOLUTE (__Interrupt64):ABSOLUTE (__DefaultInterrupt)
-                  0x000096          0x4 LONG 0x764e DEFINED (__U1ErrInterrupt)?ABSOLUTE (__U1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000098          0x4 LONG 0x764e DEFINED (__U2ErrInterrupt)?ABSOLUTE (__U2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00009a          0x4 LONG 0x764e DEFINED (__CRCInterrupt)?ABSOLUTE (__CRCInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00009c          0x4 LONG 0x764e DEFINED (__DMA6Interrupt)?ABSOLUTE (__DMA6Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00009e          0x4 LONG 0x764e DEFINED (__DMA7Interrupt)?ABSOLUTE (__DMA7Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0000a0          0x4 LONG 0x764e DEFINED (__C1TxReqInterrupt)?ABSOLUTE (__C1TxReqInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0000a2          0x4 LONG 0x764e DEFINED (__Interrupt71)?ABSOLUTE (__Interrupt71):ABSOLUTE (__DefaultInterrupt)
-                  0x0000a4          0x4 LONG 0x764e DEFINED (__Interrupt72)?ABSOLUTE (__Interrupt72):ABSOLUTE (__DefaultInterrupt)
-                  0x0000a6          0x4 LONG 0x764e DEFINED (__Interrupt73)?ABSOLUTE (__Interrupt73):ABSOLUTE (__DefaultInterrupt)
-                  0x0000a8          0x4 LONG 0x764e DEFINED (__Interrupt74)?ABSOLUTE (__Interrupt74):ABSOLUTE (__DefaultInterrupt)
-                  0x0000aa          0x4 LONG 0x764e DEFINED (__Interrupt75)?ABSOLUTE (__Interrupt75):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ac          0x4 LONG 0x764e DEFINED (__Interrupt76)?ABSOLUTE (__Interrupt76):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ae          0x4 LONG 0x764e DEFINED (__Interrupt77)?ABSOLUTE (__Interrupt77):ABSOLUTE (__DefaultInterrupt)
-                  0x0000b0          0x4 LONG 0x764e DEFINED (__DAC1RInterrupt)?ABSOLUTE (__DAC1RInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0000b2          0x4 LONG 0x745c DEFINED (__DAC1LInterrupt)?ABSOLUTE (__DAC1LInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0000b4          0x4 LONG 0x764e DEFINED (__Interrupt80)?ABSOLUTE (__Interrupt80):ABSOLUTE (__DefaultInterrupt)
-                  0x0000b6          0x4 LONG 0x764e DEFINED (__Interrupt81)?ABSOLUTE (__Interrupt81):ABSOLUTE (__DefaultInterrupt)
-                  0x0000b8          0x4 LONG 0x764e DEFINED (__Interrupt82)?ABSOLUTE (__Interrupt82):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ba          0x4 LONG 0x764e DEFINED (__Interrupt83)?ABSOLUTE (__Interrupt83):ABSOLUTE (__DefaultInterrupt)
-                  0x0000bc          0x4 LONG 0x764e DEFINED (__Interrupt84)?ABSOLUTE (__Interrupt84):ABSOLUTE (__DefaultInterrupt)
-                  0x0000be          0x4 LONG 0x764e DEFINED (__Interrupt85)?ABSOLUTE (__Interrupt85):ABSOLUTE (__DefaultInterrupt)
-                  0x0000c0          0x4 LONG 0x764e DEFINED (__Interrupt86)?ABSOLUTE (__Interrupt86):ABSOLUTE (__DefaultInterrupt)
-                  0x0000c2          0x4 LONG 0x764e DEFINED (__Interrupt87)?ABSOLUTE (__Interrupt87):ABSOLUTE (__DefaultInterrupt)
-                  0x0000c4          0x4 LONG 0x764e DEFINED (__Interrupt88)?ABSOLUTE (__Interrupt88):ABSOLUTE (__DefaultInterrupt)
-                  0x0000c6          0x4 LONG 0x764e DEFINED (__Interrupt89)?ABSOLUTE (__Interrupt89):ABSOLUTE (__DefaultInterrupt)
-                  0x0000c8          0x4 LONG 0x764e DEFINED (__Interrupt90)?ABSOLUTE (__Interrupt90):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ca          0x4 LONG 0x764e DEFINED (__Interrupt91)?ABSOLUTE (__Interrupt91):ABSOLUTE (__DefaultInterrupt)
-                  0x0000cc          0x4 LONG 0x764e DEFINED (__Interrupt92)?ABSOLUTE (__Interrupt92):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ce          0x4 LONG 0x764e DEFINED (__Interrupt93)?ABSOLUTE (__Interrupt93):ABSOLUTE (__DefaultInterrupt)
-                  0x0000d0          0x4 LONG 0x764e DEFINED (__Interrupt94)?ABSOLUTE (__Interrupt94):ABSOLUTE (__DefaultInterrupt)
-                  0x0000d2          0x4 LONG 0x764e DEFINED (__Interrupt95)?ABSOLUTE (__Interrupt95):ABSOLUTE (__DefaultInterrupt)
-                  0x0000d4          0x4 LONG 0x764e DEFINED (__Interrupt96)?ABSOLUTE (__Interrupt96):ABSOLUTE (__DefaultInterrupt)
-                  0x0000d6          0x4 LONG 0x764e DEFINED (__Interrupt97)?ABSOLUTE (__Interrupt97):ABSOLUTE (__DefaultInterrupt)
-                  0x0000d8          0x4 LONG 0x764e DEFINED (__Interrupt98)?ABSOLUTE (__Interrupt98):ABSOLUTE (__DefaultInterrupt)
-                  0x0000da          0x4 LONG 0x764e DEFINED (__Interrupt99)?ABSOLUTE (__Interrupt99):ABSOLUTE (__DefaultInterrupt)
-                  0x0000dc          0x4 LONG 0x764e DEFINED (__Interrupt100)?ABSOLUTE (__Interrupt100):ABSOLUTE (__DefaultInterrupt)
-                  0x0000de          0x4 LONG 0x764e DEFINED (__Interrupt101)?ABSOLUTE (__Interrupt101):ABSOLUTE (__DefaultInterrupt)
-                  0x0000e0          0x4 LONG 0x764e DEFINED (__Interrupt102)?ABSOLUTE (__Interrupt102):ABSOLUTE (__DefaultInterrupt)
-                  0x0000e2          0x4 LONG 0x764e DEFINED (__Interrupt103)?ABSOLUTE (__Interrupt103):ABSOLUTE (__DefaultInterrupt)
-                  0x0000e4          0x4 LONG 0x764e DEFINED (__Interrupt104)?ABSOLUTE (__Interrupt104):ABSOLUTE (__DefaultInterrupt)
-                  0x0000e6          0x4 LONG 0x764e DEFINED (__Interrupt105)?ABSOLUTE (__Interrupt105):ABSOLUTE (__DefaultInterrupt)
-                  0x0000e8          0x4 LONG 0x764e DEFINED (__Interrupt106)?ABSOLUTE (__Interrupt106):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ea          0x4 LONG 0x764e DEFINED (__Interrupt107)?ABSOLUTE (__Interrupt107):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ec          0x4 LONG 0x764e DEFINED (__Interrupt108)?ABSOLUTE (__Interrupt108):ABSOLUTE (__DefaultInterrupt)
-                  0x0000ee          0x4 LONG 0x764e DEFINED (__Interrupt109)?ABSOLUTE (__Interrupt109):ABSOLUTE (__DefaultInterrupt)
-                  0x0000f0          0x4 LONG 0x764e DEFINED (__Interrupt110)?ABSOLUTE (__Interrupt110):ABSOLUTE (__DefaultInterrupt)
-                  0x0000f2          0x4 LONG 0x764e DEFINED (__Interrupt111)?ABSOLUTE (__Interrupt111):ABSOLUTE (__DefaultInterrupt)
-                  0x0000f4          0x4 LONG 0x764e DEFINED (__Interrupt112)?ABSOLUTE (__Interrupt112):ABSOLUTE (__DefaultInterrupt)
-                  0x0000f6          0x4 LONG 0x764e DEFINED (__Interrupt113)?ABSOLUTE (__Interrupt113):ABSOLUTE (__DefaultInterrupt)
-                  0x0000f8          0x4 LONG 0x764e DEFINED (__Interrupt114)?ABSOLUTE (__Interrupt114):ABSOLUTE (__DefaultInterrupt)
-                  0x0000fa          0x4 LONG 0x764e DEFINED (__Interrupt115)?ABSOLUTE (__Interrupt115):ABSOLUTE (__DefaultInterrupt)
-                  0x0000fc          0x4 LONG 0x764e DEFINED (__Interrupt116)?ABSOLUTE (__Interrupt116):ABSOLUTE (__DefaultInterrupt)
-                  0x0000fe          0x4 LONG 0x764e DEFINED (__Interrupt117)?ABSOLUTE (__Interrupt117):ABSOLUTE (__DefaultInterrupt)
+                  0x00003c          0x4 LONG 0x7658 DEFINED (__INT1Interrupt)?ABSOLUTE (__INT1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00003e          0x4 LONG 0x7658 DEFINED (__Interrupt21)?ABSOLUTE (__Interrupt21):ABSOLUTE (__DefaultInterrupt)
+                  0x000040          0x4 LONG 0x7658 DEFINED (__IC7Interrupt)?ABSOLUTE (__IC7Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000042          0x4 LONG 0x7658 DEFINED (__IC8Interrupt)?ABSOLUTE (__IC8Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000044          0x4 LONG 0x7658 DEFINED (__DMA2Interrupt)?ABSOLUTE (__DMA2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000046          0x4 LONG 0x7658 DEFINED (__OC3Interrupt)?ABSOLUTE (__OC3Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000048          0x4 LONG 0x7658 DEFINED (__OC4Interrupt)?ABSOLUTE (__OC4Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00004a          0x4 LONG 0x7658 DEFINED (__T4Interrupt)?ABSOLUTE (__T4Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00004c          0x4 LONG 0x7658 DEFINED (__T5Interrupt)?ABSOLUTE (__T5Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00004e          0x4 LONG 0x7658 DEFINED (__INT2Interrupt)?ABSOLUTE (__INT2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000050          0x4 LONG 0x1070c DEFINED (__U2RXInterrupt)?ABSOLUTE (__U2RXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000052          0x4 LONG 0x1076a DEFINED (__U2TXInterrupt)?ABSOLUTE (__U2TXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000054          0x4 LONG 0x7658 DEFINED (__SPI2ErrInterrupt)?ABSOLUTE (__SPI2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000056          0x4 LONG 0x7658 DEFINED (__SPI2Interrupt)?ABSOLUTE (__SPI2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000058          0x4 LONG 0x7658 DEFINED (__C1RxRdyInterrupt)?ABSOLUTE (__C1RxRdyInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00005a          0x4 LONG 0x7658 DEFINED (__C1Interrupt)?ABSOLUTE (__C1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00005c          0x4 LONG 0x7658 DEFINED (__DMA3Interrupt)?ABSOLUTE (__DMA3Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00005e          0x4 LONG 0x7658 DEFINED (__Interrupt37)?ABSOLUTE (__Interrupt37):ABSOLUTE (__DefaultInterrupt)
+                  0x000060          0x4 LONG 0x7658 DEFINED (__Interrupt38)?ABSOLUTE (__Interrupt38):ABSOLUTE (__DefaultInterrupt)
+                  0x000062          0x4 LONG 0x7658 DEFINED (__Interrupt39)?ABSOLUTE (__Interrupt39):ABSOLUTE (__DefaultInterrupt)
+                  0x000064          0x4 LONG 0x7658 DEFINED (__Interrupt40)?ABSOLUTE (__Interrupt40):ABSOLUTE (__DefaultInterrupt)
+                  0x000066          0x4 LONG 0x7658 DEFINED (__Interrupt41)?ABSOLUTE (__Interrupt41):ABSOLUTE (__DefaultInterrupt)
+                  0x000068          0x4 LONG 0x7658 DEFINED (__Interrupt42)?ABSOLUTE (__Interrupt42):ABSOLUTE (__DefaultInterrupt)
+                  0x00006a          0x4 LONG 0x7658 DEFINED (__Interrupt43)?ABSOLUTE (__Interrupt43):ABSOLUTE (__DefaultInterrupt)
+                  0x00006c          0x4 LONG 0x7658 DEFINED (__Interrupt44)?ABSOLUTE (__Interrupt44):ABSOLUTE (__DefaultInterrupt)
+                  0x00006e          0x4 LONG 0x7658 DEFINED (__PMPInterrupt)?ABSOLUTE (__PMPInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000070          0x4 LONG 0x7658 DEFINED (__DMA4Interrupt)?ABSOLUTE (__DMA4Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000072          0x4 LONG 0x7658 DEFINED (__Interrupt47)?ABSOLUTE (__Interrupt47):ABSOLUTE (__DefaultInterrupt)
+                  0x000074          0x4 LONG 0x7658 DEFINED (__Interrupt48)?ABSOLUTE (__Interrupt48):ABSOLUTE (__DefaultInterrupt)
+                  0x000076          0x4 LONG 0x7658 DEFINED (__Interrupt49)?ABSOLUTE (__Interrupt49):ABSOLUTE (__DefaultInterrupt)
+                  0x000078          0x4 LONG 0x7658 DEFINED (__Interrupt50)?ABSOLUTE (__Interrupt50):ABSOLUTE (__DefaultInterrupt)
+                  0x00007a          0x4 LONG 0x7658 DEFINED (__Interrupt51)?ABSOLUTE (__Interrupt51):ABSOLUTE (__DefaultInterrupt)
+                  0x00007c          0x4 LONG 0x7658 DEFINED (__Interrupt52)?ABSOLUTE (__Interrupt52):ABSOLUTE (__DefaultInterrupt)
+                  0x00007e          0x4 LONG 0x7658 DEFINED (__Interrupt53)?ABSOLUTE (__Interrupt53):ABSOLUTE (__DefaultInterrupt)
+                  0x000080          0x4 LONG 0x7658 DEFINED (__Interrupt54)?ABSOLUTE (__Interrupt54):ABSOLUTE (__DefaultInterrupt)
+                  0x000082          0x4 LONG 0x7658 DEFINED (__Interrupt55)?ABSOLUTE (__Interrupt55):ABSOLUTE (__DefaultInterrupt)
+                  0x000084          0x4 LONG 0x7658 DEFINED (__Interrupt56)?ABSOLUTE (__Interrupt56):ABSOLUTE (__DefaultInterrupt)
+                  0x000086          0x4 LONG 0x7658 DEFINED (__Interrupt57)?ABSOLUTE (__Interrupt57):ABSOLUTE (__DefaultInterrupt)
+                  0x000088          0x4 LONG 0x7658 DEFINED (__Interrupt58)?ABSOLUTE (__Interrupt58):ABSOLUTE (__DefaultInterrupt)
+                  0x00008a          0x4 LONG 0x7658 DEFINED (__Interrupt59)?ABSOLUTE (__Interrupt59):ABSOLUTE (__DefaultInterrupt)
+                  0x00008c          0x4 LONG 0x7658 DEFINED (__DCIInterrupt)?ABSOLUTE (__DCIInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00008e          0x4 LONG 0x7658 DEFINED (__DMA5Interrupt)?ABSOLUTE (__DMA5Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000090          0x4 LONG 0x7658 DEFINED (__RTCCInterrupt)?ABSOLUTE (__RTCCInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000092          0x4 LONG 0x7658 DEFINED (__Interrupt63)?ABSOLUTE (__Interrupt63):ABSOLUTE (__DefaultInterrupt)
+                  0x000094          0x4 LONG 0x7658 DEFINED (__Interrupt64)?ABSOLUTE (__Interrupt64):ABSOLUTE (__DefaultInterrupt)
+                  0x000096          0x4 LONG 0x7658 DEFINED (__U1ErrInterrupt)?ABSOLUTE (__U1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000098          0x4 LONG 0x7658 DEFINED (__U2ErrInterrupt)?ABSOLUTE (__U2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00009a          0x4 LONG 0x7658 DEFINED (__CRCInterrupt)?ABSOLUTE (__CRCInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00009c          0x4 LONG 0x7658 DEFINED (__DMA6Interrupt)?ABSOLUTE (__DMA6Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00009e          0x4 LONG 0x7658 DEFINED (__DMA7Interrupt)?ABSOLUTE (__DMA7Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0000a0          0x4 LONG 0x7658 DEFINED (__C1TxReqInterrupt)?ABSOLUTE (__C1TxReqInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0000a2          0x4 LONG 0x7658 DEFINED (__Interrupt71)?ABSOLUTE (__Interrupt71):ABSOLUTE (__DefaultInterrupt)
+                  0x0000a4          0x4 LONG 0x7658 DEFINED (__Interrupt72)?ABSOLUTE (__Interrupt72):ABSOLUTE (__DefaultInterrupt)
+                  0x0000a6          0x4 LONG 0x7658 DEFINED (__Interrupt73)?ABSOLUTE (__Interrupt73):ABSOLUTE (__DefaultInterrupt)
+                  0x0000a8          0x4 LONG 0x7658 DEFINED (__Interrupt74)?ABSOLUTE (__Interrupt74):ABSOLUTE (__DefaultInterrupt)
+                  0x0000aa          0x4 LONG 0x7658 DEFINED (__Interrupt75)?ABSOLUTE (__Interrupt75):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ac          0x4 LONG 0x7658 DEFINED (__Interrupt76)?ABSOLUTE (__Interrupt76):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ae          0x4 LONG 0x7658 DEFINED (__Interrupt77)?ABSOLUTE (__Interrupt77):ABSOLUTE (__DefaultInterrupt)
+                  0x0000b0          0x4 LONG 0x7658 DEFINED (__DAC1RInterrupt)?ABSOLUTE (__DAC1RInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0000b2          0x4 LONG 0x7466 DEFINED (__DAC1LInterrupt)?ABSOLUTE (__DAC1LInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0000b4          0x4 LONG 0x7658 DEFINED (__Interrupt80)?ABSOLUTE (__Interrupt80):ABSOLUTE (__DefaultInterrupt)
+                  0x0000b6          0x4 LONG 0x7658 DEFINED (__Interrupt81)?ABSOLUTE (__Interrupt81):ABSOLUTE (__DefaultInterrupt)
+                  0x0000b8          0x4 LONG 0x7658 DEFINED (__Interrupt82)?ABSOLUTE (__Interrupt82):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ba          0x4 LONG 0x7658 DEFINED (__Interrupt83)?ABSOLUTE (__Interrupt83):ABSOLUTE (__DefaultInterrupt)
+                  0x0000bc          0x4 LONG 0x7658 DEFINED (__Interrupt84)?ABSOLUTE (__Interrupt84):ABSOLUTE (__DefaultInterrupt)
+                  0x0000be          0x4 LONG 0x7658 DEFINED (__Interrupt85)?ABSOLUTE (__Interrupt85):ABSOLUTE (__DefaultInterrupt)
+                  0x0000c0          0x4 LONG 0x7658 DEFINED (__Interrupt86)?ABSOLUTE (__Interrupt86):ABSOLUTE (__DefaultInterrupt)
+                  0x0000c2          0x4 LONG 0x7658 DEFINED (__Interrupt87)?ABSOLUTE (__Interrupt87):ABSOLUTE (__DefaultInterrupt)
+                  0x0000c4          0x4 LONG 0x7658 DEFINED (__Interrupt88)?ABSOLUTE (__Interrupt88):ABSOLUTE (__DefaultInterrupt)
+                  0x0000c6          0x4 LONG 0x7658 DEFINED (__Interrupt89)?ABSOLUTE (__Interrupt89):ABSOLUTE (__DefaultInterrupt)
+                  0x0000c8          0x4 LONG 0x7658 DEFINED (__Interrupt90)?ABSOLUTE (__Interrupt90):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ca          0x4 LONG 0x7658 DEFINED (__Interrupt91)?ABSOLUTE (__Interrupt91):ABSOLUTE (__DefaultInterrupt)
+                  0x0000cc          0x4 LONG 0x7658 DEFINED (__Interrupt92)?ABSOLUTE (__Interrupt92):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ce          0x4 LONG 0x7658 DEFINED (__Interrupt93)?ABSOLUTE (__Interrupt93):ABSOLUTE (__DefaultInterrupt)
+                  0x0000d0          0x4 LONG 0x7658 DEFINED (__Interrupt94)?ABSOLUTE (__Interrupt94):ABSOLUTE (__DefaultInterrupt)
+                  0x0000d2          0x4 LONG 0x7658 DEFINED (__Interrupt95)?ABSOLUTE (__Interrupt95):ABSOLUTE (__DefaultInterrupt)
+                  0x0000d4          0x4 LONG 0x7658 DEFINED (__Interrupt96)?ABSOLUTE (__Interrupt96):ABSOLUTE (__DefaultInterrupt)
+                  0x0000d6          0x4 LONG 0x7658 DEFINED (__Interrupt97)?ABSOLUTE (__Interrupt97):ABSOLUTE (__DefaultInterrupt)
+                  0x0000d8          0x4 LONG 0x7658 DEFINED (__Interrupt98)?ABSOLUTE (__Interrupt98):ABSOLUTE (__DefaultInterrupt)
+                  0x0000da          0x4 LONG 0x7658 DEFINED (__Interrupt99)?ABSOLUTE (__Interrupt99):ABSOLUTE (__DefaultInterrupt)
+                  0x0000dc          0x4 LONG 0x7658 DEFINED (__Interrupt100)?ABSOLUTE (__Interrupt100):ABSOLUTE (__DefaultInterrupt)
+                  0x0000de          0x4 LONG 0x7658 DEFINED (__Interrupt101)?ABSOLUTE (__Interrupt101):ABSOLUTE (__DefaultInterrupt)
+                  0x0000e0          0x4 LONG 0x7658 DEFINED (__Interrupt102)?ABSOLUTE (__Interrupt102):ABSOLUTE (__DefaultInterrupt)
+                  0x0000e2          0x4 LONG 0x7658 DEFINED (__Interrupt103)?ABSOLUTE (__Interrupt103):ABSOLUTE (__DefaultInterrupt)
+                  0x0000e4          0x4 LONG 0x7658 DEFINED (__Interrupt104)?ABSOLUTE (__Interrupt104):ABSOLUTE (__DefaultInterrupt)
+                  0x0000e6          0x4 LONG 0x7658 DEFINED (__Interrupt105)?ABSOLUTE (__Interrupt105):ABSOLUTE (__DefaultInterrupt)
+                  0x0000e8          0x4 LONG 0x7658 DEFINED (__Interrupt106)?ABSOLUTE (__Interrupt106):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ea          0x4 LONG 0x7658 DEFINED (__Interrupt107)?ABSOLUTE (__Interrupt107):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ec          0x4 LONG 0x7658 DEFINED (__Interrupt108)?ABSOLUTE (__Interrupt108):ABSOLUTE (__DefaultInterrupt)
+                  0x0000ee          0x4 LONG 0x7658 DEFINED (__Interrupt109)?ABSOLUTE (__Interrupt109):ABSOLUTE (__DefaultInterrupt)
+                  0x0000f0          0x4 LONG 0x7658 DEFINED (__Interrupt110)?ABSOLUTE (__Interrupt110):ABSOLUTE (__DefaultInterrupt)
+                  0x0000f2          0x4 LONG 0x7658 DEFINED (__Interrupt111)?ABSOLUTE (__Interrupt111):ABSOLUTE (__DefaultInterrupt)
+                  0x0000f4          0x4 LONG 0x7658 DEFINED (__Interrupt112)?ABSOLUTE (__Interrupt112):ABSOLUTE (__DefaultInterrupt)
+                  0x0000f6          0x4 LONG 0x7658 DEFINED (__Interrupt113)?ABSOLUTE (__Interrupt113):ABSOLUTE (__DefaultInterrupt)
+                  0x0000f8          0x4 LONG 0x7658 DEFINED (__Interrupt114)?ABSOLUTE (__Interrupt114):ABSOLUTE (__DefaultInterrupt)
+                  0x0000fa          0x4 LONG 0x7658 DEFINED (__Interrupt115)?ABSOLUTE (__Interrupt115):ABSOLUTE (__DefaultInterrupt)
+                  0x0000fc          0x4 LONG 0x7658 DEFINED (__Interrupt116)?ABSOLUTE (__Interrupt116):ABSOLUTE (__DefaultInterrupt)
+                  0x0000fe          0x4 LONG 0x7658 DEFINED (__Interrupt117)?ABSOLUTE (__Interrupt117):ABSOLUTE (__DefaultInterrupt)
 
 .aivt             0x000104         0xfc
-                  0x000104          0x4 LONG 0x764e DEFINED (__AltReservedTrap0)?ABSOLUTE (__AltReservedTrap0):DEFINED (__ReservedTrap0)?ABSOLUTE (__ReservedTrap0):ABSOLUTE (__DefaultInterrupt)
-                  0x000106          0x4 LONG 0x7660 DEFINED (__AltOscillatorFail)?ABSOLUTE (__AltOscillatorFail):DEFINED (__OscillatorFail)?ABSOLUTE (__OscillatorFail):ABSOLUTE (__DefaultInterrupt)
-                  0x000108          0x4 LONG 0x7672 DEFINED (__AltAddressError)?ABSOLUTE (__AltAddressError):DEFINED (__AddressError)?ABSOLUTE (__AddressError):ABSOLUTE (__DefaultInterrupt)
-                  0x00010a          0x4 LONG 0x7678 DEFINED (__AltStackError)?ABSOLUTE (__AltStackError):DEFINED (__StackError)?ABSOLUTE (__StackError):ABSOLUTE (__DefaultInterrupt)
-                  0x00010c          0x4 LONG 0x767e DEFINED (__AltMathError)?ABSOLUTE (__AltMathError):DEFINED (__MathError)?ABSOLUTE (__MathError):ABSOLUTE (__DefaultInterrupt)
-                  0x00010e          0x4 LONG 0x764e DEFINED (__AltDMACError)?ABSOLUTE (__AltDMACError):DEFINED (__DMACError)?ABSOLUTE (__DMACError):ABSOLUTE (__DefaultInterrupt)
-                  0x000110          0x4 LONG 0x764e DEFINED (__AltReservedTrap6)?ABSOLUTE (__AltReservedTrap6):DEFINED (__ReservedTrap6)?ABSOLUTE (__ReservedTrap6):ABSOLUTE (__DefaultInterrupt)
-                  0x000112          0x4 LONG 0x764e DEFINED (__AltReservedTrap7)?ABSOLUTE (__AltReservedTrap7):DEFINED (__ReservedTrap7)?ABSOLUTE (__ReservedTrap7):ABSOLUTE (__DefaultInterrupt)
-                  0x000114          0x4 LONG 0x764e DEFINED (__AltINT0Interrupt)?ABSOLUTE (__AltINT0Interrupt):DEFINED (__INT0Interrupt)?ABSOLUTE (__INT0Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000116          0x4 LONG 0x764e DEFINED (__AltIC1Interrupt)?ABSOLUTE (__AltIC1Interrupt):DEFINED (__IC1Interrupt)?ABSOLUTE (__IC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000118          0x4 LONG 0x764e DEFINED (__AltOC1Interrupt)?ABSOLUTE (__AltOC1Interrupt):DEFINED (__OC1Interrupt)?ABSOLUTE (__OC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00011a          0x4 LONG 0x121c8 DEFINED (__AltT1Interrupt)?ABSOLUTE (__AltT1Interrupt):DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00011c          0x4 LONG 0x764e DEFINED (__AltDMA0Interrupt)?ABSOLUTE (__AltDMA0Interrupt):DEFINED (__DMA0Interrupt)?ABSOLUTE (__DMA0Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00011e          0x4 LONG 0x764e DEFINED (__AltIC2Interrupt)?ABSOLUTE (__AltIC2Interrupt):DEFINED (__IC2Interrupt)?ABSOLUTE (__IC2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000120          0x4 LONG 0x764e DEFINED (__AltOC2Interrupt)?ABSOLUTE (__AltOC2Interrupt):DEFINED (__OC2Interrupt)?ABSOLUTE (__OC2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000122          0x4 LONG 0x764e DEFINED (__AltT2Interrupt)?ABSOLUTE (__AltT2Interrupt):DEFINED (__T2Interrupt)?ABSOLUTE (__T2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000124          0x4 LONG 0x764e DEFINED (__AltT3Interrupt)?ABSOLUTE (__AltT3Interrupt):DEFINED (__T3Interrupt)?ABSOLUTE (__T3Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000126          0x4 LONG 0x764e DEFINED (__AltSPI1ErrInterrupt)?ABSOLUTE (__AltSPI1ErrInterrupt):DEFINED (__SPI1ErrInterrupt)?ABSOLUTE (__SPI1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000128          0x4 LONG 0x764e DEFINED (__AltSPI1Interrupt)?ABSOLUTE (__AltSPI1Interrupt):DEFINED (__SPI1Interrupt)?ABSOLUTE (__SPI1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00012a          0x4 LONG 0x10672 DEFINED (__AltU1RXInterrupt)?ABSOLUTE (__AltU1RXInterrupt):DEFINED (__U1RXInterrupt)?ABSOLUTE (__U1RXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00012c          0x4 LONG 0x106d0 DEFINED (__AltU1TXInterrupt)?ABSOLUTE (__AltU1TXInterrupt):DEFINED (__U1TXInterrupt)?ABSOLUTE (__U1TXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00012e          0x4 LONG 0x7092 DEFINED (__AltADC1Interrupt)?ABSOLUTE (__AltADC1Interrupt):DEFINED (__ADC1Interrupt)?ABSOLUTE (__ADC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000130          0x4 LONG 0x764e DEFINED (__AltDMA1Interrupt)?ABSOLUTE (__AltDMA1Interrupt):DEFINED (__DMA1Interrupt)?ABSOLUTE (__DMA1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000132          0x4 LONG 0x764e DEFINED (__AltInterrupt15)?ABSOLUTE (__AltInterrupt15):DEFINED (__Interrupt15)?ABSOLUTE (__Interrupt15):ABSOLUTE (__DefaultInterrupt)
-                  0x000134          0x4 LONG 0x764e DEFINED (__AltSI2C1Interrupt)?ABSOLUTE (__AltSI2C1Interrupt):DEFINED (__SI2C1Interrupt)?ABSOLUTE (__SI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000136          0x4 LONG 0x764e DEFINED (__AltMI2C1Interrupt)?ABSOLUTE (__AltMI2C1Interrupt):DEFINED (__MI2C1Interrupt)?ABSOLUTE (__MI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000138          0x4 LONG 0x764e DEFINED (__AltCMPInterrupt)?ABSOLUTE (__AltCMPInterrupt):DEFINED (__CMPInterrupt)?ABSOLUTE (__CMPInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000104          0x4 LONG 0x7658 DEFINED (__AltReservedTrap0)?ABSOLUTE (__AltReservedTrap0):DEFINED (__ReservedTrap0)?ABSOLUTE (__ReservedTrap0):ABSOLUTE (__DefaultInterrupt)
+                  0x000106          0x4 LONG 0x766a DEFINED (__AltOscillatorFail)?ABSOLUTE (__AltOscillatorFail):DEFINED (__OscillatorFail)?ABSOLUTE (__OscillatorFail):ABSOLUTE (__DefaultInterrupt)
+                  0x000108          0x4 LONG 0x767c DEFINED (__AltAddressError)?ABSOLUTE (__AltAddressError):DEFINED (__AddressError)?ABSOLUTE (__AddressError):ABSOLUTE (__DefaultInterrupt)
+                  0x00010a          0x4 LONG 0x7682 DEFINED (__AltStackError)?ABSOLUTE (__AltStackError):DEFINED (__StackError)?ABSOLUTE (__StackError):ABSOLUTE (__DefaultInterrupt)
+                  0x00010c          0x4 LONG 0x7688 DEFINED (__AltMathError)?ABSOLUTE (__AltMathError):DEFINED (__MathError)?ABSOLUTE (__MathError):ABSOLUTE (__DefaultInterrupt)
+                  0x00010e          0x4 LONG 0x7658 DEFINED (__AltDMACError)?ABSOLUTE (__AltDMACError):DEFINED (__DMACError)?ABSOLUTE (__DMACError):ABSOLUTE (__DefaultInterrupt)
+                  0x000110          0x4 LONG 0x7658 DEFINED (__AltReservedTrap6)?ABSOLUTE (__AltReservedTrap6):DEFINED (__ReservedTrap6)?ABSOLUTE (__ReservedTrap6):ABSOLUTE (__DefaultInterrupt)
+                  0x000112          0x4 LONG 0x7658 DEFINED (__AltReservedTrap7)?ABSOLUTE (__AltReservedTrap7):DEFINED (__ReservedTrap7)?ABSOLUTE (__ReservedTrap7):ABSOLUTE (__DefaultInterrupt)
+                  0x000114          0x4 LONG 0x7658 DEFINED (__AltINT0Interrupt)?ABSOLUTE (__AltINT0Interrupt):DEFINED (__INT0Interrupt)?ABSOLUTE (__INT0Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000116          0x4 LONG 0x7658 DEFINED (__AltIC1Interrupt)?ABSOLUTE (__AltIC1Interrupt):DEFINED (__IC1Interrupt)?ABSOLUTE (__IC1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000118          0x4 LONG 0x7658 DEFINED (__AltOC1Interrupt)?ABSOLUTE (__AltOC1Interrupt):DEFINED (__OC1Interrupt)?ABSOLUTE (__OC1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00011a          0x4 LONG 0x121d6 DEFINED (__AltT1Interrupt)?ABSOLUTE (__AltT1Interrupt):DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00011c          0x4 LONG 0x7658 DEFINED (__AltDMA0Interrupt)?ABSOLUTE (__AltDMA0Interrupt):DEFINED (__DMA0Interrupt)?ABSOLUTE (__DMA0Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00011e          0x4 LONG 0x7658 DEFINED (__AltIC2Interrupt)?ABSOLUTE (__AltIC2Interrupt):DEFINED (__IC2Interrupt)?ABSOLUTE (__IC2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000120          0x4 LONG 0x7658 DEFINED (__AltOC2Interrupt)?ABSOLUTE (__AltOC2Interrupt):DEFINED (__OC2Interrupt)?ABSOLUTE (__OC2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000122          0x4 LONG 0x7658 DEFINED (__AltT2Interrupt)?ABSOLUTE (__AltT2Interrupt):DEFINED (__T2Interrupt)?ABSOLUTE (__T2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000124          0x4 LONG 0x7658 DEFINED (__AltT3Interrupt)?ABSOLUTE (__AltT3Interrupt):DEFINED (__T3Interrupt)?ABSOLUTE (__T3Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000126          0x4 LONG 0x7658 DEFINED (__AltSPI1ErrInterrupt)?ABSOLUTE (__AltSPI1ErrInterrupt):DEFINED (__SPI1ErrInterrupt)?ABSOLUTE (__SPI1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000128          0x4 LONG 0x7658 DEFINED (__AltSPI1Interrupt)?ABSOLUTE (__AltSPI1Interrupt):DEFINED (__SPI1Interrupt)?ABSOLUTE (__SPI1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00012a          0x4 LONG 0x10680 DEFINED (__AltU1RXInterrupt)?ABSOLUTE (__AltU1RXInterrupt):DEFINED (__U1RXInterrupt)?ABSOLUTE (__U1RXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00012c          0x4 LONG 0x106de DEFINED (__AltU1TXInterrupt)?ABSOLUTE (__AltU1TXInterrupt):DEFINED (__U1TXInterrupt)?ABSOLUTE (__U1TXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00012e          0x4 LONG 0x709c DEFINED (__AltADC1Interrupt)?ABSOLUTE (__AltADC1Interrupt):DEFINED (__ADC1Interrupt)?ABSOLUTE (__ADC1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000130          0x4 LONG 0x7658 DEFINED (__AltDMA1Interrupt)?ABSOLUTE (__AltDMA1Interrupt):DEFINED (__DMA1Interrupt)?ABSOLUTE (__DMA1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000132          0x4 LONG 0x7658 DEFINED (__AltInterrupt15)?ABSOLUTE (__AltInterrupt15):DEFINED (__Interrupt15)?ABSOLUTE (__Interrupt15):ABSOLUTE (__DefaultInterrupt)
+                  0x000134          0x4 LONG 0x7658 DEFINED (__AltSI2C1Interrupt)?ABSOLUTE (__AltSI2C1Interrupt):DEFINED (__SI2C1Interrupt)?ABSOLUTE (__SI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000136          0x4 LONG 0x7658 DEFINED (__AltMI2C1Interrupt)?ABSOLUTE (__AltMI2C1Interrupt):DEFINED (__MI2C1Interrupt)?ABSOLUTE (__MI2C1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000138          0x4 LONG 0x7658 DEFINED (__AltCMPInterrupt)?ABSOLUTE (__AltCMPInterrupt):DEFINED (__CMPInterrupt)?ABSOLUTE (__CMPInterrupt):ABSOLUTE (__DefaultInterrupt)
                   0x00013a          0x4 LONG 0x6e50 DEFINED (__AltCNInterrupt)?ABSOLUTE (__AltCNInterrupt):DEFINED (__CNInterrupt)?ABSOLUTE (__CNInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00013c          0x4 LONG 0x764e DEFINED (__AltINT1Interrupt)?ABSOLUTE (__AltINT1Interrupt):DEFINED (__INT1Interrupt)?ABSOLUTE (__INT1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00013e          0x4 LONG 0x764e DEFINED (__AltInterrupt21)?ABSOLUTE (__AltInterrupt21):DEFINED (__Interrupt21)?ABSOLUTE (__Interrupt21):ABSOLUTE (__DefaultInterrupt)
-                  0x000140          0x4 LONG 0x764e DEFINED (__AltIC7Interrupt)?ABSOLUTE (__AltIC7Interrupt):DEFINED (__IC7Interrupt)?ABSOLUTE (__IC7Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000142          0x4 LONG 0x764e DEFINED (__AltIC8Interrupt)?ABSOLUTE (__AltIC8Interrupt):DEFINED (__IC8Interrupt)?ABSOLUTE (__IC8Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000144          0x4 LONG 0x764e DEFINED (__AltDMA2Interrupt)?ABSOLUTE (__AltDMA2Interrupt):DEFINED (__DMA2Interrupt)?ABSOLUTE (__DMA2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000146          0x4 LONG 0x764e DEFINED (__AltOC3Interrupt)?ABSOLUTE (__AltOC3Interrupt):DEFINED (__OC3Interrupt)?ABSOLUTE (__OC3Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000148          0x4 LONG 0x764e DEFINED (__AltOC4Interrupt)?ABSOLUTE (__AltOC4Interrupt):DEFINED (__OC4Interrupt)?ABSOLUTE (__OC4Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00014a          0x4 LONG 0x764e DEFINED (__AltT4Interrupt)?ABSOLUTE (__AltT4Interrupt):DEFINED (__T4Interrupt)?ABSOLUTE (__T4Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00014c          0x4 LONG 0x764e DEFINED (__AltT5Interrupt)?ABSOLUTE (__AltT5Interrupt):DEFINED (__T5Interrupt)?ABSOLUTE (__T5Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00014e          0x4 LONG 0x764e DEFINED (__AltINT2Interrupt)?ABSOLUTE (__AltINT2Interrupt):DEFINED (__INT2Interrupt)?ABSOLUTE (__INT2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000150          0x4 LONG 0x106fe DEFINED (__AltU2RXInterrupt)?ABSOLUTE (__AltU2RXInterrupt):DEFINED (__U2RXInterrupt)?ABSOLUTE (__U2RXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000152          0x4 LONG 0x1075c DEFINED (__AltU2TXInterrupt)?ABSOLUTE (__AltU2TXInterrupt):DEFINED (__U2TXInterrupt)?ABSOLUTE (__U2TXInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000154          0x4 LONG 0x764e DEFINED (__AltSPI2ErrInterrupt)?ABSOLUTE (__AltSPI2ErrInterrupt):DEFINED (__SPI2ErrInterrupt)?ABSOLUTE (__SPI2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000156          0x4 LONG 0x764e DEFINED (__AltSPI2Interrupt)?ABSOLUTE (__AltSPI2Interrupt):DEFINED (__SPI2Interrupt)?ABSOLUTE (__SPI2Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000158          0x4 LONG 0x764e DEFINED (__AltC1RxRdyInterrupt)?ABSOLUTE (__AltC1RxRdyInterrupt):DEFINED (__C1RxRdyInterrupt)?ABSOLUTE (__C1RxRdyInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00015a          0x4 LONG 0x764e DEFINED (__AltC1Interrupt)?ABSOLUTE (__AltC1Interrupt):DEFINED (__C1Interrupt)?ABSOLUTE (__C1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00015c          0x4 LONG 0x764e DEFINED (__AltDMA3Interrupt)?ABSOLUTE (__AltDMA3Interrupt):DEFINED (__DMA3Interrupt)?ABSOLUTE (__DMA3Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00015e          0x4 LONG 0x764e DEFINED (__AltInterrupt37)?ABSOLUTE (__AltInterrupt37):DEFINED (__Interrupt37)?ABSOLUTE (__Interrupt37):ABSOLUTE (__DefaultInterrupt)
-                  0x000160          0x4 LONG 0x764e DEFINED (__AltInterrupt38)?ABSOLUTE (__AltInterrupt38):DEFINED (__Interrupt38)?ABSOLUTE (__Interrupt38):ABSOLUTE (__DefaultInterrupt)
-                  0x000162          0x4 LONG 0x764e DEFINED (__AltInterrupt39)?ABSOLUTE (__AltInterrupt39):DEFINED (__Interrupt39)?ABSOLUTE (__Interrupt39):ABSOLUTE (__DefaultInterrupt)
-                  0x000164          0x4 LONG 0x764e DEFINED (__AltInterrupt40)?ABSOLUTE (__AltInterrupt40):DEFINED (__Interrupt40)?ABSOLUTE (__Interrupt40):ABSOLUTE (__DefaultInterrupt)
-                  0x000166          0x4 LONG 0x764e DEFINED (__AltInterrupt41)?ABSOLUTE (__AltInterrupt41):DEFINED (__Interrupt41)?ABSOLUTE (__Interrupt41):ABSOLUTE (__DefaultInterrupt)
-                  0x000168          0x4 LONG 0x764e DEFINED (__AltInterrupt42)?ABSOLUTE (__AltInterrupt42):DEFINED (__Interrupt42)?ABSOLUTE (__Interrupt42):ABSOLUTE (__DefaultInterrupt)
-                  0x00016a          0x4 LONG 0x764e DEFINED (__AltInterrupt43)?ABSOLUTE (__AltInterrupt43):DEFINED (__Interrupt43)?ABSOLUTE (__Interrupt43):ABSOLUTE (__DefaultInterrupt)
-                  0x00016c          0x4 LONG 0x764e DEFINED (__AltInterrupt44)?ABSOLUTE (__AltInterrupt44):DEFINED (__Interrupt44)?ABSOLUTE (__Interrupt44):ABSOLUTE (__DefaultInterrupt)
-                  0x00016e          0x4 LONG 0x764e DEFINED (__AltPMPInterrupt)?ABSOLUTE (__AltPMPInterrupt):DEFINED (__PMPInterrupt)?ABSOLUTE (__PMPInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000170          0x4 LONG 0x764e DEFINED (__AltDMA4Interrupt)?ABSOLUTE (__AltDMA4Interrupt):DEFINED (__DMA4Interrupt)?ABSOLUTE (__DMA4Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000172          0x4 LONG 0x764e DEFINED (__AltInterrupt47)?ABSOLUTE (__AltInterrupt47):DEFINED (__Interrupt47)?ABSOLUTE (__Interrupt47):ABSOLUTE (__DefaultInterrupt)
-                  0x000174          0x4 LONG 0x764e DEFINED (__AltInterrupt48)?ABSOLUTE (__AltInterrupt48):DEFINED (__Interrupt48)?ABSOLUTE (__Interrupt48):ABSOLUTE (__DefaultInterrupt)
-                  0x000176          0x4 LONG 0x764e DEFINED (__AltInterrupt49)?ABSOLUTE (__AltInterrupt49):DEFINED (__Interrupt49)?ABSOLUTE (__Interrupt49):ABSOLUTE (__DefaultInterrupt)
-                  0x000178          0x4 LONG 0x764e DEFINED (__AltInterrupt50)?ABSOLUTE (__AltInterrupt50):DEFINED (__Interrupt50)?ABSOLUTE (__Interrupt50):ABSOLUTE (__DefaultInterrupt)
-                  0x00017a          0x4 LONG 0x764e DEFINED (__AltInterrupt51)?ABSOLUTE (__AltInterrupt51):DEFINED (__Interrupt51)?ABSOLUTE (__Interrupt51):ABSOLUTE (__DefaultInterrupt)
-                  0x00017c          0x4 LONG 0x764e DEFINED (__AltInterrupt52)?ABSOLUTE (__AltInterrupt52):DEFINED (__Interrupt52)?ABSOLUTE (__Interrupt52):ABSOLUTE (__DefaultInterrupt)
-                  0x00017e          0x4 LONG 0x764e DEFINED (__AltInterrupt53)?ABSOLUTE (__AltInterrupt53):DEFINED (__Interrupt53)?ABSOLUTE (__Interrupt53):ABSOLUTE (__DefaultInterrupt)
-                  0x000180          0x4 LONG 0x764e DEFINED (__AltInterrupt54)?ABSOLUTE (__AltInterrupt54):DEFINED (__Interrupt54)?ABSOLUTE (__Interrupt54):ABSOLUTE (__DefaultInterrupt)
-                  0x000182          0x4 LONG 0x764e DEFINED (__AltInterrupt55)?ABSOLUTE (__AltInterrupt55):DEFINED (__Interrupt55)?ABSOLUTE (__Interrupt55):ABSOLUTE (__DefaultInterrupt)
-                  0x000184          0x4 LONG 0x764e DEFINED (__AltInterrupt56)?ABSOLUTE (__AltInterrupt56):DEFINED (__Interrupt56)?ABSOLUTE (__Interrupt56):ABSOLUTE (__DefaultInterrupt)
-                  0x000186          0x4 LONG 0x764e DEFINED (__AltInterrupt57)?ABSOLUTE (__AltInterrupt57):DEFINED (__Interrupt57)?ABSOLUTE (__Interrupt57):ABSOLUTE (__DefaultInterrupt)
-                  0x000188          0x4 LONG 0x764e DEFINED (__AltInterrupt58)?ABSOLUTE (__AltInterrupt58):DEFINED (__Interrupt58)?ABSOLUTE (__Interrupt58):ABSOLUTE (__DefaultInterrupt)
-                  0x00018a          0x4 LONG 0x764e DEFINED (__AltInterrupt59)?ABSOLUTE (__AltInterrupt59):DEFINED (__Interrupt59)?ABSOLUTE (__Interrupt59):ABSOLUTE (__DefaultInterrupt)
-                  0x00018c          0x4 LONG 0x764e DEFINED (__AltDCIInterrupt)?ABSOLUTE (__AltDCIInterrupt):DEFINED (__DCIInterrupt)?ABSOLUTE (__DCIInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00018e          0x4 LONG 0x764e DEFINED (__AltDMA5Interrupt)?ABSOLUTE (__AltDMA5Interrupt):DEFINED (__DMA5Interrupt)?ABSOLUTE (__DMA5Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000190          0x4 LONG 0x764e DEFINED (__AltRTCCInterrupt)?ABSOLUTE (__AltRTCCInterrupt):DEFINED (__RTCCInterrupt)?ABSOLUTE (__RTCCInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000192          0x4 LONG 0x764e DEFINED (__AltInterrupt63)?ABSOLUTE (__AltInterrupt63):DEFINED (__Interrupt63)?ABSOLUTE (__Interrupt63):ABSOLUTE (__DefaultInterrupt)
-                  0x000194          0x4 LONG 0x764e DEFINED (__AltInterrupt64)?ABSOLUTE (__AltInterrupt64):DEFINED (__Interrupt64)?ABSOLUTE (__Interrupt64):ABSOLUTE (__DefaultInterrupt)
-                  0x000196          0x4 LONG 0x764e DEFINED (__AltU1ErrInterrupt)?ABSOLUTE (__AltU1ErrInterrupt):DEFINED (__U1ErrInterrupt)?ABSOLUTE (__U1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x000198          0x4 LONG 0x764e DEFINED (__AltU2ErrInterrupt)?ABSOLUTE (__AltU2ErrInterrupt):DEFINED (__U2ErrInterrupt)?ABSOLUTE (__U2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00019a          0x4 LONG 0x764e DEFINED (__AltCRCInterrupt)?ABSOLUTE (__AltCRCInterrupt):DEFINED (__CRCInterrupt)?ABSOLUTE (__CRCInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00019c          0x4 LONG 0x764e DEFINED (__AltDMA6Interrupt)?ABSOLUTE (__AltDMA6Interrupt):DEFINED (__DMA6Interrupt)?ABSOLUTE (__DMA6Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00019e          0x4 LONG 0x764e DEFINED (__AltDMA7Interrupt)?ABSOLUTE (__AltDMA7Interrupt):DEFINED (__DMA7Interrupt)?ABSOLUTE (__DMA7Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0001a0          0x4 LONG 0x764e DEFINED (__AltC1TxReqInterrupt)?ABSOLUTE (__AltC1TxReqInterrupt):DEFINED (__C1TxReqInterrupt)?ABSOLUTE (__C1TxReqInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0001a2          0x4 LONG 0x764e DEFINED (__AltInterrupt71)?ABSOLUTE (__AltInterrupt71):DEFINED (__Interrupt71)?ABSOLUTE (__Interrupt71):ABSOLUTE (__DefaultInterrupt)
-                  0x0001a4          0x4 LONG 0x764e DEFINED (__AltInterrupt72)?ABSOLUTE (__AltInterrupt72):DEFINED (__Interrupt72)?ABSOLUTE (__Interrupt72):ABSOLUTE (__DefaultInterrupt)
-                  0x0001a6          0x4 LONG 0x764e DEFINED (__AltInterrupt73)?ABSOLUTE (__AltInterrupt73):DEFINED (__Interrupt73)?ABSOLUTE (__Interrupt73):ABSOLUTE (__DefaultInterrupt)
-                  0x0001a8          0x4 LONG 0x764e DEFINED (__AltInterrupt74)?ABSOLUTE (__AltInterrupt74):DEFINED (__Interrupt74)?ABSOLUTE (__Interrupt74):ABSOLUTE (__DefaultInterrupt)
-                  0x0001aa          0x4 LONG 0x764e DEFINED (__AltInterrupt75)?ABSOLUTE (__AltInterrupt75):DEFINED (__Interrupt75)?ABSOLUTE (__Interrupt75):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ac          0x4 LONG 0x764e DEFINED (__AltInterrupt76)?ABSOLUTE (__AltInterrupt76):DEFINED (__Interrupt76)?ABSOLUTE (__Interrupt76):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ae          0x4 LONG 0x764e DEFINED (__AltInterrupt77)?ABSOLUTE (__AltInterrupt77):DEFINED (__Interrupt77)?ABSOLUTE (__Interrupt77):ABSOLUTE (__DefaultInterrupt)
-                  0x0001b0          0x4 LONG 0x764e DEFINED (__AltDAC1RInterrupt)?ABSOLUTE (__AltDAC1RInterrupt):DEFINED (__DAC1RInterrupt)?ABSOLUTE (__DAC1RInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0001b2          0x4 LONG 0x745c DEFINED (__AltDAC1LInterrupt)?ABSOLUTE (__AltDAC1LInterrupt):DEFINED (__DAC1LInterrupt)?ABSOLUTE (__DAC1LInterrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x0001b4          0x4 LONG 0x764e DEFINED (__AltInterrupt80)?ABSOLUTE (__AltInterrupt80):DEFINED (__Interrupt80)?ABSOLUTE (__Interrupt80):ABSOLUTE (__DefaultInterrupt)
-                  0x0001b6          0x4 LONG 0x764e DEFINED (__AltInterrupt81)?ABSOLUTE (__AltInterrupt81):DEFINED (__Interrupt81)?ABSOLUTE (__Interrupt81):ABSOLUTE (__DefaultInterrupt)
-                  0x0001b8          0x4 LONG 0x764e DEFINED (__AltInterrupt82)?ABSOLUTE (__AltInterrupt82):DEFINED (__Interrupt82)?ABSOLUTE (__Interrupt82):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ba          0x4 LONG 0x764e DEFINED (__AltInterrupt83)?ABSOLUTE (__AltInterrupt83):DEFINED (__Interrupt83)?ABSOLUTE (__Interrupt83):ABSOLUTE (__DefaultInterrupt)
-                  0x0001bc          0x4 LONG 0x764e DEFINED (__AltInterrupt84)?ABSOLUTE (__AltInterrupt84):DEFINED (__Interrupt84)?ABSOLUTE (__Interrupt84):ABSOLUTE (__DefaultInterrupt)
-                  0x0001be          0x4 LONG 0x764e DEFINED (__AltInterrupt85)?ABSOLUTE (__AltInterrupt85):DEFINED (__Interrupt85)?ABSOLUTE (__Interrupt85):ABSOLUTE (__DefaultInterrupt)
-                  0x0001c0          0x4 LONG 0x764e DEFINED (__AltInterrupt86)?ABSOLUTE (__AltInterrupt86):DEFINED (__Interrupt86)?ABSOLUTE (__Interrupt86):ABSOLUTE (__DefaultInterrupt)
-                  0x0001c2          0x4 LONG 0x764e DEFINED (__AltInterrupt87)?ABSOLUTE (__AltInterrupt87):DEFINED (__Interrupt87)?ABSOLUTE (__Interrupt87):ABSOLUTE (__DefaultInterrupt)
-                  0x0001c4          0x4 LONG 0x764e DEFINED (__AltInterrupt88)?ABSOLUTE (__AltInterrupt88):DEFINED (__Interrupt88)?ABSOLUTE (__Interrupt88):ABSOLUTE (__DefaultInterrupt)
-                  0x0001c6          0x4 LONG 0x764e DEFINED (__AltInterrupt89)?ABSOLUTE (__AltInterrupt89):DEFINED (__Interrupt89)?ABSOLUTE (__Interrupt89):ABSOLUTE (__DefaultInterrupt)
-                  0x0001c8          0x4 LONG 0x764e DEFINED (__AltInterrupt90)?ABSOLUTE (__AltInterrupt90):DEFINED (__Interrupt90)?ABSOLUTE (__Interrupt90):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ca          0x4 LONG 0x764e DEFINED (__AltInterrupt91)?ABSOLUTE (__AltInterrupt91):DEFINED (__Interrupt91)?ABSOLUTE (__Interrupt91):ABSOLUTE (__DefaultInterrupt)
-                  0x0001cc          0x4 LONG 0x764e DEFINED (__AltInterrupt92)?ABSOLUTE (__AltInterrupt92):DEFINED (__Interrupt92)?ABSOLUTE (__Interrupt92):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ce          0x4 LONG 0x764e DEFINED (__AltInterrupt93)?ABSOLUTE (__AltInterrupt93):DEFINED (__Interrupt93)?ABSOLUTE (__Interrupt93):ABSOLUTE (__DefaultInterrupt)
-                  0x0001d0          0x4 LONG 0x764e DEFINED (__AltInterrupt94)?ABSOLUTE (__AltInterrupt94):DEFINED (__Interrupt94)?ABSOLUTE (__Interrupt94):ABSOLUTE (__DefaultInterrupt)
-                  0x0001d2          0x4 LONG 0x764e DEFINED (__AltInterrupt95)?ABSOLUTE (__AltInterrupt95):DEFINED (__Interrupt95)?ABSOLUTE (__Interrupt95):ABSOLUTE (__DefaultInterrupt)
-                  0x0001d4          0x4 LONG 0x764e DEFINED (__AltInterrupt96)?ABSOLUTE (__AltInterrupt96):DEFINED (__Interrupt96)?ABSOLUTE (__Interrupt96):ABSOLUTE (__DefaultInterrupt)
-                  0x0001d6          0x4 LONG 0x764e DEFINED (__AltInterrupt97)?ABSOLUTE (__AltInterrupt97):DEFINED (__Interrupt97)?ABSOLUTE (__Interrupt97):ABSOLUTE (__DefaultInterrupt)
-                  0x0001d8          0x4 LONG 0x764e DEFINED (__AltInterrupt98)?ABSOLUTE (__AltInterrupt98):DEFINED (__Interrupt98)?ABSOLUTE (__Interrupt98):ABSOLUTE (__DefaultInterrupt)
-                  0x0001da          0x4 LONG 0x764e DEFINED (__AltInterrupt99)?ABSOLUTE (__AltInterrupt99):DEFINED (__Interrupt99)?ABSOLUTE (__Interrupt99):ABSOLUTE (__DefaultInterrupt)
-                  0x0001dc          0x4 LONG 0x764e DEFINED (__AltInterrupt100)?ABSOLUTE (__AltInterrupt100):DEFINED (__Interrupt100)?ABSOLUTE (__Interrupt100):ABSOLUTE (__DefaultInterrupt)
-                  0x0001de          0x4 LONG 0x764e DEFINED (__AltInterrupt101)?ABSOLUTE (__AltInterrupt101):DEFINED (__Interrupt101)?ABSOLUTE (__Interrupt101):ABSOLUTE (__DefaultInterrupt)
-                  0x0001e0          0x4 LONG 0x764e DEFINED (__AltInterrupt102)?ABSOLUTE (__AltInterrupt102):DEFINED (__Interrupt102)?ABSOLUTE (__Interrupt102):ABSOLUTE (__DefaultInterrupt)
-                  0x0001e2          0x4 LONG 0x764e DEFINED (__AltInterrupt103)?ABSOLUTE (__AltInterrupt103):DEFINED (__Interrupt103)?ABSOLUTE (__Interrupt103):ABSOLUTE (__DefaultInterrupt)
-                  0x0001e4          0x4 LONG 0x764e DEFINED (__AltInterrupt104)?ABSOLUTE (__AltInterrupt104):DEFINED (__Interrupt104)?ABSOLUTE (__Interrupt104):ABSOLUTE (__DefaultInterrupt)
-                  0x0001e6          0x4 LONG 0x764e DEFINED (__AltInterrupt105)?ABSOLUTE (__AltInterrupt105):DEFINED (__Interrupt105)?ABSOLUTE (__Interrupt105):ABSOLUTE (__DefaultInterrupt)
-                  0x0001e8          0x4 LONG 0x764e DEFINED (__AltInterrupt106)?ABSOLUTE (__AltInterrupt106):DEFINED (__Interrupt106)?ABSOLUTE (__Interrupt106):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ea          0x4 LONG 0x764e DEFINED (__AltInterrupt107)?ABSOLUTE (__AltInterrupt107):DEFINED (__Interrupt107)?ABSOLUTE (__Interrupt107):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ec          0x4 LONG 0x764e DEFINED (__AltInterrupt108)?ABSOLUTE (__AltInterrupt108):DEFINED (__Interrupt108)?ABSOLUTE (__Interrupt108):ABSOLUTE (__DefaultInterrupt)
-                  0x0001ee          0x4 LONG 0x764e DEFINED (__AltInterrupt109)?ABSOLUTE (__AltInterrupt109):DEFINED (__Interrupt109)?ABSOLUTE (__Interrupt109):ABSOLUTE (__DefaultInterrupt)
-                  0x0001f0          0x4 LONG 0x764e DEFINED (__AltInterrupt110)?ABSOLUTE (__AltInterrupt110):DEFINED (__Interrupt110)?ABSOLUTE (__Interrupt110):ABSOLUTE (__DefaultInterrupt)
-                  0x0001f2          0x4 LONG 0x764e DEFINED (__AltInterrupt111)?ABSOLUTE (__AltInterrupt111):DEFINED (__Interrupt111)?ABSOLUTE (__Interrupt111):ABSOLUTE (__DefaultInterrupt)
-                  0x0001f4          0x4 LONG 0x764e DEFINED (__AltInterrupt112)?ABSOLUTE (__AltInterrupt112):DEFINED (__Interrupt112)?ABSOLUTE (__Interrupt112):ABSOLUTE (__DefaultInterrupt)
-                  0x0001f6          0x4 LONG 0x764e DEFINED (__AltInterrupt113)?ABSOLUTE (__AltInterrupt113):DEFINED (__Interrupt113)?ABSOLUTE (__Interrupt113):ABSOLUTE (__DefaultInterrupt)
-                  0x0001f8          0x4 LONG 0x764e DEFINED (__AltInterrupt114)?ABSOLUTE (__AltInterrupt114):DEFINED (__Interrupt114)?ABSOLUTE (__Interrupt114):ABSOLUTE (__DefaultInterrupt)
-                  0x0001fa          0x4 LONG 0x764e DEFINED (__AltInterrupt115)?ABSOLUTE (__AltInterrupt115):DEFINED (__Interrupt115)?ABSOLUTE (__Interrupt115):ABSOLUTE (__DefaultInterrupt)
-                  0x0001fc          0x4 LONG 0x764e DEFINED (__AltInterrupt116)?ABSOLUTE (__AltInterrupt116):DEFINED (__Interrupt116)?ABSOLUTE (__Interrupt116):ABSOLUTE (__DefaultInterrupt)
-                  0x0001fe          0x4 LONG 0x764e DEFINED (__AltInterrupt117)?ABSOLUTE (__AltInterrupt117):DEFINED (__Interrupt117)?ABSOLUTE (__Interrupt117):ABSOLUTE (__DefaultInterrupt)
+                  0x00013c          0x4 LONG 0x7658 DEFINED (__AltINT1Interrupt)?ABSOLUTE (__AltINT1Interrupt):DEFINED (__INT1Interrupt)?ABSOLUTE (__INT1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00013e          0x4 LONG 0x7658 DEFINED (__AltInterrupt21)?ABSOLUTE (__AltInterrupt21):DEFINED (__Interrupt21)?ABSOLUTE (__Interrupt21):ABSOLUTE (__DefaultInterrupt)
+                  0x000140          0x4 LONG 0x7658 DEFINED (__AltIC7Interrupt)?ABSOLUTE (__AltIC7Interrupt):DEFINED (__IC7Interrupt)?ABSOLUTE (__IC7Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000142          0x4 LONG 0x7658 DEFINED (__AltIC8Interrupt)?ABSOLUTE (__AltIC8Interrupt):DEFINED (__IC8Interrupt)?ABSOLUTE (__IC8Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000144          0x4 LONG 0x7658 DEFINED (__AltDMA2Interrupt)?ABSOLUTE (__AltDMA2Interrupt):DEFINED (__DMA2Interrupt)?ABSOLUTE (__DMA2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000146          0x4 LONG 0x7658 DEFINED (__AltOC3Interrupt)?ABSOLUTE (__AltOC3Interrupt):DEFINED (__OC3Interrupt)?ABSOLUTE (__OC3Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000148          0x4 LONG 0x7658 DEFINED (__AltOC4Interrupt)?ABSOLUTE (__AltOC4Interrupt):DEFINED (__OC4Interrupt)?ABSOLUTE (__OC4Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00014a          0x4 LONG 0x7658 DEFINED (__AltT4Interrupt)?ABSOLUTE (__AltT4Interrupt):DEFINED (__T4Interrupt)?ABSOLUTE (__T4Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00014c          0x4 LONG 0x7658 DEFINED (__AltT5Interrupt)?ABSOLUTE (__AltT5Interrupt):DEFINED (__T5Interrupt)?ABSOLUTE (__T5Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00014e          0x4 LONG 0x7658 DEFINED (__AltINT2Interrupt)?ABSOLUTE (__AltINT2Interrupt):DEFINED (__INT2Interrupt)?ABSOLUTE (__INT2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000150          0x4 LONG 0x1070c DEFINED (__AltU2RXInterrupt)?ABSOLUTE (__AltU2RXInterrupt):DEFINED (__U2RXInterrupt)?ABSOLUTE (__U2RXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000152          0x4 LONG 0x1076a DEFINED (__AltU2TXInterrupt)?ABSOLUTE (__AltU2TXInterrupt):DEFINED (__U2TXInterrupt)?ABSOLUTE (__U2TXInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000154          0x4 LONG 0x7658 DEFINED (__AltSPI2ErrInterrupt)?ABSOLUTE (__AltSPI2ErrInterrupt):DEFINED (__SPI2ErrInterrupt)?ABSOLUTE (__SPI2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000156          0x4 LONG 0x7658 DEFINED (__AltSPI2Interrupt)?ABSOLUTE (__AltSPI2Interrupt):DEFINED (__SPI2Interrupt)?ABSOLUTE (__SPI2Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000158          0x4 LONG 0x7658 DEFINED (__AltC1RxRdyInterrupt)?ABSOLUTE (__AltC1RxRdyInterrupt):DEFINED (__C1RxRdyInterrupt)?ABSOLUTE (__C1RxRdyInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00015a          0x4 LONG 0x7658 DEFINED (__AltC1Interrupt)?ABSOLUTE (__AltC1Interrupt):DEFINED (__C1Interrupt)?ABSOLUTE (__C1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00015c          0x4 LONG 0x7658 DEFINED (__AltDMA3Interrupt)?ABSOLUTE (__AltDMA3Interrupt):DEFINED (__DMA3Interrupt)?ABSOLUTE (__DMA3Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00015e          0x4 LONG 0x7658 DEFINED (__AltInterrupt37)?ABSOLUTE (__AltInterrupt37):DEFINED (__Interrupt37)?ABSOLUTE (__Interrupt37):ABSOLUTE (__DefaultInterrupt)
+                  0x000160          0x4 LONG 0x7658 DEFINED (__AltInterrupt38)?ABSOLUTE (__AltInterrupt38):DEFINED (__Interrupt38)?ABSOLUTE (__Interrupt38):ABSOLUTE (__DefaultInterrupt)
+                  0x000162          0x4 LONG 0x7658 DEFINED (__AltInterrupt39)?ABSOLUTE (__AltInterrupt39):DEFINED (__Interrupt39)?ABSOLUTE (__Interrupt39):ABSOLUTE (__DefaultInterrupt)
+                  0x000164          0x4 LONG 0x7658 DEFINED (__AltInterrupt40)?ABSOLUTE (__AltInterrupt40):DEFINED (__Interrupt40)?ABSOLUTE (__Interrupt40):ABSOLUTE (__DefaultInterrupt)
+                  0x000166          0x4 LONG 0x7658 DEFINED (__AltInterrupt41)?ABSOLUTE (__AltInterrupt41):DEFINED (__Interrupt41)?ABSOLUTE (__Interrupt41):ABSOLUTE (__DefaultInterrupt)
+                  0x000168          0x4 LONG 0x7658 DEFINED (__AltInterrupt42)?ABSOLUTE (__AltInterrupt42):DEFINED (__Interrupt42)?ABSOLUTE (__Interrupt42):ABSOLUTE (__DefaultInterrupt)
+                  0x00016a          0x4 LONG 0x7658 DEFINED (__AltInterrupt43)?ABSOLUTE (__AltInterrupt43):DEFINED (__Interrupt43)?ABSOLUTE (__Interrupt43):ABSOLUTE (__DefaultInterrupt)
+                  0x00016c          0x4 LONG 0x7658 DEFINED (__AltInterrupt44)?ABSOLUTE (__AltInterrupt44):DEFINED (__Interrupt44)?ABSOLUTE (__Interrupt44):ABSOLUTE (__DefaultInterrupt)
+                  0x00016e          0x4 LONG 0x7658 DEFINED (__AltPMPInterrupt)?ABSOLUTE (__AltPMPInterrupt):DEFINED (__PMPInterrupt)?ABSOLUTE (__PMPInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000170          0x4 LONG 0x7658 DEFINED (__AltDMA4Interrupt)?ABSOLUTE (__AltDMA4Interrupt):DEFINED (__DMA4Interrupt)?ABSOLUTE (__DMA4Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000172          0x4 LONG 0x7658 DEFINED (__AltInterrupt47)?ABSOLUTE (__AltInterrupt47):DEFINED (__Interrupt47)?ABSOLUTE (__Interrupt47):ABSOLUTE (__DefaultInterrupt)
+                  0x000174          0x4 LONG 0x7658 DEFINED (__AltInterrupt48)?ABSOLUTE (__AltInterrupt48):DEFINED (__Interrupt48)?ABSOLUTE (__Interrupt48):ABSOLUTE (__DefaultInterrupt)
+                  0x000176          0x4 LONG 0x7658 DEFINED (__AltInterrupt49)?ABSOLUTE (__AltInterrupt49):DEFINED (__Interrupt49)?ABSOLUTE (__Interrupt49):ABSOLUTE (__DefaultInterrupt)
+                  0x000178          0x4 LONG 0x7658 DEFINED (__AltInterrupt50)?ABSOLUTE (__AltInterrupt50):DEFINED (__Interrupt50)?ABSOLUTE (__Interrupt50):ABSOLUTE (__DefaultInterrupt)
+                  0x00017a          0x4 LONG 0x7658 DEFINED (__AltInterrupt51)?ABSOLUTE (__AltInterrupt51):DEFINED (__Interrupt51)?ABSOLUTE (__Interrupt51):ABSOLUTE (__DefaultInterrupt)
+                  0x00017c          0x4 LONG 0x7658 DEFINED (__AltInterrupt52)?ABSOLUTE (__AltInterrupt52):DEFINED (__Interrupt52)?ABSOLUTE (__Interrupt52):ABSOLUTE (__DefaultInterrupt)
+                  0x00017e          0x4 LONG 0x7658 DEFINED (__AltInterrupt53)?ABSOLUTE (__AltInterrupt53):DEFINED (__Interrupt53)?ABSOLUTE (__Interrupt53):ABSOLUTE (__DefaultInterrupt)
+                  0x000180          0x4 LONG 0x7658 DEFINED (__AltInterrupt54)?ABSOLUTE (__AltInterrupt54):DEFINED (__Interrupt54)?ABSOLUTE (__Interrupt54):ABSOLUTE (__DefaultInterrupt)
+                  0x000182          0x4 LONG 0x7658 DEFINED (__AltInterrupt55)?ABSOLUTE (__AltInterrupt55):DEFINED (__Interrupt55)?ABSOLUTE (__Interrupt55):ABSOLUTE (__DefaultInterrupt)
+                  0x000184          0x4 LONG 0x7658 DEFINED (__AltInterrupt56)?ABSOLUTE (__AltInterrupt56):DEFINED (__Interrupt56)?ABSOLUTE (__Interrupt56):ABSOLUTE (__DefaultInterrupt)
+                  0x000186          0x4 LONG 0x7658 DEFINED (__AltInterrupt57)?ABSOLUTE (__AltInterrupt57):DEFINED (__Interrupt57)?ABSOLUTE (__Interrupt57):ABSOLUTE (__DefaultInterrupt)
+                  0x000188          0x4 LONG 0x7658 DEFINED (__AltInterrupt58)?ABSOLUTE (__AltInterrupt58):DEFINED (__Interrupt58)?ABSOLUTE (__Interrupt58):ABSOLUTE (__DefaultInterrupt)
+                  0x00018a          0x4 LONG 0x7658 DEFINED (__AltInterrupt59)?ABSOLUTE (__AltInterrupt59):DEFINED (__Interrupt59)?ABSOLUTE (__Interrupt59):ABSOLUTE (__DefaultInterrupt)
+                  0x00018c          0x4 LONG 0x7658 DEFINED (__AltDCIInterrupt)?ABSOLUTE (__AltDCIInterrupt):DEFINED (__DCIInterrupt)?ABSOLUTE (__DCIInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00018e          0x4 LONG 0x7658 DEFINED (__AltDMA5Interrupt)?ABSOLUTE (__AltDMA5Interrupt):DEFINED (__DMA5Interrupt)?ABSOLUTE (__DMA5Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000190          0x4 LONG 0x7658 DEFINED (__AltRTCCInterrupt)?ABSOLUTE (__AltRTCCInterrupt):DEFINED (__RTCCInterrupt)?ABSOLUTE (__RTCCInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000192          0x4 LONG 0x7658 DEFINED (__AltInterrupt63)?ABSOLUTE (__AltInterrupt63):DEFINED (__Interrupt63)?ABSOLUTE (__Interrupt63):ABSOLUTE (__DefaultInterrupt)
+                  0x000194          0x4 LONG 0x7658 DEFINED (__AltInterrupt64)?ABSOLUTE (__AltInterrupt64):DEFINED (__Interrupt64)?ABSOLUTE (__Interrupt64):ABSOLUTE (__DefaultInterrupt)
+                  0x000196          0x4 LONG 0x7658 DEFINED (__AltU1ErrInterrupt)?ABSOLUTE (__AltU1ErrInterrupt):DEFINED (__U1ErrInterrupt)?ABSOLUTE (__U1ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x000198          0x4 LONG 0x7658 DEFINED (__AltU2ErrInterrupt)?ABSOLUTE (__AltU2ErrInterrupt):DEFINED (__U2ErrInterrupt)?ABSOLUTE (__U2ErrInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00019a          0x4 LONG 0x7658 DEFINED (__AltCRCInterrupt)?ABSOLUTE (__AltCRCInterrupt):DEFINED (__CRCInterrupt)?ABSOLUTE (__CRCInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00019c          0x4 LONG 0x7658 DEFINED (__AltDMA6Interrupt)?ABSOLUTE (__AltDMA6Interrupt):DEFINED (__DMA6Interrupt)?ABSOLUTE (__DMA6Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00019e          0x4 LONG 0x7658 DEFINED (__AltDMA7Interrupt)?ABSOLUTE (__AltDMA7Interrupt):DEFINED (__DMA7Interrupt)?ABSOLUTE (__DMA7Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0001a0          0x4 LONG 0x7658 DEFINED (__AltC1TxReqInterrupt)?ABSOLUTE (__AltC1TxReqInterrupt):DEFINED (__C1TxReqInterrupt)?ABSOLUTE (__C1TxReqInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0001a2          0x4 LONG 0x7658 DEFINED (__AltInterrupt71)?ABSOLUTE (__AltInterrupt71):DEFINED (__Interrupt71)?ABSOLUTE (__Interrupt71):ABSOLUTE (__DefaultInterrupt)
+                  0x0001a4          0x4 LONG 0x7658 DEFINED (__AltInterrupt72)?ABSOLUTE (__AltInterrupt72):DEFINED (__Interrupt72)?ABSOLUTE (__Interrupt72):ABSOLUTE (__DefaultInterrupt)
+                  0x0001a6          0x4 LONG 0x7658 DEFINED (__AltInterrupt73)?ABSOLUTE (__AltInterrupt73):DEFINED (__Interrupt73)?ABSOLUTE (__Interrupt73):ABSOLUTE (__DefaultInterrupt)
+                  0x0001a8          0x4 LONG 0x7658 DEFINED (__AltInterrupt74)?ABSOLUTE (__AltInterrupt74):DEFINED (__Interrupt74)?ABSOLUTE (__Interrupt74):ABSOLUTE (__DefaultInterrupt)
+                  0x0001aa          0x4 LONG 0x7658 DEFINED (__AltInterrupt75)?ABSOLUTE (__AltInterrupt75):DEFINED (__Interrupt75)?ABSOLUTE (__Interrupt75):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ac          0x4 LONG 0x7658 DEFINED (__AltInterrupt76)?ABSOLUTE (__AltInterrupt76):DEFINED (__Interrupt76)?ABSOLUTE (__Interrupt76):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ae          0x4 LONG 0x7658 DEFINED (__AltInterrupt77)?ABSOLUTE (__AltInterrupt77):DEFINED (__Interrupt77)?ABSOLUTE (__Interrupt77):ABSOLUTE (__DefaultInterrupt)
+                  0x0001b0          0x4 LONG 0x7658 DEFINED (__AltDAC1RInterrupt)?ABSOLUTE (__AltDAC1RInterrupt):DEFINED (__DAC1RInterrupt)?ABSOLUTE (__DAC1RInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0001b2          0x4 LONG 0x7466 DEFINED (__AltDAC1LInterrupt)?ABSOLUTE (__AltDAC1LInterrupt):DEFINED (__DAC1LInterrupt)?ABSOLUTE (__DAC1LInterrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x0001b4          0x4 LONG 0x7658 DEFINED (__AltInterrupt80)?ABSOLUTE (__AltInterrupt80):DEFINED (__Interrupt80)?ABSOLUTE (__Interrupt80):ABSOLUTE (__DefaultInterrupt)
+                  0x0001b6          0x4 LONG 0x7658 DEFINED (__AltInterrupt81)?ABSOLUTE (__AltInterrupt81):DEFINED (__Interrupt81)?ABSOLUTE (__Interrupt81):ABSOLUTE (__DefaultInterrupt)
+                  0x0001b8          0x4 LONG 0x7658 DEFINED (__AltInterrupt82)?ABSOLUTE (__AltInterrupt82):DEFINED (__Interrupt82)?ABSOLUTE (__Interrupt82):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ba          0x4 LONG 0x7658 DEFINED (__AltInterrupt83)?ABSOLUTE (__AltInterrupt83):DEFINED (__Interrupt83)?ABSOLUTE (__Interrupt83):ABSOLUTE (__DefaultInterrupt)
+                  0x0001bc          0x4 LONG 0x7658 DEFINED (__AltInterrupt84)?ABSOLUTE (__AltInterrupt84):DEFINED (__Interrupt84)?ABSOLUTE (__Interrupt84):ABSOLUTE (__DefaultInterrupt)
+                  0x0001be          0x4 LONG 0x7658 DEFINED (__AltInterrupt85)?ABSOLUTE (__AltInterrupt85):DEFINED (__Interrupt85)?ABSOLUTE (__Interrupt85):ABSOLUTE (__DefaultInterrupt)
+                  0x0001c0          0x4 LONG 0x7658 DEFINED (__AltInterrupt86)?ABSOLUTE (__AltInterrupt86):DEFINED (__Interrupt86)?ABSOLUTE (__Interrupt86):ABSOLUTE (__DefaultInterrupt)
+                  0x0001c2          0x4 LONG 0x7658 DEFINED (__AltInterrupt87)?ABSOLUTE (__AltInterrupt87):DEFINED (__Interrupt87)?ABSOLUTE (__Interrupt87):ABSOLUTE (__DefaultInterrupt)
+                  0x0001c4          0x4 LONG 0x7658 DEFINED (__AltInterrupt88)?ABSOLUTE (__AltInterrupt88):DEFINED (__Interrupt88)?ABSOLUTE (__Interrupt88):ABSOLUTE (__DefaultInterrupt)
+                  0x0001c6          0x4 LONG 0x7658 DEFINED (__AltInterrupt89)?ABSOLUTE (__AltInterrupt89):DEFINED (__Interrupt89)?ABSOLUTE (__Interrupt89):ABSOLUTE (__DefaultInterrupt)
+                  0x0001c8          0x4 LONG 0x7658 DEFINED (__AltInterrupt90)?ABSOLUTE (__AltInterrupt90):DEFINED (__Interrupt90)?ABSOLUTE (__Interrupt90):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ca          0x4 LONG 0x7658 DEFINED (__AltInterrupt91)?ABSOLUTE (__AltInterrupt91):DEFINED (__Interrupt91)?ABSOLUTE (__Interrupt91):ABSOLUTE (__DefaultInterrupt)
+                  0x0001cc          0x4 LONG 0x7658 DEFINED (__AltInterrupt92)?ABSOLUTE (__AltInterrupt92):DEFINED (__Interrupt92)?ABSOLUTE (__Interrupt92):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ce          0x4 LONG 0x7658 DEFINED (__AltInterrupt93)?ABSOLUTE (__AltInterrupt93):DEFINED (__Interrupt93)?ABSOLUTE (__Interrupt93):ABSOLUTE (__DefaultInterrupt)
+                  0x0001d0          0x4 LONG 0x7658 DEFINED (__AltInterrupt94)?ABSOLUTE (__AltInterrupt94):DEFINED (__Interrupt94)?ABSOLUTE (__Interrupt94):ABSOLUTE (__DefaultInterrupt)
+                  0x0001d2          0x4 LONG 0x7658 DEFINED (__AltInterrupt95)?ABSOLUTE (__AltInterrupt95):DEFINED (__Interrupt95)?ABSOLUTE (__Interrupt95):ABSOLUTE (__DefaultInterrupt)
+                  0x0001d4          0x4 LONG 0x7658 DEFINED (__AltInterrupt96)?ABSOLUTE (__AltInterrupt96):DEFINED (__Interrupt96)?ABSOLUTE (__Interrupt96):ABSOLUTE (__DefaultInterrupt)
+                  0x0001d6          0x4 LONG 0x7658 DEFINED (__AltInterrupt97)?ABSOLUTE (__AltInterrupt97):DEFINED (__Interrupt97)?ABSOLUTE (__Interrupt97):ABSOLUTE (__DefaultInterrupt)
+                  0x0001d8          0x4 LONG 0x7658 DEFINED (__AltInterrupt98)?ABSOLUTE (__AltInterrupt98):DEFINED (__Interrupt98)?ABSOLUTE (__Interrupt98):ABSOLUTE (__DefaultInterrupt)
+                  0x0001da          0x4 LONG 0x7658 DEFINED (__AltInterrupt99)?ABSOLUTE (__AltInterrupt99):DEFINED (__Interrupt99)?ABSOLUTE (__Interrupt99):ABSOLUTE (__DefaultInterrupt)
+                  0x0001dc          0x4 LONG 0x7658 DEFINED (__AltInterrupt100)?ABSOLUTE (__AltInterrupt100):DEFINED (__Interrupt100)?ABSOLUTE (__Interrupt100):ABSOLUTE (__DefaultInterrupt)
+                  0x0001de          0x4 LONG 0x7658 DEFINED (__AltInterrupt101)?ABSOLUTE (__AltInterrupt101):DEFINED (__Interrupt101)?ABSOLUTE (__Interrupt101):ABSOLUTE (__DefaultInterrupt)
+                  0x0001e0          0x4 LONG 0x7658 DEFINED (__AltInterrupt102)?ABSOLUTE (__AltInterrupt102):DEFINED (__Interrupt102)?ABSOLUTE (__Interrupt102):ABSOLUTE (__DefaultInterrupt)
+                  0x0001e2          0x4 LONG 0x7658 DEFINED (__AltInterrupt103)?ABSOLUTE (__AltInterrupt103):DEFINED (__Interrupt103)?ABSOLUTE (__Interrupt103):ABSOLUTE (__DefaultInterrupt)
+                  0x0001e4          0x4 LONG 0x7658 DEFINED (__AltInterrupt104)?ABSOLUTE (__AltInterrupt104):DEFINED (__Interrupt104)?ABSOLUTE (__Interrupt104):ABSOLUTE (__DefaultInterrupt)
+                  0x0001e6          0x4 LONG 0x7658 DEFINED (__AltInterrupt105)?ABSOLUTE (__AltInterrupt105):DEFINED (__Interrupt105)?ABSOLUTE (__Interrupt105):ABSOLUTE (__DefaultInterrupt)
+                  0x0001e8          0x4 LONG 0x7658 DEFINED (__AltInterrupt106)?ABSOLUTE (__AltInterrupt106):DEFINED (__Interrupt106)?ABSOLUTE (__Interrupt106):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ea          0x4 LONG 0x7658 DEFINED (__AltInterrupt107)?ABSOLUTE (__AltInterrupt107):DEFINED (__Interrupt107)?ABSOLUTE (__Interrupt107):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ec          0x4 LONG 0x7658 DEFINED (__AltInterrupt108)?ABSOLUTE (__AltInterrupt108):DEFINED (__Interrupt108)?ABSOLUTE (__Interrupt108):ABSOLUTE (__DefaultInterrupt)
+                  0x0001ee          0x4 LONG 0x7658 DEFINED (__AltInterrupt109)?ABSOLUTE (__AltInterrupt109):DEFINED (__Interrupt109)?ABSOLUTE (__Interrupt109):ABSOLUTE (__DefaultInterrupt)
+                  0x0001f0          0x4 LONG 0x7658 DEFINED (__AltInterrupt110)?ABSOLUTE (__AltInterrupt110):DEFINED (__Interrupt110)?ABSOLUTE (__Interrupt110):ABSOLUTE (__DefaultInterrupt)
+                  0x0001f2          0x4 LONG 0x7658 DEFINED (__AltInterrupt111)?ABSOLUTE (__AltInterrupt111):DEFINED (__Interrupt111)?ABSOLUTE (__Interrupt111):ABSOLUTE (__DefaultInterrupt)
+                  0x0001f4          0x4 LONG 0x7658 DEFINED (__AltInterrupt112)?ABSOLUTE (__AltInterrupt112):DEFINED (__Interrupt112)?ABSOLUTE (__Interrupt112):ABSOLUTE (__DefaultInterrupt)
+                  0x0001f6          0x4 LONG 0x7658 DEFINED (__AltInterrupt113)?ABSOLUTE (__AltInterrupt113):DEFINED (__Interrupt113)?ABSOLUTE (__Interrupt113):ABSOLUTE (__DefaultInterrupt)
+                  0x0001f8          0x4 LONG 0x7658 DEFINED (__AltInterrupt114)?ABSOLUTE (__AltInterrupt114):DEFINED (__Interrupt114)?ABSOLUTE (__Interrupt114):ABSOLUTE (__DefaultInterrupt)
+                  0x0001fa          0x4 LONG 0x7658 DEFINED (__AltInterrupt115)?ABSOLUTE (__AltInterrupt115):DEFINED (__Interrupt115)?ABSOLUTE (__Interrupt115):ABSOLUTE (__DefaultInterrupt)
+                  0x0001fc          0x4 LONG 0x7658 DEFINED (__AltInterrupt116)?ABSOLUTE (__AltInterrupt116):DEFINED (__Interrupt116)?ABSOLUTE (__Interrupt116):ABSOLUTE (__DefaultInterrupt)
+                  0x0001fe          0x4 LONG 0x7658 DEFINED (__AltInterrupt117)?ABSOLUTE (__AltInterrupt117):DEFINED (__Interrupt117)?ABSOLUTE (__Interrupt117):ABSOLUTE (__DefaultInterrupt)
                     0x0000                  WREG0 = 0x0
                     0x0000                  _WREG0 = 0x0
                     0x0002                  WREG1 = 0x2
@@ -3377,250 +3377,250 @@ __c30_signature
                     0xa3b0                  ulawtabletx
                     0xa5b0                  exp_lut
                     0xa6b0                  VERSION
-                    0xa6c1                  hosttmomsg
-                    0xa6e1                  badmix
-                    0xa720                  newvalnotchanged
-                    0xa742                  newvalerror
-                    0xa764                  saved
-                    0xa78e                  newvalchanged
-                    0xa7aa                  entnewval
-                    0xa7bd                  gpsmsg9
-                    0xa7d2                  gpsmsg8
-                    0xa801                  gpsmsg7
-                    0xa82a                  gpsmsg6
-                    0xa859                  gpsmsg5
-                    0xa87a                  gpsmsg3
-                    0xa899                  gpsmsg2
-                    0xa8ce                  gpsmsg1
+                    0xa6c0                  hosttmomsg
+                    0xa6e0                  badmix
+                    0xa71f                  newvalnotchanged
+                    0xa741                  newvalerror
+                    0xa763                  saved
+                    0xa78d                  newvalchanged
+                    0xa7a9                  entnewval
+                    0xa7bc                  gpsmsg9
+                    0xa7d1                  gpsmsg8
+                    0xa800                  gpsmsg7
+                    0xa829                  gpsmsg6
+                    0xa858                  gpsmsg5
+                    0xa879                  gpsmsg3
+                    0xa898                  gpsmsg2
+                    0xa8cd                  gpsmsg1
  .const             0xd58c        0x1a0 DynDNS.o
                     0xd5ca                  ddnsServiceHosts
  .const             0xd72c         0xc8 Telnet.o
  .const             0xd7f4          0xc TCP.o
                     0xd7f4                  TCPSocketInitializer
 
-.text             0x006c48       0x9e94
- .text            0x006c48       0x4a74 Voter.o
+.text             0x006c48       0x9ea2
+ .text            0x006c48       0x4a82 Voter.o
                   0x006e50                  _CNInterrupt
-                  0x007092                  _ADC1Interrupt
-                  0x00745c                  _DAC1LInterrupt
-                  0x00764e                  _DefaultInterrupt
-                  0x007660                  _OscillatorFail
-                  0x007672                  _AddressError
-                  0x007678                  _StackError
-                  0x00767e                  _MathError
-                  0x007690                  HasCOR
-                  0x0076ae                  HasCTCSS
-                  0x0076de                  SetCTCSSTone
-                  0x007776                  SetTxTone
-                  0x00789e                  GetBootCS
-                  0x0078b4                  htons
-                  0x0078c8                  ntohs
-                  0x0078dc                  htonl
-                  0x0078fa                  ntohl
-                  0x007918                  getGPSStr
-                  0x007958                  getTSIPPacket
-                  0x007a20                  adpcm_decoder
-                  0x007b10                  read
-                  0x007b50                  SaveAppConfig
-                  0x007e2a                  IOExp_Write
-                  0x007e9a                  SetAudioSrc
-                  0x007efc                  process_udp
-                  0x0085c0                  main_processing_loop
-                  0x0088ce                  write
-                  0x008942                  process_gps
-                  0x008f30                  SetPTT
-                  0x008f50                  ToggleLED
-                  0x008f68                  SetLED
-                  0x008f8c                  IOExpInit
-                  0x008fb2                  IOExp_Read
-                  0x009024                  secondary_processing_loop
-                  0x009f02                  myfgets
-                  0x00a4ec                  main
- .text            0x00b6bc       0x1c9c TCP.o
-                  0x00b6f6                  TCPWasReset
-                  0x00b708                  TCPIsConnected
-                  0x00b71a                  TCPIsPutReady
-                  0x00b748                  TCPGetTxFIFOFull
-                  0x00b762                  TCPIsGetReady
-                  0x00b77e                  TCPGetRxFIFOFree
-                  0x00b936                  TCPGetRemoteInfo
-                  0x00b94a                  TCPInit
-                  0x00bcee                  TCPAdjustFIFOSize
-                  0x00bdce                  TCPDiscard
-                  0x00bdea                  TCPFlush
-                  0x00be00                  TCPDisconnect
-                  0x00be76                  TCPClose
-                  0x00be88                  TCPOpen
-                  0x00bfa0                  TCPProcess
-                  0x00c7ce                  TCPTick
-                  0x00cb08                  TCPFindArrayEx
-                  0x00d0a4                  TCPFindEx
-                  0x00d0b8                  TCPPeekArray
-                  0x00d122                  TCPPeek
-                  0x00d134                  TCPGetArray
-                  0x00d1b8                  TCPGet
-                  0x00d218                  TCPPutArray
-                  0x00d2bc                  TCPPutString
-                  0x00d2d4                  TCPPut
- .text            0x00d358        0xd04 ENC28J60.o
-                  0x00d358                  MACGet
-                  0x00d388                  MACGetArray
-                  0x00d432                  MACPut
-                  0x00d46c                  MACPutArray
-                  0x00d5ae                  MACSetReadPtrInRx
-                  0x00d5d0                  MACPutHeader
-                  0x00d65e                  MACDiscardRx
-                  0x00d6e2                  SetCLKOUT
-                  0x00d6f8                  WritePHYReg
-                  0x00d730                  ReadPHYReg
-                  0x00d78e                  MACIsLinked
-                  0x00d7a0                  MACBurp
-                  0x00d7e2                  GetCLKOUT
-                  0x00d7fe                  MACPowerUp
-                  0x00d81c                  MACPowerDown
-                  0x00d846                  MACIsMemCopyDone
-                  0x00d85c                  MACMemCopyAsync
-                  0x00da54                  CalcIPBufferChecksum
-                  0x00db88                  MACCalcRxChecksum
-                  0x00dbe4                  MACSetReadPtr
-                  0x00dc1e                  MACSetWritePtr
-                  0x00dc58                  MACFlush
-                  0x00ddda                  MACGetHeader
-                  0x00de78                  MACGetFreeRxSize
-                  0x00defe                  MACIsTxReady
-                  0x00df14                  MACInit
- .text            0x00e05c        0xacc DynDNS.o
-                  0x00e05c                  DDNSInit
-                  0x00e092                  DDNSTask
-                  0x00eaf8                  DDNSForceUpdate
-                  0x00eb08                  DDNSSetService
-                  0x00eb1c                  DDNSGetLastIP
-                  0x00eb24                  DDNSGetLastStatus
- .text            0x00eb28        0xa3a Helpers.o
-                  0x00eb28                  LFSRRand
-                  0x00ed1e                  LFSRSeedRand
-                  0x00ed58                  GenerateRandomDWORD
-                  0x00ee04                  StringToIPAddress
-                  0x00eeb2                  Base64Encode
-                  0x00f054                  uitoa
-                  0x00f0f6                  hexatob
-                  0x00f15c                  btohexa_high
-                  0x00f170                  btohexa_low
-                  0x00f182                  stricmppgm2ram
-                  0x00f1d0                  swaps
-                  0x00f1e2                  swapl
-                  0x00f210                  CalcIPChecksum
-                  0x00f2d2                  strupr
-                  0x00f2f2                  FormatNetBIOSName
-                  0x00f41c                  strnchr
- .text            0x00f562        0x702 DHCP.o
-                  0x00f562                  DHCPInit
-                  0x00f58e                  DHCPDisable
-                  0x00f5a4                  DHCPEnable
-                  0x00f5b4                  DHCPIsEnabled
-                  0x00f5be                  DHCPIsBound
-                  0x00f5c4                  DHCPStateChanged
-                  0x00f5d4                  DHCPIsServerDetected
-                  0x00f9d6                  DHCPTask
- .text            0x00fc64        0x50a UDP.o
-                  0x00fc64                  UDPClose
-                  0x00fc7c                  UDPInit
-                  0x00fcaa                  UDPTask
-                  0x00fcb0                  UDPOpen
-                  0x00fd7a                  UDPSetTxBuffer
-                  0x00fd8a                  UDPSetRxBuffer
-                  0x00fd98                  UDPIsPutReady
-                  0x00fdbe                  UDPPut
-                  0x00fde4                  UDPPutArray
-                  0x00fe0e                  UDPPutString
-                  0x00fe22                  UDPFlush
-                  0x00fecc                  UDPIsGetReady
-                  0x00fef0                  UDPGet
-                  0x00ff1a                  UDPGetArray
-                  0x00ff48                  UDPDiscard
-                  0x00ff62                  UDPProcess
- .text            0x01016e        0x504 DNS.o
-                  0x01016e                  DNSBeginUsage
-                  0x010182                  DNSEndUsage
-                  0x0101a2                  DNSResolve
-                  0x01025e                  DNSIsResolved
- .text            0x010672        0x46a UART.o
-                  0x010672                  _U1RXInterrupt
-                  0x0106d0                  _U1TXInterrupt
-                  0x0106fe                  _U2RXInterrupt
-                  0x01075c                  _U2TXInterrupt
-                  0x010788                  InitUARTS
-                  0x0107cc                  DataRdyUART
-                  0x0107e2                  ReadUART
-                  0x0107f6                  ReadStringUART
-                  0x010828                  WriteUART
-                  0x010858                  putsUART
-                  0x01086e                  putrsUART
-                  0x010884                  getsUART
-                  0x010954                  BusyUART
-                  0x01096e                  WriteUART2
-                  0x01099c                  putsUART2
-                  0x0109b2                  putrsUART2
-                  0x0109c8                  DataRdyUART2
-                  0x0109de                  ReadUART2
-                  0x0109f2                  getsUART2
-                  0x010ac2                  BusyUART2
+                  0x00709c                  _ADC1Interrupt
+                  0x007466                  _DAC1LInterrupt
+                  0x007658                  _DefaultInterrupt
+                  0x00766a                  _OscillatorFail
+                  0x00767c                  _AddressError
+                  0x007682                  _StackError
+                  0x007688                  _MathError
+                  0x00769a                  HasCOR
+                  0x0076b8                  HasCTCSS
+                  0x0076e8                  SetCTCSSTone
+                  0x007780                  SetTxTone
+                  0x0078a8                  GetBootCS
+                  0x0078be                  htons
+                  0x0078d2                  ntohs
+                  0x0078e6                  htonl
+                  0x007904                  ntohl
+                  0x007922                  getGPSStr
+                  0x007962                  getTSIPPacket
+                  0x007a2a                  adpcm_decoder
+                  0x007b1a                  read
+                  0x007b5a                  SaveAppConfig
+                  0x007e34                  IOExp_Write
+                  0x007ea4                  SetAudioSrc
+                  0x007f06                  process_udp
+                  0x0085ca                  main_processing_loop
+                  0x0088d8                  write
+                  0x00894c                  process_gps
+                  0x008f3a                  SetPTT
+                  0x008f5a                  ToggleLED
+                  0x008f72                  SetLED
+                  0x008f96                  IOExpInit
+                  0x008fbc                  IOExp_Read
+                  0x00902e                  secondary_processing_loop
+                  0x009f10                  myfgets
+                  0x00a4fa                  main
+ .text            0x00b6ca       0x1c9c TCP.o
+                  0x00b704                  TCPWasReset
+                  0x00b716                  TCPIsConnected
+                  0x00b728                  TCPIsPutReady
+                  0x00b756                  TCPGetTxFIFOFull
+                  0x00b770                  TCPIsGetReady
+                  0x00b78c                  TCPGetRxFIFOFree
+                  0x00b944                  TCPGetRemoteInfo
+                  0x00b958                  TCPInit
+                  0x00bcfc                  TCPAdjustFIFOSize
+                  0x00bddc                  TCPDiscard
+                  0x00bdf8                  TCPFlush
+                  0x00be0e                  TCPDisconnect
+                  0x00be84                  TCPClose
+                  0x00be96                  TCPOpen
+                  0x00bfae                  TCPProcess
+                  0x00c7dc                  TCPTick
+                  0x00cb16                  TCPFindArrayEx
+                  0x00d0b2                  TCPFindEx
+                  0x00d0c6                  TCPPeekArray
+                  0x00d130                  TCPPeek
+                  0x00d142                  TCPGetArray
+                  0x00d1c6                  TCPGet
+                  0x00d226                  TCPPutArray
+                  0x00d2ca                  TCPPutString
+                  0x00d2e2                  TCPPut
+ .text            0x00d366        0xd04 ENC28J60.o
+                  0x00d366                  MACGet
+                  0x00d396                  MACGetArray
+                  0x00d440                  MACPut
+                  0x00d47a                  MACPutArray
+                  0x00d5bc                  MACSetReadPtrInRx
+                  0x00d5de                  MACPutHeader
+                  0x00d66c                  MACDiscardRx
+                  0x00d6f0                  SetCLKOUT
+                  0x00d706                  WritePHYReg
+                  0x00d73e                  ReadPHYReg
+                  0x00d79c                  MACIsLinked
+                  0x00d7ae                  MACBurp
+                  0x00d7f0                  GetCLKOUT
+                  0x00d80c                  MACPowerUp
+                  0x00d82a                  MACPowerDown
+                  0x00d854                  MACIsMemCopyDone
+                  0x00d86a                  MACMemCopyAsync
+                  0x00da62                  CalcIPBufferChecksum
+                  0x00db96                  MACCalcRxChecksum
+                  0x00dbf2                  MACSetReadPtr
+                  0x00dc2c                  MACSetWritePtr
+                  0x00dc66                  MACFlush
+                  0x00dde8                  MACGetHeader
+                  0x00de86                  MACGetFreeRxSize
+                  0x00df0c                  MACIsTxReady
+                  0x00df22                  MACInit
+ .text            0x00e06a        0xacc DynDNS.o
+                  0x00e06a                  DDNSInit
+                  0x00e0a0                  DDNSTask
+                  0x00eb06                  DDNSForceUpdate
+                  0x00eb16                  DDNSSetService
+                  0x00eb2a                  DDNSGetLastIP
+                  0x00eb32                  DDNSGetLastStatus
+ .text            0x00eb36        0xa3a Helpers.o
+                  0x00eb36                  LFSRRand
+                  0x00ed2c                  LFSRSeedRand
+                  0x00ed66                  GenerateRandomDWORD
+                  0x00ee12                  StringToIPAddress
+                  0x00eec0                  Base64Encode
+                  0x00f062                  uitoa
+                  0x00f104                  hexatob
+                  0x00f16a                  btohexa_high
+                  0x00f17e                  btohexa_low
+                  0x00f190                  stricmppgm2ram
+                  0x00f1de                  swaps
+                  0x00f1f0                  swapl
+                  0x00f21e                  CalcIPChecksum
+                  0x00f2e0                  strupr
+                  0x00f300                  FormatNetBIOSName
+                  0x00f42a                  strnchr
+ .text            0x00f570        0x702 DHCP.o
+                  0x00f570                  DHCPInit
+                  0x00f59c                  DHCPDisable
+                  0x00f5b2                  DHCPEnable
+                  0x00f5c2                  DHCPIsEnabled
+                  0x00f5cc                  DHCPIsBound
+                  0x00f5d2                  DHCPStateChanged
+                  0x00f5e2                  DHCPIsServerDetected
+                  0x00f9e4                  DHCPTask
+ .text            0x00fc72        0x50a UDP.o
+                  0x00fc72                  UDPClose
+                  0x00fc8a                  UDPInit
+                  0x00fcb8                  UDPTask
+                  0x00fcbe                  UDPOpen
+                  0x00fd88                  UDPSetTxBuffer
+                  0x00fd98                  UDPSetRxBuffer
+                  0x00fda6                  UDPIsPutReady
+                  0x00fdcc                  UDPPut
+                  0x00fdf2                  UDPPutArray
+                  0x00fe1c                  UDPPutString
+                  0x00fe30                  UDPFlush
+                  0x00feda                  UDPIsGetReady
+                  0x00fefe                  UDPGet
+                  0x00ff28                  UDPGetArray
+                  0x00ff56                  UDPDiscard
+                  0x00ff70                  UDPProcess
+ .text            0x01017c        0x504 DNS.o
+                  0x01017c                  DNSBeginUsage
+                  0x010190                  DNSEndUsage
+                  0x0101b0                  DNSResolve
+                  0x01026c                  DNSIsResolved
+ .text            0x010680        0x46a UART.o
+                  0x010680                  _U1RXInterrupt
+                  0x0106de                  _U1TXInterrupt
+                  0x01070c                  _U2RXInterrupt
+                  0x01076a                  _U2TXInterrupt
+                  0x010796                  InitUARTS
+                  0x0107da                  DataRdyUART
+                  0x0107f0                  ReadUART
+                  0x010804                  ReadStringUART
+                  0x010836                  WriteUART
+                  0x010866                  putsUART
+                  0x01087c                  putrsUART
+                  0x010892                  getsUART
+                  0x010962                  BusyUART
+                  0x01097c                  WriteUART2
+                  0x0109aa                  putsUART2
+                  0x0109c0                  putrsUART2
+                  0x0109d6                  DataRdyUART2
+                  0x0109ec                  ReadUART2
+                  0x010a00                  getsUART2
+                  0x010ad0                  BusyUART2
 
-.dinit            0x010adc        0x440
- .dinit           0x010adc        0x440 data_init
+.dinit            0x010aea        0x440
+ .dinit           0x010aea        0x440 data_init
 
-.text             0x010f1c       0x130e
- .text            0x010f1c        0x344 squelch.o
-                  0x010f1c                  set_atten
-                  0x010f66                  init_squelch
-                  0x010f98                  service_squelch
- .text            0x011260        0x2ec SPIEEPROM.o
-                  0x011260                  XEEInit
-                  0x011278                  XEEBeginRead
-                  0x011282                  XEEEndRead
-                  0x011284                  XEEBeginWrite
-                  0x01128e                  XEEReadArray
-                  0x01132a                  XEERead
-                  0x011362                  XEEIsBusy
-                  0x01148e                  XEEEndWrite
-                  0x011498                  XEEWrite
-                  0x0114b8                  XEEWriteArray
- .text            0x01154c        0x2be Telnet.o
-                  0x01154c                  TelnetTask
-                  0x011702                  GetTelnetConsole
-                  0x01172e                  PutTelnetConsole
-                  0x01179a                  ProcessTelnetTimer
-                  0x0117ea                  CloseTelnetConsole
- .text            0x01180a        0x294 ARP.o
-                  0x01180a                  ARPInit
-                  0x011836                  ARPIsResolved
-                  0x0118d4                  SwapARPPacket
-                  0x011950                  ARPResolve
-                  0x0119de                  ARPProcess
- .text            0x011a9e        0x1e4 ICMP.o
-                  0x011a9e                  ICMPProcess
-                  0x011b42                  ICMPSendPing
-                  0x011b5c                  ICMPSendPingToHost
-                  0x011b76                  ICMPGetReply
-                  0x011c68                  ICMPBeginUsage
-                  0x011c7c                  ICMPEndUsage
- .text            0x011c82        0x1d8 Delay.o
-                  0x011c82                  Delay10us
-                  0x011cae                  DelayMs
- .text            0x011e5a        0x17a StackTsk.o
-                  0x011e5a                  StackInit
-                  0x011e84                  StackTask
-                  0x011fd0                  StackApplications
- .text            0x011fd4        0x12a IP.o
-                  0x011fd4                  IPSetRxBuffer
-                  0x011ff6                  IPPutHeader
-                  0x01207e                  IPGetHeader
- .text            0x0120fe         0xde Tick.o
-                  0x0120fe                  TickInit
-                  0x012166                  TickGet
-                  0x01216e                  TickGetDiv256
-                  0x012192                  TickGetDiv64K
-                  0x0121b6                  TickConvertToMilliseconds
-                  0x0121c8                  _T1Interrupt
- .text            0x0121dc         0x4e doubleify.o
-                  0x0121dc                  doubleify
+.text             0x010f2a       0x130e
+ .text            0x010f2a        0x344 squelch.o
+                  0x010f2a                  set_atten
+                  0x010f74                  init_squelch
+                  0x010fa6                  service_squelch
+ .text            0x01126e        0x2ec SPIEEPROM.o
+                  0x01126e                  XEEInit
+                  0x011286                  XEEBeginRead
+                  0x011290                  XEEEndRead
+                  0x011292                  XEEBeginWrite
+                  0x01129c                  XEEReadArray
+                  0x011338                  XEERead
+                  0x011370                  XEEIsBusy
+                  0x01149c                  XEEEndWrite
+                  0x0114a6                  XEEWrite
+                  0x0114c6                  XEEWriteArray
+ .text            0x01155a        0x2be Telnet.o
+                  0x01155a                  TelnetTask
+                  0x011710                  GetTelnetConsole
+                  0x01173c                  PutTelnetConsole
+                  0x0117a8                  ProcessTelnetTimer
+                  0x0117f8                  CloseTelnetConsole
+ .text            0x011818        0x294 ARP.o
+                  0x011818                  ARPInit
+                  0x011844                  ARPIsResolved
+                  0x0118e2                  SwapARPPacket
+                  0x01195e                  ARPResolve
+                  0x0119ec                  ARPProcess
+ .text            0x011aac        0x1e4 ICMP.o
+                  0x011aac                  ICMPProcess
+                  0x011b50                  ICMPSendPing
+                  0x011b6a                  ICMPSendPingToHost
+                  0x011b84                  ICMPGetReply
+                  0x011c76                  ICMPBeginUsage
+                  0x011c8a                  ICMPEndUsage
+ .text            0x011c90        0x1d8 Delay.o
+                  0x011c90                  Delay10us
+                  0x011cbc                  DelayMs
+ .text            0x011e68        0x17a StackTsk.o
+                  0x011e68                  StackInit
+                  0x011e92                  StackTask
+                  0x011fde                  StackApplications
+ .text            0x011fe2        0x12a IP.o
+                  0x011fe2                  IPSetRxBuffer
+                  0x012004                  IPPutHeader
+                  0x01208c                  IPGetHeader
+ .text            0x01210c         0xde Tick.o
+                  0x01210c                  TickInit
+                  0x012174                  TickGet
+                  0x01217c                  TickGetDiv256
+                  0x0121a0                  TickGetDiv64K
+                  0x0121c4                  TickConvertToMilliseconds
+                  0x0121d6                  _T1Interrupt
+ .text            0x0121ea         0x4e doubleify.o
+                  0x0121ea                  doubleify

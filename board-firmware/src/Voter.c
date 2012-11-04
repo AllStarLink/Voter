@@ -152,6 +152,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define DEFAULT_VOTER_PORT 667
 #define	PPS_WARN_TIME (1200 * 8) // 1200ms PPS Warning Time
 #define PPS_MAX_TIME (2400 * 8) // 2400 ms PPS Timeout
+#define	PPS_MUSTA_TIME (950 * 8)
 #define	GPS_NMEA_WARN_TIME (1200 * 8) // 1200 ms GPS Warning Time
 #define GPS_NMEA_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
 #define	GPS_TSIP_WARN_TIME (5000ul * 8ul) // 5000 ms GPS Warning Time
@@ -228,7 +229,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.10  10/18/2012";
+	VERSION[] = "1.11 11/04/2012";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -893,11 +894,14 @@ int vpdiff;			/* Current change to valpred */
 long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
+BOOL ppsx;
 
 	CORCONbits.PSV = 1;
 	// If PPS signal is asserted
 	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) ||
-		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1)))
+		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) ppsx = 1;
+	else ppsx = 0;
+	if (ppsx || (ppstimer >= PPS_MUSTA_TIME))
 	{
 		if (USE_PPS && (!indiag))
 		{
@@ -2887,7 +2891,7 @@ void secondary_processing_loop(void)
 			{
 				if (qualcor && (!wascor))
 				{
-					lastvnoise32[0] = lastvnoise32[1] = vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
+					lastvnoise32[0] = lastvnoise32[1] = lastvnoise32[2] = vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
 				}
 				else
 				{
