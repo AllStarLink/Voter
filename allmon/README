@@ -1,0 +1,49 @@
+Allmon README
+v0.3 November 1, 2012
+
+Allmon is a web site for managing one or more app_rpt (aka Allstar) nodes. 
+Each managed local node shows a list of connected nodes. The list is 
+sorted in reverse order of the most recently received node. So the last
+node to talk is always at the top of the list. Any node that is currently
+being received will be highlighted by a green background as well as moving
+to the top of the list. The node list is updated once a second giving near-
+real-time status. 
+
+Nodes may be grouped together when configuring Allmon. Groups enable two
+or mode nodes to be displayed on the same page. This can be handy if you
+use devices with smaller screens or you want to see a couple of your nodes
+at the same time. Don't try to display more than a few per group as performance
+will suffer.
+
+Logged in users can perform connect and disconnects. Users are maintained
+with the Apache htpasswd utility. There is only one login level, admin.
+
+Allmon will also monitor VOTER clients. Each VOTER instance displays a list
+attached Radio Thin Client Modules (RTCM). The RSSI for each RTCM is displayed
+in bar graph style along with a color to indicate the currently voted RTCM.
+
+Install instructions
+ - If you installed your node(s) from the Allstar web portal and never
+   touched the command line, you have a fairly steep learning curve ahead
+   of you. On the other hand, if you know Apache and Linux then installation 
+   should be a piece of cake.
+ - Apache and PHP need to be installed on your server. The Apache password
+   utility htpasswd must be available if you want to install an administrator.
+ - The web server can be local to your node or on a stand alone server. If
+   not local the Asterisk Manager port 5038 (or another of your choosing) must
+   be open.
+ - Put these files somewhere in your web servers document tree. That can be 
+   the docroot or any subdir you like. 
+ - Copy allmon.ini.txt to allmon.ini and then edit it for your node(s) 
+   information. The user ID and passwords you enter here are the one you will
+   use in manager.conf on your node server(s).
+ - Optionally copy groups.ini.txt to groups.ini and edit. Any nodes listed in
+   groups must exist in allmon.ini.
+ - Create your .htpasswd file for the admin user(s). In your web server 
+   directory, on the command line do: htpasswd -c .htpasswd username
+ - Make sure you have the latest Allstar source from svn
+ - Edit /etc/asterisk/monitor.conf
+
+Known Bugs
+ - If you have only a group and no individual nodes displayed (menu=yes) 
+   index.php will not redirect to the group.  
