@@ -42,7 +42,7 @@ Install instructions
  - Create your .htpasswd file for the admin user(s). In your web server 
    directory, on the command line do: htpasswd -c .htpasswd username
  - Make sure you have the latest Allstar source from svn
- - Edit /etc/asterisk/monitor.conf
+ - Edit /etc/asterisk/manager.conf
 
 Known Bugs
  - If you have only a group and no individual nodes displayed (menu=yes) 
