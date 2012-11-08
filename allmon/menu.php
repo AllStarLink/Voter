@@ -54,6 +54,7 @@ if (count($groups) > 0) {
 $items[$i]['node'] = "About";
 $items[$i]['url'] = "about.php";
 
+
 ?>
 <ul>
 <?php 
@@ -66,7 +67,26 @@ foreach ($items as $item) {
     
 }
 ?>
+<!-- Login opener -->
+<li><a href="#" id="loginlink">Login</a></li>
+<li><a href="#" id="logoutlink">Logout</a></li>
+
 </ul>
 </div>
 <div class="clearer"></div>
+
+<!-- Login form -->
+<div id="login" caption="Login">
+<div>
+<form method="post" action="">
+<table>
+<tr><td>Username:</td><td><input style="width: 150px;" type="text" name="user"></td></tr>
+<tr><td>Password:</td><td><input style="width: 150px;" type="password" name="password"></td></tr>
+</table>
+</form>
+</div>
+</div>
+
+<!-- Command response area -->
+<div id="test_area"></div>
 <?php #print "<pre>data: "; print_r($current_url); print "</pre>"; ?>

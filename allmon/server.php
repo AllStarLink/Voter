@@ -269,14 +269,19 @@ function getAstInfo($nodeNum, $node=array()) {
         $info = $dbNode[4] . ' ' . $dbNode[5] . ' ' . $dbNode[6];
     } elseif ($nodeNum > 3000000) {
         $info = "Echolink";
-    } elseif (strlen(trim($node['ip'])) > 3) {
-        $info .= ' (' . $node['ip'] . ')';
+    } elseif (!empty($node['ip'])) {
+        if (strlen(trim($node['ip'])) > 3) {
+            $info = '(' . $node['ip'] . ')';
+        } else {
+            $info = '&nbsp;';
+        }
     } else {
         $info = '&nbsp;';
     }
 
     return $info;
 }
+
 function parseRptStatus($rptStatus, $sawStatus) {
     #global $savedNodes;
 

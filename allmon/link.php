@@ -49,6 +49,7 @@ if (!empty($group)) {
     $group = $_GET['group'];
     $nodes = split(",", $gconfig[$group]['nodes']);
 }
+#print_r($nodes); print "$type $node";
 
 ?>
 <script type="text/javascript">
@@ -92,23 +93,6 @@ if (!empty($group)) {
 ?>
 </h2>
 
-<!-- Login form -->
-<div id="login" caption="Login">
-<div>
-<form method="post" action="">
-<table>
-<tr><td>Username:</td><td><input style="width: 150px;" type="text" name="user"></td></tr>
-<tr><td>Password:</td><td><input style="width: 150px;" type="password" name="password"></td></tr>
-</table>
-</form>
-</div>
-</div>
-
-<!-- Login opener -->
-<a href="#" id="loginlink">Login</a>
-
-<a href="#" id="logoutlink">Logout</a>
-
 <!-- Connect form -->
 <div id="connect_form">
 <?php 
@@ -127,8 +111,5 @@ if (count($nodes) > 0) {
     <input type="button" value="Connect" id="connect">
 </div>
 
-<!-- Command response area -->
-<div id="test_area"></div>
-
-<div id="link_list">Loading node.</div>
+<div id="link_list">Loading...</div>
 <?php include "footer.php"; ?>
