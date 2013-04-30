@@ -229,7 +229,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.11 11/04/2012";
+	VERSION[] = "1.12 04/30/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -919,6 +919,7 @@ BOOL ppsx;
 			{
 				if (ppscount >= 3)
 				{
+					DAC1CONbits.DACEN = 1;
 					if ((samplecnt >= 7999) && (samplecnt <= 8001))
 					{
 						last_samplecnt = samplecnt;
@@ -1368,7 +1369,6 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
 			s += tone_v3;
 		}
-
 #ifdef	DMWDIAG
 		DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
 		if (mwp > 7) mwp = 0;
@@ -1377,7 +1377,6 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			DAC1LDAT = ulawtabletx[txaudio[txdrainindex]] + s;
 		else
 			DAC1LDAT = s;
-
 #endif
 		txaudio[txdrainindex++] = ULAW_SILENCE;
 		if (txdrainindex >= AppConfig.TxBufferLength)
@@ -2398,7 +2397,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
 	}
-	if ((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) {
+
+	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
 		n = 0;
 		cp = (BYTE *) &audio_packet;
 		while(UDPGet(&c))
@@ -2489,7 +2489,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						index -= (FRAME_SIZE * 2);
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
-
                         /* if in bounds */
                         if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
@@ -3579,23 +3578,25 @@ static void SetDynDNS(void)
 static void DiagMenu()
 {
 
- indiag = 1; 
- gps_state = GPS_STATE_IDLE;
- if (USE_PPS)
- {
-	connected = 0;
-	resp_digest = 0;
-	digest = 0;
-	their_challenge[0] = 0;
-	lastrxtimer = 0;
- }
- gpssync = 0;
- gotpps = 0;
- hangtimer = 0;
- connfail = 0;
- connrep = 0;
-
- while(1) 
+	indiag = 1; 
+	gps_state = GPS_STATE_IDLE;
+	if (USE_PPS)
+	{
+		connected = 0;
+		resp_digest = 0;
+		digest = 0;
+		their_challenge[0] = 0;
+		lastrxtimer = 0;
+		DAC1CONbits.DACEN = 1;
+	}
+	gpssync = 0;
+	gotpps = 0;
+	ppscount = 0;
+	hangtimer = 0;
+	connfail = 0;
+	connrep = 0;
+	
+	while(1) 
 	{
 		int i,sel;
 
@@ -3737,6 +3738,15 @@ static void DiagMenu()
 	host_txseqno = 0;
 	digest = 0;
 	SetAudioSrc();
+	gpssync = 0;
+	gotpps = 0;
+	ppscount = 0;
+	if (USE_PPS)
+	{
+		DAC1CONbits.DACEN = 0;
+		while(!DAC1CONbits.DACEN) ClrWdt();
+		Reset();
+	}
 	indiag = 0;
 }
 
@@ -4891,7 +4901,7 @@ static void InitializeBoard(void)
 	IFS4bits.DAC1LIF = 0;
 	IEC4bits.DAC1LIE = 1;
 	IPC19bits.DAC1LIP = 6;
-	DAC1CONbits.DACEN = 1;
+	if (!USE_PPS) DAC1CONbits.DACEN = 1;
 
 #if defined(SMT_BOARD)
 
@@ -4902,7 +4912,7 @@ static void InitializeBoard(void)
 	TRISA = 0xFFFF;	 
 	//RB0-1 are Analog, RB2-3 are audio select, RB4 is PTT, RB5-6 are Programming Pins, RB7 is INT0 (Ethenet INT)
 	//RB8 is Test Pin, RB9 is JP11, RB10-13 are LEDs, RB14-15 are DAC outputs
-	TRISB = 0x02E3;	
+	TRISB = 0x0283;// 0x02E3;	
 	//RC0-RC2 are CS pins, RC4 is RP20/SDO, RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
 	TRISC = 0xFD48;
 
