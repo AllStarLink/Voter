@@ -40,7 +40,7 @@ Command:
   Voter.o \
   doubleify.o \
   ICMP.o \
-  -Tp33FJ128GP804.gld.00 \
+  -Tp33FJ128GP802.gld.00 \
   --defsym=__MPLAB_BUILD=1 \
   -Map=voter.map \
   --report-mem \
@@ -1351,7 +1351,7 @@ LOAD DynDNS.o
 LOAD Voter.o
 LOAD doubleify.o
 LOAD ICMP.o
-LOAD c:/program files (x86)/microchip/mplab c30/bin/bin/../../lib/dsPIC33F\libp33FJ128GP804-coff.a
+LOAD c:/program files (x86)/microchip/mplab c30/bin/bin/../../lib/dsPIC33F\libp33FJ128GP802-coff.a
                     0xf80000                  __FBS = 0xf80000
                     0xf80002                  __FSS = 0xf80002
                     0xf80004                  __FGS = 0xf80004
@@ -2341,18 +2341,6 @@ __FUID3
                     0x02ce                  ODCB = 0x2ce
                     0x02ce                  _ODCB = 0x2ce
                     0x02ce                  _ODCBbits = 0x2ce
-                    0x02d0                  TRISC = 0x2d0
-                    0x02d0                  _TRISC = 0x2d0
-                    0x02d0                  _TRISCbits = 0x2d0
-                    0x02d2                  PORTC = 0x2d2
-                    0x02d2                  _PORTC = 0x2d2
-                    0x02d2                  _PORTCbits = 0x2d2
-                    0x02d4                  LATC = 0x2d4
-                    0x02d4                  _LATC = 0x2d4
-                    0x02d4                  _LATCbits = 0x2d4
-                    0x02d6                  ODCC = 0x2d6
-                    0x02d6                  _ODCC = 0x2d6
-                    0x02d6                  _ODCCbits = 0x2d6
                     0x02fc                  PADCFG1 = 0x2fc
                     0x02fc                  _PADCFG1 = 0x2fc
                     0x02fc                  _PADCFG1bits = 0x2fc
