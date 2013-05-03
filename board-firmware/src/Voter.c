@@ -229,7 +229,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.13 04/30/2013";
+	VERSION[] = "1.14 05/03/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -4399,6 +4399,7 @@ int main(void)
 	// Initialize Stack and application related NV variables into AppConfig.
 	InitAppConfig();
 
+	if (!USE_PPS) DAC1CONbits.DACEN = 1;
 
 	// UART
 	#if defined(STACK_USE_UART)
@@ -4901,7 +4902,6 @@ static void InitializeBoard(void)
 	IFS4bits.DAC1LIF = 0;
 	IEC4bits.DAC1LIE = 1;
 	IPC19bits.DAC1LIP = 6;
-	if (!USE_PPS) DAC1CONbits.DACEN = 1;
 
 #if defined(SMT_BOARD)
 
