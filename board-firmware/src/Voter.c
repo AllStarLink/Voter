@@ -63,6 +63,15 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #include <math.h>
 #include <dsp.h>
 
+/* Debug values:
+
+1 - Alt/Main Host change notifications
+8 - Simulcast Development mode
+32 - GPS Debug
+64 - Fix GPS 1 second off
+128 - Fix GPS 1 month off (WTF,O??)
+
+*/
 
 #define M_PI       3.14159265358979323846
 
@@ -181,6 +190,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
 #define CLIP 32635
 
+#define	SIMULCAST_DEV (AppConfig.DebugLevel & 8)
+
 #ifdef DSPBEW
 
 #define FFT_BLOCK_LENGTH 32
@@ -229,7 +240,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.14 05/03/2013";
+	VERSION[] = "1.15 05/07/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -1598,6 +1609,12 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
 #endif
 
+void RTCM_Reset(void)
+{
+	SetPTT(0);
+	while(1) DISABLE_INTERRUPTS();
+}
+
 BOOL HasCOR(void)
 {
 	if (indiag) return(0);
@@ -2584,7 +2601,7 @@ void main_processing_loop(void)
 			/* if first time having link, advance linkstate */
 			if (linkstate == 0) linkstate++;
 			/* if had link, lost it, and now have it again, reset processor (silly TCP/IP stack!) */
-			if (linkstate == 2) Reset();
+			if (linkstate == 2) RTCM_Reset();
 	}
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
@@ -2899,7 +2916,7 @@ void secondary_processing_loop(void)
 #endif
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
-				if ((!connected) && (!indiag) && (!qualcor) && wascor)
+				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_DEV)))
 				{
 					if (AppConfig.FailMode == 2) needburp = 1;
 					if ((AppConfig.FailMode == 3) && (!connfail)) needburp = 1;
@@ -2935,7 +2952,7 @@ void secondary_processing_loop(void)
 		}
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
-		if ((!connected) && (AppConfig.FailMode == 3) && HasCOR() && HasCTCSS())
+		if ((!connected) && (AppConfig.FailMode == 3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
 		{
 			repeatit = 1;
 			hangtimer = AppConfig.HangTime + 1;
@@ -3343,7 +3360,7 @@ void secondary_processing_loop(void)
 			hangtimer = 0;
 		}
 		if (connected && (!connfail)) connfail = 1;
-		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1))
+		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
 		{
 			if (connected)
 			{
@@ -3370,7 +3387,7 @@ void secondary_processing_loop(void)
 			}
 		}
 		if (connected) needburp = 0;
-		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0])
+		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
 		{
 			needburp = 0;
 			if (!connfail) connfail = 2;
@@ -3650,7 +3667,7 @@ static void DiagMenu()
 		{
 				CloseTelnetConsole();
 				printf(booting);
-				Reset();
+				RTCM_Reset();
 		}
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
@@ -3745,7 +3762,7 @@ static void DiagMenu()
 	{
 		DAC1CONbits.DACEN = 0;
 		while(!DAC1CONbits.DACEN) ClrWdt();
-		Reset();
+		RTCM_Reset();
 	}
 	indiag = 0;
 }
@@ -3838,7 +3855,7 @@ static void IPMenu()
 		{
 				CloseTelnetConsole();
 				printf(booting);
-				Reset();
+				RTCM_Reset();
 		}
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
@@ -4065,7 +4082,7 @@ static void OffLineMenu()
 		{
 				CloseTelnetConsole();
 				printf(booting);
-				Reset();
+				RTCM_Reset();
 		}
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
@@ -4399,7 +4416,7 @@ int main(void)
 	// Initialize Stack and application related NV variables into AppConfig.
 	InitAppConfig();
 
-	if (!USE_PPS) DAC1CONbits.DACEN = 1;
+	if ((!USE_PPS) || (!SIMULCAST_DEV)) DAC1CONbits.DACEN = 1;
 
 	// UART
 	#if defined(STACK_USE_UART)
@@ -4475,7 +4492,7 @@ int main(void)
 				while((LONG)(TickGet() - StartTime) <= (LONG)(9*TICK_SECOND/2));
 				SetLED(SYSLED,1);
 				while(!INITIALIZE);
-				Reset();
+				RTCM_Reset();
 				break;
 			}
 		}
@@ -4587,7 +4604,7 @@ __builtin_nop();
 		{
 				CloseTelnetConsole();
 				printf(booting);
-				Reset();
+				RTCM_Reset();
 		}
 		if ((strchr(cmdstr,'D')) || strchr(cmdstr,'d'))
 		{
