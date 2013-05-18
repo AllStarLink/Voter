@@ -240,7 +240,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.15 05/07/2013";
+	VERSION[] = "1.16 05/18/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2281,55 +2281,55 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		time_filled = 1;
 	}
 
-#ifdef	DSPBEW
-	for(i = 0; i < FFT_BLOCK_LENGTH; i++)
-	{
-		x = ulawtabletx[audio_buf[filling_buffer ^ 1][i/* + (FRAME_SIZE - FFT_BLOCK_LENGTH)*/]];
-		if (AppConfig.BEWMode > 1)
-		{
-			if (x > 16383) x = 16383;
-			if (x < -16383) x = -16383;
-			sigCmpx[i].real = x;
-		}
-		else
-		{
-			sigCmpx[i].real = x / 2;
-		}
-		sigCmpx[i].imag = 0x0000;
-	}
-
-#ifndef FFTTWIDCOEFFS_IN_PROGMEM
-	FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
-#else
-	FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]), (int) __builtin_psvpage(&twiddleFactors[0]));
-#endif
-
-	/* Store output samples in bit-reversed order of their addresses */
-	BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
- 
-	/* Compute the square magnitude of the complex FFT output array so we have a Real output vetor */
-	SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
-
-	wp = (unsigned int *)&sigCmpx[0];
-	fftresult = 0;
-	// Get the total energy above CTCSS and below 2000 Hz
-	for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++)
-	{
-		if (i >= 2) fftresult += *wp;
-		wp++;
-	}
-	qualnoise = ((fftresult <= FFT_MAX_RESULT));
-	if (!AppConfig.BEWMode) qualnoise = 1;
-
-	if (!qualnoise)
-	{
-		vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
-		rssiheld = rssitable[vnoise32 >> 3];
-	}
-#endif
-
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING)))
 	{
+	
+#ifdef	DSPBEW
+		for(i = 0; i < FFT_BLOCK_LENGTH; i++)
+		{
+			x = ulawtabletx[audio_buf[filling_buffer ^ 1][i]];
+			if (AppConfig.BEWMode > 1)
+			{
+				if (x > 16383) x = 16383;
+				if (x < -16383) x = -16383;
+				sigCmpx[i].real = x;
+			}
+			else
+			{
+				sigCmpx[i].real = x / 2;
+			}
+			sigCmpx[i].imag = 0x0000;
+		}
+	
+	#ifndef FFTTWIDCOEFFS_IN_PROGMEM
+		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
+	#else
+		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]), (int) __builtin_psvpage(&twiddleFactors[0]));
+	#endif
+	
+		/* Store output samples in bit-reversed order of their addresses */
+		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
+	 
+		/* Compute the square magnitude of the complex FFT output array so we have a Real output vetor */
+		SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
+	
+		wp = (unsigned int *)&sigCmpx[0];
+		fftresult = 0;
+		// Get the total energy above CTCSS and below 2000 Hz
+		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++)
+		{
+			if (i >= 2) fftresult += *wp;
+			wp++;
+		}
+		qualnoise = ((fftresult <= FFT_MAX_RESULT));
+		if (!AppConfig.BEWMode) qualnoise = 1;
+	
+		if (!qualnoise)
+		{
+			vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
+			rssiheld = rssitable[vnoise32 >> 3];
+		}
+#endif
 		if (gpssync || (!USE_PPS))
 		{
 //TESTBIT ^= 1;
