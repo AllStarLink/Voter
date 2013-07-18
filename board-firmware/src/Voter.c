@@ -240,7 +240,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.17 05/22/2013";
+	VERSION[] = "1.18 07/17/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -268,6 +268,10 @@ BYTE mwp;
 #endif
 
 VTIME system_time;
+VTIME last_rxpacket_time;
+VTIME last_rxpacket_sys_time;
+long last_rxpacket_index;
+char last_rxpacket_inbounds;
 
 // Declare AppConfig structure and some other supporting stack variables
 APP_CONFIG AppConfig;
@@ -1612,6 +1616,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 void RTCM_Reset(void)
 {
 	SetPTT(0);
+	Reset();
 	while(1) DISABLE_INTERRUPTS();
 }
 
@@ -1917,17 +1922,19 @@ DWORD rv;
 	return(rv);
 }
 
-static char *logtime(void)
+#define	logtime() logtime_p(&system_time)
+
+static char *logtime_p(VTIME *p)
 {
 time_t	t;
 static char str[50];
 static ROM char notime[] = "<System Time Not Set>",
 	logtemplate[] = "%m/%d/%Y %H:%M:%S";
 
-	t = system_time.vtime_sec;
+	t = p->vtime_sec;
 	if (t == 0) return((char *)notime);
 	strftime(str,sizeof(str) - 1,(char *)logtemplate,gmtime(&t));
-	sprintf(str + strlen(str),".%03lu",system_time.vtime_nsec / 1000000L);
+	sprintf(str + strlen(str),".%03lu",p->vtime_nsec / 1000000L);
 	return(str);
 }
 
@@ -2486,6 +2493,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						short mydiff;
 
 
+						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
+						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
+						last_rxpacket_sys_time = system_time;
+						last_rxpacket_inbounds = 0;
 						if (!USE_PPS)
 						{
 							mytxseqno = txseqno;
@@ -2506,9 +2517,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						index -= (FRAME_SIZE * 2);
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
+						last_rxpacket_index = index;
                         /* if in bounds */
                         if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
+							last_rxpacket_inbounds = 1;
 							if (!USE_PPS)
 							{
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
@@ -4209,13 +4222,14 @@ int main(void)
 	WORD sel;
 	time_t t;
 	BYTE i;
+	long mydiff,mydiff1;
 
-    static ROM char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
+    static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
 
-	static ROM char defwritten[] = "\nDefault Values Written to EEPROM\n",
+	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
-	static ROM char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
+	static /* ROM */ char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
 		menu2[] = 
 		"2  - VOTER Server Address (FQDN) (%s)\n"
@@ -4400,7 +4414,11 @@ int main(void)
 	altconnected = 0;
 	altchange = 0;
 	altchange1 = 0;
-	
+	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
+	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
+	last_rxpacket_index = 0;
+	last_rxpacket_inbounds = 0;
+
 	// Initialize application specific hardware
 	InitializeBoard();
 
@@ -4833,6 +4851,29 @@ __builtin_nop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec)
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf("Current System time: %s\n",logtime());
+				main_processing_loop();
+				secondary_processing_loop();
+				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
+				mydiff *= 1000;
+				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
+				mydiff1 /= 1000000;
+				mydiff += mydiff1;
+				printf("Last Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				main_processing_loop();
+				secondary_processing_loop();
+				mydiff = last_rxpacket_sys_time.vtime_sec - last_rxpacket_time.vtime_sec;
+				mydiff *= 1000;
+				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
+				mydiff1 /= 1000000;
+				mydiff += mydiff1;
+				printf("Last Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf("Last Rx Pkt index: %ld, inbounds: %d\n",
+					last_rxpacket_index,last_rxpacket_inbounds);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
