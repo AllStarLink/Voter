@@ -155,6 +155,7 @@ typedef struct __attribute__((__packed__))
 	char AltVoterServerFQDN[50];  // FQDN of Voter Server
 	WORD AltVoterServerPort;	// UDP Port of Voter Server
 	BOOL BEWMode;
+	BOOL Duplex3;
 
 } APP_CONFIG;
 

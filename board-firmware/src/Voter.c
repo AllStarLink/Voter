@@ -190,6 +190,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
 #define CLIP 32635
 
+#define	DUPLEX3 (AppConfig.Duplex3 != 0)
 #define	SIMULCAST_DEV (AppConfig.DebugLevel & 8)
 
 #ifdef DSPBEW
@@ -240,7 +241,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.18 07/17/2013";
+	VERSION[] = "1.19 07/19/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2828,6 +2829,7 @@ void secondary_processing_loop(void)
 	long x,y,z;
 	static BYTE dispcnt = 0;
 	struct meas *m;
+	BOOL isoffline;
 #ifdef	DSPBEW
 	BYTE qualnoise;
 	static BYTE qualcnt = 255;
@@ -2965,10 +2967,11 @@ void secondary_processing_loop(void)
 		}
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
-		if ((!connected) && (AppConfig.FailMode == 3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
+		isoffline = ((!connected) && (AppConfig.FailMode == 3));
+		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
 		{
 			repeatit = 1;
-			hangtimer = AppConfig.HangTime + 1;
+			if (isoffline) hangtimer = AppConfig.HangTime + 1;
 		} else repeatit = 0;
 		if (cwptr || cwtimer1 || hangtimer)
 		{
@@ -4048,12 +4051,12 @@ static void OffLineMenu()
 		int sel;
 		float f;
 
-	static ROM char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+	static /*ROM*/ char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
 		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
 		"2  - CW Speed (%u) (1/8000 secs)\n"
 		"3  - Pre-CW Delay (%u) (1/8000 secs)\n"
-		"4  - Post-CW Delay (%u) (1/8000 secs)\n",
-		menu1[] = 
+		"4  - Post-CW Delay (%u) (1/8000 secs)\n";
+	static ROM char  menu1[] = 
 		"5  - CW \"Offline\" (ID) String (%s)\n"
 		"6  - CW \"Online\" String (%s)\n"
 		"7  - \"Offline\" (CW ID) Period Time (%u) (1/10 secs)\n"
@@ -4061,7 +4064,8 @@ static void OffLineMenu()
 		menu1a[] = 
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
-		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
+		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n"
+		"12 - Duplex Mode 3 Support (0=DISABLED, 1=ENABLED) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -4072,7 +4076,7 @@ static void OffLineMenu()
 		secondary_processing_loop();
 		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
 		main_processing_loop();
-		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
+		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp,AppConfig.Duplex3);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu2);
@@ -4103,7 +4107,7 @@ static void OffLineMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 11))
+		if ((sel >= 1) && (sel <= 12))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -4201,6 +4205,13 @@ static void OffLineMenu()
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
 				{
 					AppConfig.OffLineNoDeemp = i1;
+					ok = 1;
+				}
+				break;
+			case 12: // Duplex3 mode
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
+				{
+					AppConfig.Duplex3 = i1;
 					ok = 1;
 				}
 				break;
