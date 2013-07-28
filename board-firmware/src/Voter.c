@@ -129,6 +129,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	
 	#define TESTBIT _LATA1
 
+	//#define	GGPS	// Define this if GGPS-type system
+
 #endif
 
 #define WVF JP10				// Short on pwrup to initialize default values
@@ -241,7 +243,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.19 07/19/2013";
+	VERSION[] = "1.20 07/27/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -261,7 +263,6 @@ typedef struct {
 #define	OPTION_FLAG_MASTERTIMING 8  // Master Timing Source (do not delay sending audio packet)
 #define	OPTION_FLAG_ADPCM 16 // Use ADPCM rather then ULAW
 #define	OPTION_FLAG_MIX 32 // Request "Mix" option to host
-
 
 #ifdef DMWDIAG
 unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
@@ -357,7 +358,7 @@ WORD gpsforcetimer;
 WORD attempttimer;
 DWORD lastrxtimer;
 WORD cwtimer;
-BOOL gpswarn;
+BYTE gpswarn;
 BOOL ppswarn;
 UDP_SOCKET udpSocketUser;
 NODE_INFO udpServerNode;
@@ -455,6 +456,7 @@ BOOL altconnected;
 WORD alttimer;
 BOOL altchange;
 BOOL altchange1;
+WORD glasertimer;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -1108,6 +1110,7 @@ BYTE *cp;
 		{
 			gpsforcetimer++;
 			elketimer++;
+			if (glasertimer) glasertimer--;
 		}
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
@@ -1556,7 +1559,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	{
 		IOExp_Write(IOEXP_IOCON,0x20);
 		IOExp_Write(IOEXP_IODIRA,0xD0);
-		IOExp_Write(IOEXP_IODIRB,0xf3);
+		IOExp_Write(IOEXP_IODIRB,0xe3);
 		IOExpOutA = 0xDF;
 		IOExp_Write(IOEXP_OLATA,IOExpOutA);
 		IOExpOutB = 0xF3;
@@ -2023,6 +2026,7 @@ extern float doubleify(BYTE *p);
 			gpswarn = 0;
 			printf(gpsmsg1);
 		}
+#ifndef	GGPS
 		n = atoi(strs[6]);
 		if ((n < 1) || (n > 2)) 
 		{
@@ -2044,6 +2048,7 @@ extern float doubleify(BYTE *p);
 				SetAudioSrc();
 			}
 		}
+#endif
 		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 		{
 			gps_state = GPS_STATE_VALID;
@@ -2830,6 +2835,8 @@ void secondary_processing_loop(void)
 	static BYTE dispcnt = 0;
 	struct meas *m;
 	BOOL isoffline;
+	BOOL qualtx;
+	WORD g1;
 #ifdef	DSPBEW
 	BYTE qualnoise;
 	static BYTE qualcnt = 255;
@@ -2972,6 +2979,7 @@ void secondary_processing_loop(void)
 		{
 			repeatit = 1;
 			if (isoffline) hangtimer = AppConfig.HangTime + 1;
+			else hangtimer = AppConfig.Duplex3;
 		} else repeatit = 0;
 		if (cwptr || cwtimer1 || hangtimer)
 		{
@@ -2981,20 +2989,22 @@ void secondary_processing_loop(void)
 		}
 		else
 		{
+			if (HasCOR() && HasCTCSS()) g1 = glasertimer = AppConfig.Glasers;
+			else g1 = 0;
+			qualtx = ((!AppConfig.Elkes) ||
+						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes));
+			qualtx &= (!(AppConfig.Glasers && (glasertimer || g1)));
 			if (connected)
 			{
-
 				if (!USE_PPS)
 				{
-					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (AppConfig.Elkes && 
-						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
+					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (!qualtx)))
 					{
 						host_ptt = 0;
 						ptt = 0;
 						SetPTT(0);
 					}
-					else if (!ptt && (txseqno <= (txseqno_ptt + 2)) && ((!AppConfig.Elkes) ||
-						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
+					else if ((!ptt) && (txseqno <= (txseqno_ptt + 2)) && qualtx)
 					{
 						host_ptt = 1;
 						ptt = 1;
@@ -3010,15 +3020,13 @@ void secondary_processing_loop(void)
 						z += y / 1000000;
 						z -= (AppConfig.TxBufferLength - 160) >> 3;
 					}
-					if (ptt && ((z > 60L) || (AppConfig.Elkes && 
-						(AppConfig.Elkes != 0xffffffff) && (elketimer >= AppConfig.Elkes))))
+					if (ptt && ((z > 60L) || (!qualtx)))
 					{
 						host_ptt = 0;
 						ptt = 0;
 						SetPTT(0);
 					}
-					else if (!ptt && (z <= 60L) && ((!AppConfig.Elkes) ||
-						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes)))
+					else if ((!ptt) && (z <= 60L) && qualtx)
 					{
 						host_ptt = 1;
 						ptt = 1;
@@ -4055,8 +4063,8 @@ static void OffLineMenu()
 		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
 		"2  - CW Speed (%u) (1/8000 secs)\n"
 		"3  - Pre-CW Delay (%u) (1/8000 secs)\n"
-		"4  - Post-CW Delay (%u) (1/8000 secs)\n";
-	static ROM char  menu1[] = 
+		"4  - Post-CW Delay (%u) (1/8000 secs)\n",
+		menu1[] = 
 		"5  - CW \"Offline\" (ID) String (%s)\n"
 		"6  - CW \"Online\" String (%s)\n"
 		"7  - \"Offline\" (CW ID) Period Time (%u) (1/10 secs)\n"
@@ -4064,8 +4072,7 @@ static void OffLineMenu()
 		menu1a[] = 
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
-		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n"
-		"12 - Duplex Mode 3 Support (0=DISABLED, 1=ENABLED) (%d)\n",
+		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -4076,7 +4083,7 @@ static void OffLineMenu()
 		secondary_processing_loop();
 		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
 		main_processing_loop();
-		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp,AppConfig.Duplex3);
+		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu2);
@@ -4107,7 +4114,7 @@ static void OffLineMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 12))
+		if ((sel >= 1) && (sel <= 11))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -4208,13 +4215,6 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
-			case 12: // Duplex3 mode
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
-				{
-					AppConfig.Duplex3 = i1;
-					ok = 1;
-				}
-				break;
 			case 99:
 				SaveAppConfig();
 				printf(saved);
@@ -4244,8 +4244,8 @@ int main(void)
 		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
 		menu2[] = 
 		"2  - VOTER Server Address (FQDN) (%s)\n"
-		"3  - VOTER Server Port (%d),  "
-		"4  - Local Port (Override) (%d)\n"
+		"3  - VOTER Server Port (%u),  "
+		"4  - Local Port (Override) (%u)\n"
 		"5  - Client Password (%s),  "
 		"6  - Host Password (%s)\n",
 		menu3[] = 
@@ -4260,12 +4260,13 @@ int main(void)
 		"14 - Debug Level (%d)\n",
 		menu5[] = 
 		"15  - Alt. VOTER Server Address (FQDN) (%s)\n"
-		"16  - Alt. VOTER Server Port (Override) (%d)\n"
+		"16  - Alt. VOTER Server Port (Override) (%u)\n"
 #ifdef	DSPBEW
 		"17  - DSP/BEW Mode (%d)\n"
 #else
 		"17  - DSP/BEW Mode NOT SUPPORTED\n"
 #endif
+		"18 - \"Duplex Mode 3\" (0=DISABLED, 1-255 Hang Time) (1/10 secs) (%u)\n"
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
@@ -4610,9 +4611,9 @@ __builtin_nop();
 		main_processing_loop();
 		secondary_processing_loop();
 #ifdef	DSPBEW
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode);
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode,AppConfig.Duplex3);
 #else
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort);
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.Duplex3);
 #endif
 
 		aborted = 0;
@@ -4652,9 +4653,9 @@ __builtin_nop();
 		}
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 17)) || (sel == 11780))
+		if (((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103))
 #else
-		if (((sel >= 1) && (sel <= 16)) || (sel == 11780))
+		if ((((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
@@ -4813,6 +4814,13 @@ __builtin_nop();
 				}
 				break;
 #endif
+			case 18: // Duplex3 Hang Time
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
+				{
+					AppConfig.Duplex3 = i1;
+					ok = 1;
+				}
+				break;
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();
@@ -4853,6 +4861,11 @@ __builtin_nop();
 				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor);
 				main_processing_loop();
 				secondary_processing_loop();
+#ifdef	GGPS
+				printf("GPS H/W Lock: %s\n",(inputs2 & 16) ? "1" : "0");
+				main_processing_loop();
+				secondary_processing_loop();
+#endif
 				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
@@ -4895,10 +4908,18 @@ __builtin_nop();
 				SaveAppConfig();
 				printf(saved);
 				continue;
-			case 11780: // GPS Baud Rate
+			case 11780: // Elkes
 				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >=0))
 				{
 					AppConfig.Elkes = l * 9677ul;
+					ok = 1;
+				}
+				break;
+			case 1103: // Glasers
+				if (sscanf(cmdstr,"%u",&i1) == 1)
+				{
+					AppConfig.Glasers = i1;
+					if (glasertimer > i1) glasertimer = i1;
 					ok = 1;
 				}
 				break;
@@ -5117,7 +5138,7 @@ static void InitAppConfig(void)
 	AppConfig.CWAfterTime = 4000;
 	strcpy((char *)AppConfig.FailString,"OFF LINE");
 	strcpy((char *)AppConfig.UnFailString,"OK");
-	AppConfig.HangTime = 150;
+	AppConfig.HangTime = 15;
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;

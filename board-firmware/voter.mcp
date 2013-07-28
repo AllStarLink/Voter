@@ -173,9 +173,9 @@ file_013=src\squelch.c
 file_014=src\TCPIP Stack\Telnet.c
 file_015=src\TCPIP Stack\TCP.c
 file_016=src\TCPIP Stack\DynDNS.c
-file_017=src\Voter.c
-file_018=src\doubleify.c
-file_019=src\TCPIP Stack\ICMP.c
+file_017=src\doubleify.c
+file_018=src\TCPIP Stack\ICMP.c
+file_019=src\Voter.c
 file_020=src\HardwareProfile.h
 file_021=src\TCPIPConfig.h
 file_022=src\TCPIP Stack\StackTsk.h
@@ -207,12 +207,12 @@ TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}=-DYMEM_ERRATA=1 -DPSV_ERRATA=1 -g
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall -DIN_SPACE=0 -DIN_X_SPACE=0 -DIN_P_SPACE=1 -DSIM_VAL=0 -DMPLAB_VAL=1 -DVALIDATION=0 -DDATA_TYPE=1 -msmall-code -mlarge-data -O3 -funroll-loops -fomit-frame-pointer -mpa
 TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
-TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}018=-g
-TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}018=-g -fno-short-double -Wall -msmall-code -mlarge-data -O3 -funroll-loops -fomit-frame-pointer -mpa
-TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}018=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
-TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}018=
+TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}017=-g
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}017=-g -fno-short-double -Wall -msmall-code -mlarge-data -O3 -funroll-loops -fomit-frame-pointer -mpa
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}017=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
+TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}017=
 [ACTIVE_FILE_SETTINGS]
-TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}018_active=yes
+TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}017_active=yes
 [INSTRUMENTED_TRACE]
 enable=0
 transport=0
