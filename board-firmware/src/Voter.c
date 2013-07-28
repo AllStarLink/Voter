@@ -243,7 +243,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.20 07/27/2013";
+	VERSION[] = "1.21 07/28/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2993,7 +2993,7 @@ void secondary_processing_loop(void)
 			else g1 = 0;
 			qualtx = ((!AppConfig.Elkes) ||
 						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes));
-			qualtx &= (!(AppConfig.Glasers && (glasertimer || g1)));
+			qualtx &= (!((AppConfig.Glasers && (AppConfig.Glasers != 0xffff)) && (glasertimer || g1)));
 			if (connected)
 			{
 				if (!USE_PPS)
@@ -4907,6 +4907,14 @@ __builtin_nop();
 			case 99:
 				SaveAppConfig();
 				printf(saved);
+				continue;
+			case 111:
+				printf("Elkes: %lu, Glasers: %u\n",AppConfig.Elkes,AppConfig.Glasers);
+				main_processing_loop();
+				secondary_processing_loop();
+				printf(paktc);
+				fflush(stdout);
+				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				continue;
 			case 11780: // Elkes
 				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >=0))
