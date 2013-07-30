@@ -243,7 +243,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.21 07/28/2013";
+	VERSION[] = "1.22 07/29/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -457,6 +457,7 @@ WORD alttimer;
 BOOL altchange;
 BOOL altchange1;
 WORD glasertimer;
+DWORD uptimer;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -1122,6 +1123,7 @@ BYTE *cp;
 			dsecondtimer = 0;
 			if (hangtimer) hangtimer--;
 			failtimer++;
+			uptimer++;
 		}
 	}
 	else
@@ -1461,7 +1463,8 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else if (!connected) 
 		{
 			myflags = 0;
-			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags = 1;
+			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
+			if (AppConfig.Sawyer == 1) myflags |= 4;
 		}
 		else myflags = option_flags;
 		if (myflags & 1)_LATB3 = 1;
@@ -1605,7 +1608,8 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else if (!connected) 
 		{
 			myflags = 0;
-			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags = 1;
+			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
+			if (AppConfig.Sawyer == 1) myflags |= 4;
 		}
 		else myflags = option_flags;
 		oldout = IOExpOutB;
@@ -4276,6 +4280,7 @@ int main(void)
 
 
 	static ROM char oprdata[] = "S/W Version: %s\n"
+		"System Uptime: %lu.%lu Secs\n"
 		"IP Address: %d.%d.%d.%d\n",
 		oprdata1[] = 
 		"Netmask: %d.%d.%d.%d\n",
@@ -4426,6 +4431,8 @@ int main(void)
 	altconnected = 0;
 	altchange = 0;
 	altchange1 = 0;
+	glasertimer = 0;
+	uptimer = 0;
 	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
@@ -4653,9 +4660,9 @@ __builtin_nop();
 		}
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103))
+		if (((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
@@ -4839,7 +4846,7 @@ __builtin_nop();
 				continue;
 			case 98:
 				t = system_time.vtime_sec;
-				printf(oprdata,VERSION,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+				printf(oprdata,VERSION,uptimer / 10,uptimer % 10,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata1,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
@@ -4877,9 +4884,6 @@ __builtin_nop();
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Current System time: %s\n",logtime());
-				main_processing_loop();
-				secondary_processing_loop();
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
@@ -4909,7 +4913,8 @@ __builtin_nop();
 				printf(saved);
 				continue;
 			case 111:
-				printf("Elkes: %lu, Glasers: %u\n",AppConfig.Elkes,AppConfig.Glasers);
+				printf("Elkes (11730): %lu, Glasers (1103): %u, Sawyer (1170): %d\n",
+					AppConfig.Elkes,AppConfig.Glasers,AppConfig.Sawyer);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
@@ -4928,6 +4933,13 @@ __builtin_nop();
 				{
 					AppConfig.Glasers = i1;
 					if (glasertimer > i1) glasertimer = i1;
+					ok = 1;
+				}
+				break;
+			case 1170: // Sawyer Mode
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
+				{
+					AppConfig.Sawyer = i1;
 					ok = 1;
 				}
 				break;

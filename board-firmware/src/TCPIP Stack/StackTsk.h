@@ -157,6 +157,7 @@ typedef struct __attribute__((__packed__))
 	BOOL BEWMode;
 	BYTE Duplex3;
 	WORD Glasers;
+	BYTE Sawyer;
 
 } APP_CONFIG;
 
