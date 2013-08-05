@@ -94,6 +94,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	
 	#define TESTBIT _LATB8
 
+	#define	DIAGMENU
+
 #else
 
 	#define	IOEXP_IODIRA 0
@@ -177,6 +179,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define AFTERCW_TIME (350 * 8) // Delay to hold PTT after cw sent
 #define DSECOND_TIME (100 * 8) // Delay to hold PTT after cw sent
 #define	MAX_ALT_TIME (15 * 2) // Seconds to try alt host if not connected
+#define	MIN_PING_TIME (95 * 8) // Minimum ping time
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
@@ -243,7 +246,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.22 07/29/2013";
+	VERSION[] = "1.23 08/04/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -458,6 +461,7 @@ BOOL altchange;
 BOOL altchange1;
 WORD glasertimer;
 DWORD uptimer;
+WORD pingtimer;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -1112,6 +1116,7 @@ BYTE *cp;
 			gpsforcetimer++;
 			elketimer++;
 			if (glasertimer) glasertimer--;
+			if (pingtimer) pingtimer--;
 		}
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
@@ -2497,6 +2502,25 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					lastrxtimer = 0;
 					if (!wconnected) SetAudioSrc();
 					lastrxtimer = 0;
+					if (ntohs(audio_packet.vph.payload_type) == 5) // PING
+					{
+						if (!pingtimer) // If okay to respond to a ping 
+						{
+					        if (UDPIsPutReady(*udpSocketUser)) {
+								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
+								audio_packet.vph.curtime.vtime_nsec = htonl(0);
+								strcpy((char *)audio_packet.vph.challenge,challenge);
+								audio_packet.vph.digest = htonl(resp_digest);
+								audio_packet.vph.payload_type = htons(5);
+								// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+								cp = (BYTE *) &audio_packet.vph;
+								for(i = 0; i < n; i++) UDPPut(*cp++);
+					            UDPFlush();
+								pingtimer = MIN_PING_TIME;
+							}
+						}
+					}
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
@@ -3620,6 +3644,8 @@ static void SetDynDNS(void)
 }
 
 
+#ifdef	DIAGMENU
+
 static void DiagMenu()
 {
 
@@ -3794,6 +3820,8 @@ static void DiagMenu()
 	}
 	indiag = 0;
 }
+
+#endif
 
 static void IPMenu()
 {
@@ -4433,6 +4461,7 @@ int main(void)
 	altchange1 = 0;
 	glasertimer = 0;
 	uptimer = 0;
+	pingtimer = 0;
 	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
@@ -4643,11 +4672,13 @@ __builtin_nop();
 				printf(booting);
 				RTCM_Reset();
 		}
+#ifdef	DIAGMENU
 		if ((strchr(cmdstr,'D')) || strchr(cmdstr,'d'))
 		{
 				DiagMenu();
 				continue;
 		}
+#endif
 		if ((strchr(cmdstr,'I')) || strchr(cmdstr,'i'))
 		{
 				IPMenu();
