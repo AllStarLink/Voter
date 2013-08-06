@@ -246,7 +246,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.23 08/04/2013";
+	VERSION[] = "1.24 08/06/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -1395,15 +1395,18 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
 			s += tone_v3;
 		}
+		if (ptt)
+		{
 #ifdef	DMWDIAG
-		DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
-		if (mwp > 7) mwp = 0;
+			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
+			if (mwp > 7) mwp = 0;
 #else
-		if (connected)
-			DAC1LDAT = ulawtabletx[txaudio[txdrainindex]] + s;
-		else
-			DAC1LDAT = s;
+			if (connected)
+				DAC1LDAT = ulawtabletx[txaudio[txdrainindex]] + s;
+			else
+				DAC1LDAT = s;
 #endif
+		} else DAC1LDAT = 0;
 		txaudio[txdrainindex++] = ULAW_SILENCE;
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
