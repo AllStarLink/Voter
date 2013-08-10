@@ -246,7 +246,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.24 08/06/2013";
+	VERSION[] = "1.25 08/10/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2543,7 +2543,14 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
 							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
 							index *= FRAME_SIZE;
-							index -= (FRAME_SIZE * 2);
+							if (AppConfig.TxBufferLength >= 1440)
+								index -= (FRAME_SIZE * 4);
+							else if (AppConfig.TxBufferLength >= 1120)
+								index -= (FRAME_SIZE * 3);
+							else if (AppConfig.TxBufferLength >= 800)
+								index -= (FRAME_SIZE * 2);
+							else if (AppConfig.TxBufferLength >= 640)
+								index -= FRAME_SIZE;
 //printf("%ld %ld %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec),myhost_txseqno);
 						}
 						else
@@ -2551,9 +2558,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
 							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 							index += (ndiff / 125000);
+							index += (FRAME_SIZE * 2);
 						}
-						index -= (FRAME_SIZE * 2);
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
+//printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
 						last_rxpacket_index = index;
                         /* if in bounds */
                         if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
@@ -4761,7 +4769,7 @@ __builtin_nop();
 				}
 				break;
 			case 7: // Tx Buffer Length
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 800) && (i1 <= MAX_BUFLEN))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN))
 				{
 					AppConfig.TxBufferLength = i1;
 					ok = 1;
