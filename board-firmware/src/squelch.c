@@ -18,21 +18,23 @@
 *   You should have received a copy of the GNU General Public License
 *   along with this project.  If not, see <http://www.gnu.org/licenses/>.
 */
+// 4-19-2012 Modified by Chuck Henderson, WB9UUS, CAH: to fix a minor bug and to 
+// prevent giving long squelch tail for short but full quieting signals.
 
 #include <string.h>
 #include "HardwareProfile.h"
 #include "TCPIP Stack/TCPIP.h"
 
 // Tunable constants
-
 #define SQOPEN		928		// Squelch open setting
 #define CALNOISE	900		// Peak noise amplitude to look for during calibration.
 #define HYSTERESIS	24		// Amount of hysteresis to open /close in noisy mode
+#ifndef CHUCK_SQUELCH
 #define CLOSETIME	70		// # of ticks for max close time
 #define FASTSLOWLIMIT	1000		// Fast/Slow limit
 #define FASTSLOWTHRESH	16		// Counts demarcating fast and slow squelch mode
 #define REOPENHOLDOFF	32		// # of ticks to wait after a strong signal dissapears
-
+#endif
 #define ADCFS		1023	// ADC Full scale value
 #define ADCMIN		0		// ADC minimum value
 
@@ -55,8 +57,10 @@ static BYTE looptimer;				// GP loop timer for interrupt state machines
 static BYTE noisehead;				// Noise history buffer head
 static WORD mavnoise32;  			// Modified average noise over 32 samples
 static WORD noisehistory[NHBSIZE];		// Noise history buffer
+#ifndef CHUCK_SQUELCH
 static short int fastslow;			// Fast Slow counter
 static short int fastslowadjust;		// Time adjust amount for close time 
+#endif
 static WORD sqposm, sqposp;		// Squelch position without, with positive, and with negative hysteresis
 
 // RAM variables intended to be read by other modules
@@ -129,7 +133,11 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 {
 
 	BYTE x;
+#ifdef CHUCK_SQUELCH
+	WORD noise50msago;
+#else
 	WORD n;
+#endif
 	WORD sqposcomp;
 	short int tcomp;
 
@@ -159,6 +167,19 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 
 	// Calculate long term modified average
 
+#ifdef CHUCK_SQUELCH
+	mavnoise32 = ((mavnoise32 * 31) + noise) >> 5; // average over the last 120ms including current noise
+	// Take an average of the oldest 2 samples in the history buffer
+	// on arival here noisehead points to oldest sample in 16 sample array
+	// this averages samples back 13 and 14 from now in buffer to see what the
+	// signal was like 50 ms before the unkey??
+	x = noisehead + 1;
+	x &= (NHBSIZE - 1);
+	noise50msago = noisehistory[x++];  // repaired this line to increment x rather than add 1 to noise50msago
+	x &= (NHBSIZE - 1);
+	noise50msago += noisehistory[x];
+	noise50msago >>= 1;
+#else
 	mavnoise32 = ((mavnoise32 * 31) + noise) >> 5;
 
 	// Take an average of the last 2 samples in the history buffer
@@ -203,6 +224,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 	      fastslow = 0;
 	else
 	      fastslow += fastslowadjust;
+#endif
 
 	// *** State machines ***
 
@@ -295,7 +317,12 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 				sqled = 0;
 				cor = 0;
 				if(mavnoise32 < sqposm){
+#ifdef CHUCK_SQUELCH
+					if (iscaled) cor = 1;
+					sqled = 1;
+#else
 					fastslow = FASTSLOWLIMIT;
+#endif
 					sqstate = OPEN;
 				}
 				break;
@@ -303,6 +330,22 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 			case OPEN:
 				if (iscaled) cor = 1;
 				sqled = 1;
+#ifdef CHUCK_SQUELCH
+				if(noise50msago < 64) {  // relativly strong signal 50ms ago?
+					if(noise >= sqposp){ // but carrier gone right now (due to unkey) (no averaging) then instantly close.
+						mavnoise32 = CALNOISE;
+						cor = 0;
+						sqled = 0;
+						sqstate = CLOSED;
+					}
+				}
+				if(mavnoise32 >= sqposp){ // Slowly degrading carrier over 120ms average?
+					cor = 0;
+					sqled = 0;
+					sqstate = CLOSED;
+				}
+				break;
+#else
 				if(!fastslow){
 					sqstate = OPEN_FAST; // Fast squelch mode
 				}
@@ -354,7 +397,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 				if(!looptimer)
 					sqstate = CLOSED;
 				break;
-
+#endif
 
 			default:
 				sqstate = CLOSED;

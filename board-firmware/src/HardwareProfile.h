@@ -61,6 +61,13 @@ extern char dummy_loc;
 #define SMT_BOARD
 #endif
 
+// #define CHUCK
+
+#if	defined CHUCK
+#define	CHUCK_SQUELCH
+#define	CHUCK_RSSI
+#endif
+
 // Set configuration fuses (but only once)
 #if defined(THIS_IS_STACK_APPLICATION)
 
