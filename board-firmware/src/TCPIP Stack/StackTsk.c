@@ -109,7 +109,7 @@ NODE_INFO remoteNode;
  *                  stack or its component routines are used.
  *
  ********************************************************************/
-void StackInit(void)
+void StackInit(BOOL fulldup)
 {
     smStack                     = SM_STACK_IDLE;
 
@@ -126,7 +126,7 @@ void StackInit(void)
 	// Seed the LFSRRand() function
 	LFSRSeedRand(GenerateRandomDWORD());
 
-    MACInit();
+    MACInit(fulldup);
 
 #if defined(WF_CS_TRIS) && defined(STACK_USE_EZ_CONFIG)
     WFEasyConfigInit();

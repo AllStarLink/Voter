@@ -81,7 +81,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 // Include all headers for any enabled TCPIP Stack functions
 #include "TCPIP Stack/TCPIP.h"
 
-#define	DIAGMENU
 
 #if defined(SMT_BOARD)
 
@@ -96,7 +95,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	
 	#define TESTBIT _LATB8
 
-//	#define	DIAGMENU
+	#define	DIAGMENU
 
 #else
 
@@ -132,6 +131,10 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATA1
+
+#ifndef	DSPBEW
+	#define	DIAGMENU
+#endif
 
 	//#define	GGPS	// Define this if GGPS-type system
 
@@ -248,7 +251,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.28 08/14/2013";
+	VERSION[] = "1.29 08/16/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -3785,7 +3788,7 @@ static void IPMenu()
 		BOOL bootok,ok;
 		int sel;
 
-	static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+		static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
 		"1  - (Static) IP Address (%d.%d.%d.%d)\n",
 		menu1[] = 
 		"2  - (Static) Netmask (%d.%d.%d.%d)\n",
@@ -3806,7 +3809,8 @@ static void IPMenu()
 		"12 - DynDNS Password (%s)\n"
 		"13 - DynDNS Host (%s)\n",
 		menu7[] = 
-		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n",
+		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
+		"15 - Ethernet Duplex (0=Half, 1=Full) (%d)\n",
 		menu8[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit IP Parameters Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -3841,7 +3845,7 @@ static void IPMenu()
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu7,AppConfig.BootIPAddr.v[0],AppConfig.BootIPAddr.v[1],AppConfig.BootIPAddr.v[2],
-			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD");
+			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD",AppConfig.EthFullDuplex);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu8);
@@ -3872,7 +3876,7 @@ static void IPMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 14))
+		if ((sel >= 1) && (sel <= 15))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -4020,6 +4024,13 @@ static void IPMenu()
 					AppConfig.BootIPAddr.v[2] = i3;
 					AppConfig.BootIPAddr.v[3] = i4;
 					AppConfig.BootIPCheck = GetBootCS();
+					ok = 1;
+				}
+				break;
+			case 15: // Ethernet Duplex Setting
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
+				{
+					AppConfig.EthFullDuplex = i1;
 					ok = 1;
 				}
 				break;
@@ -4211,7 +4222,6 @@ static void OffLineMenu()
 	}
 }
 
-
 int main(void)
 {
 
@@ -4242,7 +4252,7 @@ int main(void)
 		"11 - GPS Baud Rate (%lu)\n"
 		"12 - External CTCSS (0=Ignore, 1=Non-Inverted, 2=Inverted) (%d)\n"
 		"13 - COR Type (0=Normal, 1=IGNORE COR, 2=No Receiver) (%d)\n"
-		"14 - Debug Level (%d)\n",
+		"14 - Debug Level (%lu)\n",
 		menu5[] = 
 		"15  - Alt. VOTER Server Address (FQDN) (%s)\n"
 		"16  - Alt. VOTER Server Port (Override) (%u)\n"
@@ -4520,7 +4530,7 @@ int main(void)
 
 	// Initialize core stack layers (MAC, ARP, TCP, UDP) and
 	// application modules (HTTP, SNMP, etc.)
-    StackInit();
+    StackInit(AppConfig.EthFullDuplex);
 
 	SetAudioSrc();
 
@@ -4559,6 +4569,19 @@ __builtin_nop();
 
 	printf(signon,VERSION);
 
+	if (sizeof(AppConfig) != 1016)
+	{	
+		DWORD d;
+		printf("??? %d\n",sizeof(AppConfig));
+		for(d = 0; d < 2000000; d++) ClrWdt();
+		Reset();
+	}
+
+	memset(&AppConfig.Zeros,0,sizeof(AppConfig.Zeros));
+	AppConfig.DebugLevel1 &= 0xffffff00;
+	AppConfig.DebugLevel1 |= AppConfig.DebugLevel & 0xff;
+	SaveAppConfig();
+
 	if (AppConfig.Flags.bIsDHCPReallyEnabled)
 		dwLastIP = AppConfig.MyIPAddr.Val;
 
@@ -4596,7 +4619,7 @@ __builtin_nop();
 		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel);
+		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel1);
 		main_processing_loop();
 		secondary_processing_loop();
 #ifdef	DSPBEW
@@ -4774,9 +4797,10 @@ __builtin_nop();
 				}
 				break;
 			case 14: // Debug Level
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 10000))
+				if (sscanf(cmdstr,"%lu",&l) == 1)
 				{
-					AppConfig.DebugLevel = i1;
+					AppConfig.DebugLevel1 = l;
+					AppConfig.DebugLevel = l & 0xff;
 					ok = 1;
 				}
 				break;
@@ -4846,7 +4870,7 @@ __builtin_nop();
 					AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata5,AppConfig.Flags.bIsDHCPEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor);

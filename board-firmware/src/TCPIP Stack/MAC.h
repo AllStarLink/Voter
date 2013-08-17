@@ -283,7 +283,7 @@ BYTE	GetCLKOUT(void);
 #define GetLEDConfig()		ReadPHYReg(PHLCON).Val
 
 
-void MACInit(void);
+void MACInit(BOOL fulldup);
 void MACProcess(void);
 BOOL MACIsLinked(void);
 

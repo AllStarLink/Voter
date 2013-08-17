@@ -158,7 +158,9 @@ typedef struct __attribute__((__packed__))
 	BYTE Duplex3;
 	WORD Glasers;
 	BYTE Sawyer;
-
+	DWORD DebugLevel1;
+	BOOL EthFullDuplex;
+	BYTE Zeros[568];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
@@ -166,7 +168,7 @@ typedef struct __attribute__((__packed__))
 #endif
 
 
-void StackInit(void);
+void StackInit(BOOL fulldup);
 void StackTask(void);
 void StackApplications(void);
 

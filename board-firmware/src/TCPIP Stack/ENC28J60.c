@@ -92,9 +92,6 @@
 // not compatible with most switches/routers.  If a dedicated network is used
 // where the duplex of the remote node can be manually configured, you may
 // change this configuration.  Otherwise, half duplex should always be used.
-#define HALF_DUPLEX
-//#define FULL_DUPLEX
-//#define LEDB_DUPLEX
 
 // Pseudo Functions
 #define LOW(a)                  ((a) & 0xFF)
@@ -199,7 +196,7 @@ void MACBurp(void)
  *
  * Note:            None
  *****************************************************************************/
-void MACInit(void)
+void MACInit(BOOL fulldup)
 {
     BYTE i;
 
@@ -351,11 +348,15 @@ void MACInit(void)
     SetLEDConfig(0x3472);
 
     // Set the MAC and PHY into the proper duplex state
-#if defined(FULL_DUPLEX)
-    WritePHYReg(PHCON1, PHCON1_PDPXMD);
-#elif defined(HALF_DUPLEX)
-    WritePHYReg(PHCON1, 0x0000);
-#else
+	if (fulldup)
+	{
+    	WritePHYReg(PHCON1, PHCON1_PDPXMD);
+	}
+	else
+	{
+    	WritePHYReg(PHCON1, 0x0000);
+	}
+#if 0
     // Use the external LEDB polarity to determine weather full or half duplex
     // communication mode should be set.
     {
