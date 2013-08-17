@@ -1,7 +1,7 @@
 /*
 * VOTER Client System Firmware for VOTER board
 *
-* Copyright (C) 2011,2012
+* Copyright (C) 2011-2013
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
 *
 * This file is part of the VOTER System Project 
@@ -95,7 +95,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	
 	#define TESTBIT _LATB8
 
+#ifndef	DSPBEW
 	#define	DIAGMENU
+#endif
 
 #else
 
@@ -185,6 +187,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define DSECOND_TIME (100 * 8) // Delay to hold PTT after cw sent
 #define	MAX_ALT_TIME (15 * 2) // Seconds to try alt host if not connected
 #define	MIN_PING_TIME (95 * 8) // Minimum ping time
+#define	MISS_REPORT_TIME 100 // Interval between "miss packet" reports (1/10 secs)
+#define	PKT_MISS_TIME (500 * 8)	// 500ms for display of miss packet (winky LED) 
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
@@ -251,7 +255,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.29 08/16/2013";
+	VERSION[] = "1.30 08/17/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -467,6 +471,9 @@ BOOL altchange1;
 WORD glasertimer;
 DWORD uptimer;
 WORD pingtimer;
+long missed;
+WORD misstimer;
+WORD misstimer1;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -1060,6 +1067,7 @@ BYTE *cp;
 			elketimer++;
 			if (glasertimer) glasertimer--;
 			if (pingtimer) pingtimer--;
+			if (misstimer1) misstimer1--;
 		}
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
@@ -1072,6 +1080,7 @@ BYTE *cp;
 			if (hangtimer) hangtimer--;
 			failtimer++;
 			uptimer++;
+			if (misstimer) misstimer--;
 		}
 	}
 	else
@@ -2509,7 +2518,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 //printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
 						last_rxpacket_index = index;
                         /* if in bounds */
-                        if ((index > 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
+                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
 							last_rxpacket_inbounds = 1;
 							if (!USE_PPS)
@@ -2562,9 +2571,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	                            }
 							}
                         }
-						else if (!USE_PPS)
+						else /* not in bounds */
 						{
-							host_txseqno = 0;
+							if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))
+								missed = index - (AppConfig.TxBufferLength - (FRAME_SIZE * 2));
+							else
+								missed = index;
+							misstimer1 = PKT_MISS_TIME;
+							if (!USE_PPS)
+							{
+								host_txseqno = 0;
+							}
 						}
 					}
 				}
@@ -2781,12 +2798,13 @@ void secondary_processing_loop(void)
 		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
 		altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n", altdnsfailed[] = "  Warning: Unable to resolve DNS for Alternate Voter Host %s\n",
 		altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n", dnshost[] = "  Using Primary Voter Host (%d.%d.%d.%d)\n",
-		dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",
+		dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
 		gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n", losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";	
 	
 	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
 			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
 			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
+#ifdef	DIAGMENU
 	static ROM char diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
 		diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
 		diagerr3[] = "Error - Failed to read data from GPS UART\n",
@@ -2809,15 +2827,17 @@ void secondary_processing_loop(void)
 		{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} 
 	};
 
-
 	static ROM BYTE diaguart[] = {0x55,0xaa,0x69,0};
 
-	static DWORD t = 0, t1 = 0, tdisp = 0,tdiag = 0;
+#endif
+
+	static DWORD t = 0, t1 = 0, t2 = 0, tdisp = 0;
+
 	long meas,thresh;
 	WORD i,mypeak;
 	long x,y,z;
 	static BYTE dispcnt = 0;
-	struct meas *m;
+
 	BOOL isoffline;
 	BOOL qualtx;
 	WORD g1;
@@ -2825,8 +2845,10 @@ void secondary_processing_loop(void)
 	BYTE qualnoise;
 	static BYTE qualcnt = 255;
 #endif
-
-
+#ifdef	DIAGMENU
+	struct meas *m;
+	static DWORD tdiag = 0;
+#endif
 
 	static WORD mynoise;
 
@@ -3028,7 +3050,7 @@ void secondary_processing_loop(void)
 
 		if (LEVDISP)
 		{
-			SetLED(CONNLED,connected);
+			if ((!misstimer1) || (!connected)) SetLED(CONNLED,connected);
 			if ((gps_state == GPS_STATE_SYNCED) ||
 				((gps_state == GPS_STATE_VALID) && (!USE_PPS)))
 					SetLED(GPSLED,1);
@@ -3067,6 +3089,12 @@ void secondary_processing_loop(void)
     {
 	  t1 = TickGet();
 	  if (indiag) ToggleLED(SYSLED);
+    }
+    // Blink LEDs as appropriate
+    if(TickGet() - t2 >= TICK_SECOND / 10ul)
+    {
+	  t2 = TickGet();
+	  if (misstimer1) ToggleLED(CONNLED);
     }
     // Blink LEDs as appropriate
     if(TickGet() - t >= TICK_SECOND / 2ul)
@@ -3149,6 +3177,8 @@ void secondary_processing_loop(void)
 				break;
 		}
    }
+
+#ifdef	DIAGMENU
 
    // "Diagnostic Suite" handler
    if (indiag && (tdiag < TickGet()))
@@ -3314,6 +3344,8 @@ void secondary_processing_loop(void)
 			}
 		}
 	}
+#endif
+
     if (gotbadmix)
 	{
 		printf(logtime());
@@ -3348,6 +3380,13 @@ void secondary_processing_loop(void)
 		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
 	}
 	altdnsnotify = 0;
+	if (missed && (!misstimer))
+	{
+		printf(logtime());
+		printf(miss_str,-missed);
+		misstimer = MISS_REPORT_TIME;
+		missed = 0;
+	}
 	if (!indiag)
 	{
 		if ((!connected) && connrep)
@@ -4425,6 +4464,9 @@ int main(void)
 	glasertimer = 0;
 	uptimer = 0;
 	pingtimer = 0;
+	missed = 0;
+	misstimer = 0;
+	misstimer1 = 0;
 	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
