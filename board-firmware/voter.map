@@ -1,4 +1,4 @@
-Microchip Technology Inc, vv3_31 (A) M
+Microchip Technology Inc, vv3_31 (A) Å
 
 Tool Name:
   c:\program files (x86)\microchip\mplab c30\bin\bin\..\bin/pic30-coff-ld.exe
@@ -250,10 +250,10 @@ section                    address   length (PC units)   length (bytes) (dec)
 .text                       0x3400              0x3848          0x546c  (21612)
 .text                       0x6c48              0x907e          0xd8bd  (55485)
 .dinit                      0xfcc6               0x94a           0xdef  (3567)
-.text                      0x10610              0x2890          0x3cd8  (15576)
+.text                      0x10610              0x2898          0x3ce4  (15588)
 .const                     0x132c0              0x2540          0x37e0  (14304)
 
-                     Total program memory used (bytes):        0x1afd0  (110544) 98%
+                     Total program memory used (bytes):        0x1afdc  (110556) 98%
 
 
 Data Memory  [Origin = 0x800, Length = 0x4000]
@@ -969,14 +969,14 @@ External Symbols in Program Memory (by address):
                   0x012c46                  _StackApplications
                   0x012c4a                  _IPSetRxBuffer
                   0x012c6c                  _IPPutHeader
-                  0x012cf4                  _IPGetHeader
-                  0x012d74                  _TickInit
-                  0x012ddc                  _TickGet
-                  0x012de4                  _TickGetDiv256
-                  0x012e08                  _TickGetDiv64K
-                  0x012e2c                  _TickConvertToMilliseconds
-                  0x012e3e                  __T1Interrupt
-                  0x012e52                  _doubleify
+                  0x012cfc                  _IPGetHeader
+                  0x012d7c                  _TickInit
+                  0x012de4                  _TickGet
+                  0x012dec                  _TickGetDiv256
+                  0x012e10                  _TickGetDiv64K
+                  0x012e34                  _TickConvertToMilliseconds
+                  0x012e46                  __T1Interrupt
+                  0x012e5a                  _doubleify
                   0x0132c0                  _ulawtabletx
                   0x0134c0                  _exp_lut
                   0x0135c0                  _VERSION
@@ -1049,7 +1049,7 @@ External Symbols in Program Memory (by name):
                   0x009112                  _IOExpInit
                   0x009138                  _IOExp_Read
                   0x007e7a                  _IOExp_Write
-                  0x012cf4                  _IPGetHeader
+                  0x012cfc                  _IPGetHeader
                   0x012c6c                  _IPPutHeader
                   0x012c4a                  _IPSetRxBuffer
                   0x011836                  _InitUARTS
@@ -1122,11 +1122,11 @@ External Symbols in Program Memory (by name):
                   0x00cf20                  _TCPTick
                   0x00be48                  _TCPWasReset
                   0x0121ba                  _TelnetTask
-                  0x012e2c                  _TickConvertToMilliseconds
-                  0x012ddc                  _TickGet
-                  0x012de4                  _TickGetDiv256
-                  0x012e08                  _TickGetDiv64K
-                  0x012d74                  _TickInit
+                  0x012e34                  _TickConvertToMilliseconds
+                  0x012de4                  _TickGet
+                  0x012dec                  _TickGetDiv256
+                  0x012e10                  _TickGetDiv64K
+                  0x012d7c                  _TickInit
                   0x0090d6                  _ToggleLED
                   0x010d12                  _UDPClose
                   0x010ff6                  _UDPDiscard
@@ -1167,7 +1167,7 @@ External Symbols in Program Memory (by name):
                   0x0076cc                  __MathError
                   0x0076ae                  __OscillatorFail
                   0x0076c6                  __StackError
-                  0x012e3e                  __T1Interrupt
+                  0x012e46                  __T1Interrupt
                   0x011720                  __U1RXInterrupt
                   0x01177e                  __U1TXInterrupt
                   0x0117ac                  __U2RXInterrupt
@@ -1254,7 +1254,7 @@ External Symbols in Program Memory (by name):
                   0x00398e                  _cosf
                   0x0043c4                  _ctime
                   0x0155ca                  _ddnsServiceHosts
-                  0x012e52                  _doubleify
+                  0x012e5a                  _doubleify
                   0x0136b9                  _entnewval
                   0x0134c0                  _exp_lut
                   0x00495a                  _fflush
@@ -1714,7 +1714,7 @@ __FUID3
                   0x000014          0x4 LONG 0x769c DEFINED (__INT0Interrupt)?ABSOLUTE (__INT0Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x000016          0x4 LONG 0x769c DEFINED (__IC1Interrupt)?ABSOLUTE (__IC1Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x000018          0x4 LONG 0x769c DEFINED (__OC1Interrupt)?ABSOLUTE (__OC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00001a          0x4 LONG 0x12e3e DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00001a          0x4 LONG 0x12e46 DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x00001c          0x4 LONG 0x769c DEFINED (__DMA0Interrupt)?ABSOLUTE (__DMA0Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x00001e          0x4 LONG 0x769c DEFINED (__IC2Interrupt)?ABSOLUTE (__IC2Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x000020          0x4 LONG 0x769c DEFINED (__OC2Interrupt)?ABSOLUTE (__OC2Interrupt):ABSOLUTE (__DefaultInterrupt)
@@ -1842,7 +1842,7 @@ __FUID3
                   0x000114          0x4 LONG 0x769c DEFINED (__AltINT0Interrupt)?ABSOLUTE (__AltINT0Interrupt):DEFINED (__INT0Interrupt)?ABSOLUTE (__INT0Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x000116          0x4 LONG 0x769c DEFINED (__AltIC1Interrupt)?ABSOLUTE (__AltIC1Interrupt):DEFINED (__IC1Interrupt)?ABSOLUTE (__IC1Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x000118          0x4 LONG 0x769c DEFINED (__AltOC1Interrupt)?ABSOLUTE (__AltOC1Interrupt):DEFINED (__OC1Interrupt)?ABSOLUTE (__OC1Interrupt):ABSOLUTE (__DefaultInterrupt)
-                  0x00011a          0x4 LONG 0x12e3e DEFINED (__AltT1Interrupt)?ABSOLUTE (__AltT1Interrupt):DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
+                  0x00011a          0x4 LONG 0x12e46 DEFINED (__AltT1Interrupt)?ABSOLUTE (__AltT1Interrupt):DEFINED (__T1Interrupt)?ABSOLUTE (__T1Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x00011c          0x4 LONG 0x769c DEFINED (__AltDMA0Interrupt)?ABSOLUTE (__AltDMA0Interrupt):DEFINED (__DMA0Interrupt)?ABSOLUTE (__DMA0Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x00011e          0x4 LONG 0x769c DEFINED (__AltIC2Interrupt)?ABSOLUTE (__AltIC2Interrupt):DEFINED (__IC2Interrupt)?ABSOLUTE (__IC2Interrupt):ABSOLUTE (__DefaultInterrupt)
                   0x000120          0x4 LONG 0x769c DEFINED (__AltOC2Interrupt)?ABSOLUTE (__AltOC2Interrupt):DEFINED (__OC2Interrupt)?ABSOLUTE (__OC2Interrupt):ABSOLUTE (__DefaultInterrupt)
@@ -3557,7 +3557,7 @@ __c30_signature
 .dinit            0x00fcc6        0x94a
  .dinit           0x00fcc6        0x94a data_init
 
-.text             0x010610       0x2890
+.text             0x010610       0x2898
  .text            0x010610        0x702 DHCP.o
                   0x010610                  DHCPInit
                   0x01063c                  DHCPDisable
@@ -3651,16 +3651,16 @@ __c30_signature
                   0x012ac8                  StackInit
                   0x012afa                  StackTask
                   0x012c46                  StackApplications
- .text            0x012c4a        0x12a IP.o
+ .text            0x012c4a        0x132 IP.o
                   0x012c4a                  IPSetRxBuffer
                   0x012c6c                  IPPutHeader
-                  0x012cf4                  IPGetHeader
- .text            0x012d74         0xde Tick.o
-                  0x012d74                  TickInit
-                  0x012ddc                  TickGet
-                  0x012de4                  TickGetDiv256
-                  0x012e08                  TickGetDiv64K
-                  0x012e2c                  TickConvertToMilliseconds
-                  0x012e3e                  _T1Interrupt
- .text            0x012e52         0x4e doubleify.o
-                  0x012e52                  doubleify
+                  0x012cfc                  IPGetHeader
+ .text            0x012d7c         0xde Tick.o
+                  0x012d7c                  TickInit
+                  0x012de4                  TickGet
+                  0x012dec                  TickGetDiv256
+                  0x012e10                  TickGetDiv64K
+                  0x012e34                  TickConvertToMilliseconds
+                  0x012e46                  _T1Interrupt
+ .text            0x012e5a         0x4e doubleify.o
+                  0x012e5a                  doubleify

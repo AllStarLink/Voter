@@ -67,6 +67,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 1 - Alt/Main Host change notifications
 8 - Simulcast Development mode
+16 - IP TOS Class for Ubiquiti
 32 - GPS Debug
 64 - Fix GPS 1 second off
 128 - Fix GPS 1 month off (WTF,O??)
@@ -255,7 +256,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.30 08/17/2013";
+	VERSION[] = "1.31 08/22/2013";
 
 typedef struct {
 	DWORD vtime_sec;

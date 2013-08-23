@@ -87,7 +87,7 @@
 #define IP_SERVICE_N_RELIB  (0x00)
 #define IP_SERVICE_H_RELIB  (0x20)
 
-#define IP_SERVICE          (IP_SERVICE_ROUTINE | IP_SERVICE_N_DELAY)
+#define IP_SERVICE         ((AppConfig.DebugLevel & 16) ? 0xc0 : (IP_SERVICE_ROUTINE | IP_SERVICE_N_DELAY))
 
 #if defined(STACK_USE_ZEROCONF_MDNS_SD)
   #define MY_IP_TTL           (255)  // Time-To-Live in hops 
