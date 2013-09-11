@@ -206,7 +206,8 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define CLIP 32635
 
 #define	DUPLEX3 (AppConfig.Duplex3 != 0)
-#define	SIMULCAST_DEV (AppConfig.DebugLevel & 8)
+//#define	SIMULCAST_ENABLE (AppConfig.DebugLevel & 8)
+#define	SIMULCAST_ENABLE (AppConfig.LaunchDelay > 0)
 
 #ifdef DSPBEW
 
@@ -256,7 +257,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.31 08/22/2013";
+	VERSION[] = "1.32 09/11/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -475,6 +476,7 @@ WORD pingtimer;
 long missed;
 WORD misstimer;
 WORD misstimer1;
+BOOL launched;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -857,17 +859,6 @@ short i,x;
 
 void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
-
-//Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
 BOOL ppsx;
 
 	CORCONbits.PSV = 1;
@@ -879,8 +870,6 @@ BOOL ppsx;
 	{
 		if (USE_PPS && (!indiag))
 		{
-			ppstimer = 0;
-			ppswarn = 0;
 			if ((gps_state == GPS_STATE_VALID) && (!gotpps))
 			{
 				TMR3 = 0;
@@ -893,146 +882,177 @@ BOOL ppsx;
 			{
 				if (ppscount >= 3)
 				{
-					DAC1CONbits.DACEN = 1;
-					if ((samplecnt >= 7999) && (samplecnt <= 8001))
-					{
-						last_samplecnt = samplecnt;
-						sendgps = 1;
-						real_time++;
-						if ((samplecnt < 8000) && (!SIMULCAST_DEV)) // If we are short one, insert another
-						{
-							if (option_flags & OPTION_FLAG_ADPCM)
-							{
-								val = last_adcsample;
-								val -= 2048;
-								val *= 16;
-								adpcm_index = enc_index;
-								valpred = enc_valprev;
-							    step = stepsizeTable[adpcm_index];
-								
-								/* Step 1 - compute difference with previous value */
-								diff = val - valpred;
-								sign = (diff < 0) ? 8 : 0;
-								if ( sign ) diff = (-diff);
-							
-								/* Step 2 - Divide and clamp */
-								/* Note:
-								** This code *approximately* computes:
-								**    delta = diff*4/step;
-								**    vpdiff = (delta+0.5)*step/4;
-								** but in shift step bits are dropped. The net result of this is
-								** that even if you have fast mul/div hardware you cannot put it to
-								** good use since the fixup would be too expensive.
-								*/
-								delta = 0;
-								vpdiff = (step >> 3);
-								
-								if ( diff >= step ) {
-								    delta = 4;
-								    diff -= step;
-								    vpdiff += step;
-								}
-								step >>= 1;
-								if ( diff >= step  ) {
-								    delta |= 2;
-								    diff -= step;
-								    vpdiff += step;
-								}
-								step >>= 1;
-								if ( diff >= step ) {
-								    delta |= 1;
-								    vpdiff += step;
-								}
-							
-								/* Step 3 - Update previous value */
-								if ( sign )
-								  valpred -= vpdiff;
-								else
-								  valpred += vpdiff;
-							
-								/* Step 4 - Clamp previous value to 16 bits */
-								if ( valpred > 32767 )
-								  valpred = 32767;
-								else if ( valpred < -32768 )
-								  valpred = -32768;
-							
-								/* Step 5 - Assemble value, update index and step values */
-								delta |= sign;
-								
-								adpcm_index += indexTable[delta];
-								if ( adpcm_index < 0 ) adpcm_index = 0;
-								if ( adpcm_index > 88 ) adpcm_index = 88;
-								enc_valprev = valpred;
-								enc_index = adpcm_index;
-								if (fillindex & 1)
-								{
-									audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
-								}
-								else
-								{
-									enc_lastdelta = delta;
-								}
-							}
-							else  // is ULAW
-							{
-						        short sample,sign, exponent, mantissa;
-						        BYTE ulawbyte;
-						
-								sample = last_adcsample;
-								sample -= 2048;
-								sample *= 16;
-						        /* Get the sample into sign-magnitude. */
-						        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-						        if (sign != 0)
-						                sample = -sample;              /* get magnitude */
-						        if (sample > CLIP)
-						                sample = CLIP;             /* clip the magnitude */
-						
-						        /* Convert from 16 bit linear to ulaw. */
-						        sample = sample + BIAS;
-						        exponent = exp_lut[(sample >> 7) & 0xFF];
-						        mantissa = (sample >> (exponent + 3)) & 0x0F;
-						        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-
-
-								audio_buf[filling_buffer][fillindex++] = ulawbyte;
-							}
-							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
-							{
-								if (option_flags & OPTION_FLAG_ADPCM)
-								{
-									cp = &audio_buf[filling_buffer][fillindex >> 1];
-									*cp++ = (enc_prev_valprev & 0xff00) >> 8;
-									*cp++ = enc_prev_valprev & 0xff;
-									*cp = enc_index;
-									enc_prev_valprev = enc_valprev;
-									enc_prev_index = enc_index;
-								}
-								filled = 1;
-								fillindex = 0;
-								filling_buffer ^= 1;
-								last_drainindex = txdrainindex;
-								timing_index = next_index;
-								timing_time = next_time;
-							}
-						}
-						if ((!gpssync) && (gps_state == GPS_STATE_VALID))
-						{
-							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
-							gpssync = 1;
-						}
-					}
-					else
-					{
-						gpssync = 0;
-						ppscount = 0;
-					}
+					T4CON = 0x10;			//TMR4 divide Fosc by 8
+					PR4 = AppConfig.LaunchDelay + 5; // Give 1us to let it get outa the CN interrupt!!!! :-)		
+					TMR4 = 0;
+					IFS1bits.T4IF = 0;
+					IEC1bits.T4IE = 1;
+					IPC6bits.T4IP = 6;
+					T4CONbits.TON = 1;		//Turn it on
 			    } else ppscount++;
 			}
-			samplecnt = 0;
 		}
+		ppstimer = 0;
+		ppswarn = 0;
 	}
 	IFS1bits.CNIF = 0;
+}
+
+void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
+{
+//Stuff for ADPCM encode
+int val;			/* Current input sample value */
+int sign;			/* Current adpcm sign bit */
+BYTE delta;			/* Current adpcm output value */
+int diff;			/* Difference between val and valprev */
+int step;			/* Stepsize */
+int vpdiff;			/* Current change to valpred */
+long valpred;		/* Predicted output value */
+int adpcm_index;
+BYTE *cp;
+
+	CORCONbits.PSV = 1;
+	IFS1bits.T4IF = 0;
+	IEC1bits.T4IE = 0;
+	T4CONbits.TON = 0;		//Turn it off
+	DAC1CONbits.DACEN = 1;
+	IEC4bits.DAC1LIE = 1;
+
+	if ((samplecnt >= 7999) && (samplecnt <= 8001))
+	{
+		last_samplecnt = samplecnt;
+		sendgps = 1;
+		real_time++;
+		if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) // If we are short one, insert another
+		{
+			if (option_flags & OPTION_FLAG_ADPCM)
+			{
+				val = last_adcsample;
+				val -= 2048;
+				val *= 16;
+				adpcm_index = enc_index;
+				valpred = enc_valprev;
+			    step = stepsizeTable[adpcm_index];
+				
+				/* Step 1 - compute difference with previous value */
+				diff = val - valpred;
+				sign = (diff < 0) ? 8 : 0;
+				if ( sign ) diff = (-diff);
+			
+				/* Step 2 - Divide and clamp */
+				/* Note:
+				** This code *approximately* computes:
+				**    delta = diff*4/step;
+				**    vpdiff = (delta+0.5)*step/4;
+				** but in shift step bits are dropped. The net result of this is
+				** that even if you have fast mul/div hardware you cannot put it to
+				** good use since the fixup would be too expensive.
+				*/
+				delta = 0;
+				vpdiff = (step >> 3);
+				
+				if ( diff >= step ) {
+				    delta = 4;
+				    diff -= step;
+				    vpdiff += step;
+				}
+				step >>= 1;
+				if ( diff >= step  ) {
+				    delta |= 2;
+				    diff -= step;
+				    vpdiff += step;
+				}
+				step >>= 1;
+				if ( diff >= step ) {
+				    delta |= 1;
+				    vpdiff += step;
+				}
+			
+				/* Step 3 - Update previous value */
+				if ( sign )
+				  valpred -= vpdiff;
+				else
+				  valpred += vpdiff;
+			
+				/* Step 4 - Clamp previous value to 16 bits */
+				if ( valpred > 32767 )
+				  valpred = 32767;
+				else if ( valpred < -32768 )
+				  valpred = -32768;
+			
+				/* Step 5 - Assemble value, update index and step values */
+				delta |= sign;
+				
+				adpcm_index += indexTable[delta];
+				if ( adpcm_index < 0 ) adpcm_index = 0;
+				if ( adpcm_index > 88 ) adpcm_index = 88;
+				enc_valprev = valpred;
+				enc_index = adpcm_index;
+				if (fillindex & 1)
+				{
+					audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
+				}
+				else
+				{
+					enc_lastdelta = delta;
+				}
+			}
+			else  // is ULAW
+			{
+		        short sample,sign, exponent, mantissa;
+		        BYTE ulawbyte;
+		
+				sample = last_adcsample;
+				sample -= 2048;
+				sample *= 16;
+		        /* Get the sample into sign-magnitude. */
+		        sign = (sample >> 8) & 0x80;          /* set aside the sign */
+		        if (sign != 0)
+		                sample = -sample;              /* get magnitude */
+		        if (sample > CLIP)
+		                sample = CLIP;             /* clip the magnitude */
+		
+		        /* Convert from 16 bit linear to ulaw. */
+		        sample = sample + BIAS;
+		        exponent = exp_lut[(sample >> 7) & 0xFF];
+		        mantissa = (sample >> (exponent + 3)) & 0x0F;
+		        ulawbyte = ~(sign | (exponent << 4) | mantissa);
+
+
+				audio_buf[filling_buffer][fillindex++] = ulawbyte;
+			}
+			if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
+			{
+				if (option_flags & OPTION_FLAG_ADPCM)
+				{
+					cp = &audio_buf[filling_buffer][fillindex >> 1];
+					*cp++ = (enc_prev_valprev & 0xff00) >> 8;
+					*cp++ = enc_prev_valprev & 0xff;
+					*cp = enc_index;
+					enc_prev_valprev = enc_valprev;
+					enc_prev_index = enc_index;
+				}
+				filled = 1;
+				fillindex = 0;
+				filling_buffer ^= 1;
+				last_drainindex = txdrainindex;
+				timing_index = next_index;
+				timing_time = next_time;
+			}
+		}
+		if ((!gpssync) && (gps_state == GPS_STATE_VALID))
+		{
+			system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
+			gpssync = 1;
+		}
+	}
+	else if (launched)
+	{
+		gpssync = 0;
+		ppscount = 0;
+	}
+	samplecnt = 0;
+	launched = 1;
 }
 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
@@ -2396,42 +2416,55 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			memclr(&gps_packet,sizeof(gps_packet));
 	}
 
-	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
-		n = 0;
-		cp = (BYTE *) &audio_packet;
-		while(UDPGet(&c))
-		{
-			if (n++ < sizeof(audio_packet)) *cp++ = c;	
-		}
-		if (n >= sizeof(VOTER_PACKET_HEADER)) {
-			/* if this is a new session */
-			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
+	if (UDPIsGetReady(*udpSocketUser))
+	{
+		if (((gpssync || (!USE_PPS)) ) && DAC1CONbits.DACEN) {
+			n = 0;
+			cp = (BYTE *) &audio_packet;
+			while(UDPGet(&c))
 			{
-				connected = 0;
-				txseqno = 0;
-				txseqno_ptt = 0;
-				lastrxtimer = 0;
-				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
-				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
-				SetAudioSrc();
+				if (n++ < sizeof(audio_packet)) *cp++ = c;	
 			}
-			else 
-			{
-				if ((!digest) || (!audio_packet.vph.digest) || (digest != ntohl(audio_packet.vph.digest)) ||
-					(ntohs(audio_packet.vph.payload_type) == 0))
+			if (n >= sizeof(VOTER_PACKET_HEADER)) {
+				/* if this is a new session */
+				if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 				{
-					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
-					if (mydigest == ntohl(audio_packet.vph.digest))
+					connected = 0;
+					txseqno = 0;
+					txseqno_ptt = 0;
+					lastrxtimer = 0;
+					resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
+					strcpy(their_challenge,(char *)audio_packet.vph.challenge);
+					SetAudioSrc();
+				}
+				else 
+				{
+					if ((!digest) || (!audio_packet.vph.digest) || (digest != ntohl(audio_packet.vph.digest)) ||
+						(ntohs(audio_packet.vph.payload_type) == 0))
 					{
-						digest = mydigest;
-						if (!connected) gpsforcetimer = 0;
-						connected = 1;
-						lastrxtimer = 0;
-						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
-						else option_flags = 0;
-						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
+						mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
+						if (mydigest == ntohl(audio_packet.vph.digest))
 						{
-							if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
+							digest = mydigest;
+							if (!connected) gpsforcetimer = 0;
+							connected = 1;
+							lastrxtimer = 0;
+							if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
+							else option_flags = 0;
+							if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
+							{
+								if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
+								connected = 0;
+								txseqno = 0;
+								txseqno_ptt = 0;
+								digest = 0;
+								lastrxtimer = 0;
+								SetAudioSrc();
+							}
+							else SetAudioSrc();
+						}
+						else
+						{
 							connected = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
@@ -2439,149 +2472,139 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							lastrxtimer = 0;
 							SetAudioSrc();
 						}
-						else SetAudioSrc();
 					}
 					else
 					{
-						connected = 0;
-						txseqno = 0;
-						txseqno_ptt = 0;
-						digest = 0;
+						BYTE wconnected;
+					
+						wconnected = connected;
+						if (!connected) gpsforcetimer = 0;
+						connected = 1;
 						lastrxtimer = 0;
-						SetAudioSrc();
-					}
-				}
-				else
-				{
-					BYTE wconnected;
-				
-					wconnected = connected;
-					if (!connected) gpsforcetimer = 0;
-					connected = 1;
-					lastrxtimer = 0;
-					if (!wconnected) SetAudioSrc();
-					lastrxtimer = 0;
-					if (ntohs(audio_packet.vph.payload_type) == 5) // PING
-					{
-						if (!pingtimer) // If okay to respond to a ping 
+						if (!wconnected) SetAudioSrc();
+						lastrxtimer = 0;
+						if (ntohs(audio_packet.vph.payload_type) == 5) // PING
 						{
-					        if (UDPIsPutReady(*udpSocketUser)) {
-								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
-								audio_packet.vph.curtime.vtime_nsec = htonl(0);
-								strcpy((char *)audio_packet.vph.challenge,challenge);
-								audio_packet.vph.digest = htonl(resp_digest);
-								audio_packet.vph.payload_type = htons(5);
-								// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
-								cp = (BYTE *) &audio_packet.vph;
-								for(i = 0; i < n; i++) UDPPut(*cp++);
-					            UDPFlush();
-								pingtimer = MIN_PING_TIME;
-							}
-						}
-					}
-					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
-					{
-						long index,ndiff;
-						short mydiff;
-
-
-						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
-						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
-						last_rxpacket_sys_time = system_time;
-						last_rxpacket_inbounds = 0;
-						if (!USE_PPS)
-						{
-							mytxseqno = txseqno;
-							if (mytxseqno > (txseqno_ptt + 2))
-									host_txseqno = 0;
-							txseqno_ptt = mytxseqno;
-							if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
-							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
-							index *= FRAME_SIZE;
-							if (AppConfig.TxBufferLength >= 1440)
-								index -= (FRAME_SIZE * 4);
-							else if (AppConfig.TxBufferLength >= 1120)
-								index -= (FRAME_SIZE * 3);
-							else if (AppConfig.TxBufferLength >= 800)
-								index -= (FRAME_SIZE * 2);
-							else if (AppConfig.TxBufferLength >= 640)
-								index -= FRAME_SIZE;
-//printf("%ld %ld %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec),myhost_txseqno);
-						}
-						else
-						{
-							index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
-							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
-							index += (ndiff / 125000);
-						}
-						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
-//printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
-						last_rxpacket_index = index;
-                        /* if in bounds */
-                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
-                        {
-							last_rxpacket_inbounds = 1;
-							if (!USE_PPS)
+							if (!pingtimer) // If okay to respond to a ping 
 							{
-								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
-									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
-							}
-							else
-							{
-								if ((ntohl(audio_packet.vph.curtime.vtime_sec) > lastrxtime.vtime_sec) ||
-									((ntohl(audio_packet.vph.curtime.vtime_sec) == lastrxtime.vtime_sec) &&
-										(ntohl(audio_packet.vph.curtime.vtime_nsec) > lastrxtime.vtime_nsec)))
-								{
-									lastrxtime.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
-									lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
+						        if (UDPIsPutReady(*udpSocketUser)) {
+									UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+									audio_packet.vph.curtime.vtime_sec = htonl(real_time);
+									audio_packet.vph.curtime.vtime_nsec = htonl(0);
+									strcpy((char *)audio_packet.vph.challenge,challenge);
+									audio_packet.vph.digest = htonl(resp_digest);
+									audio_packet.vph.payload_type = htons(5);
+									// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+									cp = (BYTE *) &audio_packet.vph;
+									for(i = 0; i < n; i++) UDPPut(*cp++);
+						            UDPFlush();
+									pingtimer = MIN_PING_TIME;
 								}
 							}
-                            index += mytxindex;
-					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
-							mydiff = AppConfig.TxBufferLength;
-
-							if (ntohs(audio_packet.vph.payload_type) == 3)
-							{
-					  			mydiff -= ((short)index + (FRAME_SIZE * 2));
-								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
-								dec_index = audio_packet.audio[162];
-								adpcm_decoder(audio_packet.audio);
-	                            if (mydiff >= 0)
-	                            {
-	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
-	                             }
-	                            else
-	                            {
-	                                    memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
-	                                    memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
-	                            }
-
-							}
-							else
-							{
-					  			mydiff -= ((short)index + FRAME_SIZE);
-	                            if (mydiff >= 0)
-	                            {
-	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
-	                             }
-	                            else
-	                            {
-	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
-	                                    memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
-	                            }
-							}
-                        }
-						else /* not in bounds */
+						}
+						if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 						{
-							if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))
-								missed = index - (AppConfig.TxBufferLength - (FRAME_SIZE * 2));
-							else
-								missed = index;
-							misstimer1 = PKT_MISS_TIME;
+							long index,ndiff;
+							short mydiff;
+	
+	
+							last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
+							last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
+							last_rxpacket_sys_time = system_time;
+							last_rxpacket_inbounds = 0;
 							if (!USE_PPS)
 							{
-								host_txseqno = 0;
+								mytxseqno = txseqno;
+								if (mytxseqno > (txseqno_ptt + 2))
+										host_txseqno = 0;
+								txseqno_ptt = mytxseqno;
+								if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+								index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
+								index *= FRAME_SIZE;
+								if (AppConfig.TxBufferLength >= 1440)
+									index -= (FRAME_SIZE * 4);
+								else if (AppConfig.TxBufferLength >= 1120)
+									index -= (FRAME_SIZE * 3);
+								else if (AppConfig.TxBufferLength >= 800)
+									index -= (FRAME_SIZE * 2);
+								else if (AppConfig.TxBufferLength >= 640)
+									index -= FRAME_SIZE;
+	//printf("%ld %ld %ld\n",index,ntohl(audio_packet.vph.curtime.vtime_nsec),myhost_txseqno);
+							}
+							else
+							{
+								index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
+								ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
+								index += (ndiff / 125000);
+							}
+							index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
+	//printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
+							last_rxpacket_index = index;
+	                        /* if in bounds */
+	                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
+	                        {
+								last_rxpacket_inbounds = 1;
+								if (!USE_PPS)
+								{
+									if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
+										txseqno_ptt = (txseqno + (index / FRAME_SIZE));
+								}
+								else
+								{
+									if ((ntohl(audio_packet.vph.curtime.vtime_sec) > lastrxtime.vtime_sec) ||
+										((ntohl(audio_packet.vph.curtime.vtime_sec) == lastrxtime.vtime_sec) &&
+											(ntohl(audio_packet.vph.curtime.vtime_nsec) > lastrxtime.vtime_nsec)))
+									{
+										lastrxtime.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
+										lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
+									}
+								}
+	                            index += mytxindex;
+						   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
+								mydiff = AppConfig.TxBufferLength;
+	
+								if (ntohs(audio_packet.vph.payload_type) == 3)
+								{
+						  			mydiff -= ((short)index + (FRAME_SIZE * 2));
+									dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
+									dec_index = audio_packet.audio[162];
+									adpcm_decoder(audio_packet.audio);
+		                            if (mydiff >= 0)
+		                            {
+		                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
+		                             }
+		                            else
+		                            {
+		                                    memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
+		                                    memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
+		                            }
+	
+								}
+								else
+								{
+						  			mydiff -= ((short)index + FRAME_SIZE);
+		                            if (mydiff >= 0)
+		                            {
+		                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
+		                             }
+		                            else
+		                            {
+		                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
+		                                    memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
+		                            }
+								}
+	                        }
+							else /* not in bounds */
+							{
+								if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))
+									missed = index - (AppConfig.TxBufferLength - (FRAME_SIZE * 2));
+								else
+									missed = index;
+								misstimer1 = PKT_MISS_TIME;
+								if (!USE_PPS)
+								{
+									host_txseqno = 0;
+								}
 							}
 						}
 					}
@@ -2945,7 +2968,7 @@ void secondary_processing_loop(void)
 #endif
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
-				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_DEV)))
+				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
 				{
 					if (AppConfig.FailMode == 2) needburp = 1;
 					if ((AppConfig.FailMode == 3) && (!connfail)) needburp = 1;
@@ -2982,7 +3005,7 @@ void secondary_processing_loop(void)
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 		isoffline = ((!connected) && (AppConfig.FailMode == 3));
-		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
+		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			repeatit = 1;
 			if (isoffline) hangtimer = AppConfig.HangTime + 1;
@@ -3408,7 +3431,7 @@ void secondary_processing_loop(void)
 			hangtimer = 0;
 		}
 		if (connected && (!connfail)) connfail = 1;
-		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
+		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			if (connected)
 			{
@@ -3435,7 +3458,7 @@ void secondary_processing_loop(void)
 			}
 		}
 		if (connected) needburp = 0;
-		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_DEV) || (!USE_PPS)))
+		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			needburp = 0;
 			if (!connfail) connfail = 2;
@@ -3655,6 +3678,7 @@ static void DiagMenu()
 		their_challenge[0] = 0;
 		lastrxtimer = 0;
 		DAC1CONbits.DACEN = 1;
+		IEC4bits.DAC1LIE = 1;
 	}
 	gpssync = 0;
 	gotpps = 0;
@@ -3810,6 +3834,7 @@ static void DiagMenu()
 	ppscount = 0;
 	if (USE_PPS)
 	{
+		IEC4bits.DAC1LIE = 0;
 		DAC1CONbits.DACEN = 0;
 		while(!DAC1CONbits.DACEN) ClrWdt();
 		RTCM_Reset();
@@ -4302,6 +4327,7 @@ int main(void)
 		"17  - DSP/BEW Mode NOT SUPPORTED\n"
 #endif
 		"18 - \"Duplex Mode 3\" (0=DISABLED, 1-255 Hang Time) (1/10 secs) (%u)\n"
+		"19 - Simulcast Launch Delay (%u) (approx 200 ns, 5 = 1us, > 0 to ENA SC)\n"
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
@@ -4468,6 +4494,7 @@ int main(void)
 	missed = 0;
 	misstimer = 0;
 	misstimer1 = 0;
+	launched = 0;
 	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
@@ -4488,7 +4515,11 @@ int main(void)
 	// Initialize Stack and application related NV variables into AppConfig.
 	InitAppConfig();
 
-	if ((!USE_PPS) || (!SIMULCAST_DEV)) DAC1CONbits.DACEN = 1;
+	if ((!USE_PPS) || (!SIMULCAST_ENABLE)) 
+	{
+		DAC1CONbits.DACEN = 1;
+		IEC4bits.DAC1LIE = 1;
+	}
 
 	// UART
 	#if defined(STACK_USE_UART)
@@ -4666,9 +4697,11 @@ __builtin_nop();
 		main_processing_loop();
 		secondary_processing_loop();
 #ifdef	DSPBEW
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode,AppConfig.Duplex3);
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode,AppConfig.Duplex3,
+			AppConfig.LaunchDelay);
 #else
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.Duplex3);
+		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.Duplex3,
+			AppConfig.LaunchDelay);
 #endif
 
 		aborted = 0;
@@ -4710,9 +4743,9 @@ __builtin_nop();
 		}
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
+		if (((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 18)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
@@ -4876,6 +4909,13 @@ __builtin_nop();
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255))
 				{
 					AppConfig.Duplex3 = i1;
+					ok = 1;
+				}
+				break;
+			case 19: // Launch Delay
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 600))
+				{
+					AppConfig.LaunchDelay = i1;
 					ok = 1;
 				}
 				break;
@@ -5054,14 +5094,14 @@ static void InitializeBoard(void)
 
 	IFS0bits.AD1IF = 0;
 	IEC0bits.AD1IE = 1;
-	IPC3bits.AD1IP = 6;
+	IPC3bits.AD1IP = 5;
 
 	DAC1DFLT = 0;
 	DAC1STAT = 0x8000;
 	DAC1STATbits.LITYPE = 0;
 	DAC1CON = 0x1100 + 74;		// Divide by 75 for 8K Samples/sec
 	IFS4bits.DAC1LIF = 0;
-	IEC4bits.DAC1LIE = 1;
+//	IEC4bits.DAC1LIE = 1;
 	IPC19bits.DAC1LIP = 6;
 
 #if defined(SMT_BOARD)

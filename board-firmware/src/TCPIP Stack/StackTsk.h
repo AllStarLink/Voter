@@ -160,7 +160,8 @@ typedef struct __attribute__((__packed__))
 	BYTE Sawyer;
 	DWORD DebugLevel1;
 	BOOL EthFullDuplex;
-	BYTE Zeros[568];
+	WORD LaunchDelay;
+	BYTE Zeros[566];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
