@@ -257,7 +257,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.32 09/11/2013";
+	VERSION[] = "1.33 09/11/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -918,6 +918,7 @@ BYTE *cp;
 	DAC1CONbits.DACEN = 1;
 	IEC4bits.DAC1LIE = 1;
 
+	if (SIMULCAST_ENABLE) samplecnt = 8000;
 	if ((samplecnt >= 7999) && (samplecnt <= 8001))
 	{
 		last_samplecnt = samplecnt;
