@@ -1,0 +1,108 @@
+
+create database splat;
+
+grant all privileges on splat.* to splat identified by 'rst599';
+
+use splat;
+
+-- MySQL dump 10.11
+--
+-- Host: localhost    Database: newsplat
+-- ------------------------------------------------------
+-- Server version	5.0.45
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `calls`
+--
+
+DROP TABLE IF EXISTS `calls`;
+CREATE TABLE `calls` (
+  `callsign` char(10) NOT NULL default '',
+  `latitude` char(12) NOT NULL default '',
+  `longitude` char(12) NOT NULL default '',
+  `height` char(10) NOT NULL default '',
+  `state` varchar(20) NOT NULL,
+  `lastmodified` datetime NOT NULL,
+  `geography` varchar(50) NOT NULL,
+  `IP` varchar(12) NOT NULL,
+  PRIMARY KEY  (`callsign`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+
+--
+-- Table structure for table `log`
+--
+
+DROP TABLE IF EXISTS `log`;
+CREATE TABLE `log` (
+  `serial` int(11) NOT NULL auto_increment,
+  `event` varchar(80) NOT NULL,
+  `frequency` varchar(20) NOT NULL,
+  `IP` varchar(24) NOT NULL,
+  `datetime` datetime NOT NULL,
+  PRIMARY KEY  (`serial`)
+) ENGINE=MyISAM AUTO_INCREMENT=17 DEFAULT CHARSET=latin1;
+
+--
+-- Table structure for table `states`
+--
+
+-- MySQL dump 10.11
+--
+-- Host: localhost    Database: newsplat
+-- ------------------------------------------------------
+-- Server version	5.0.45
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `states`
+--
+
+DROP TABLE IF EXISTS `states`;
+CREATE TABLE `states` (
+  `name` char(20) NOT NULL default '',
+  `number` int(10) NOT NULL,
+  PRIMARY KEY  (`name`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+
+--
+-- Dumping data for table `states`
+--
+
+LOCK TABLES `states` WRITE;
+/*!40000 ALTER TABLE `states` DISABLE KEYS */;
+INSERT INTO `states` VALUES ('Alabama',1),('Alaska',2),('Arizona',4),('Arkansas',5),('California',6),('Colorado',8),('Connecticut',9),('Delaware',10),('District of Columbia',11),('Florida',12),('Georgia',13),('Hawaii',15),('Idaho',16),('Illinois',17),('Indiana',18),('Iowa',19),('Kansas',20),('Kentucky',21),('Louisiana',22),('Maine',23),('Maryland',24),('Massachusetts',25),('Michigan',26),('Minnesota',27),('Mississippi',28),('Missouri',29),('Montana',30),('Nebraska',31),('Nevada',32),('New Hampshire',33),('New Jersey',34),('New Mexico',35),('New York',36),('North Carolina',37),('North Dakota',38),('Ohio',39),('Oklahoma',40),('Oregon',41),('Pennsylvania',42),('NOSTATE',0),('Rhode Island',44),('South Carolina',45),('South Dakota',46),('Tennessee',47),('Texas',48),('Utah',49),('Vermont',50),('Virginia',51),('Washington',53),('West Virginia',54),('Wisconsin',55),('Wyoming',56);
+/*!40000 ALTER TABLE `states` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2008-04-08 14:34:21
+

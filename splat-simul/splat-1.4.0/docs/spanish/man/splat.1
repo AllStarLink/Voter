@@ -1,0 +1,1296 @@
+SPLAT!(1)                       KD2BD Software                       SPLAT!(1)
+
+
+
+NNAAMMEE
+       splat  es una herramienta para el ansis de Propagacie Ses RF, Pidas , y
+       Caractericas del Terreno (SSignal PPropagation, LLoss, AAnd TTerrain  analy-
+       sis tool SSPPLLAATT!!)
+
+SSIINNOOPPSSIISS
+       splat  [-t  _s_i_t_i_o___t_r_a_n_s_m_i_s_o_r_._q_t_h] [-r _s_i_t_i_o___r_e_c_e_p_t_o_r_._q_t_h] [-c _r_x _a_l_t_u_r_a
+       _d_e _l_a _a_n_t_e_n_a _p_a_r_a _e_l _a_n_s_i_s _d_e _c_o_b_e_r_t_u_r_a _L_O_S  _(_p_i_e_s_/_m_e_t_r_o_s_)  _(_f_l_o_t_a_n_t_e_)]
+       [-L _r_x _a_l_t_u_r_a _d_e _l_a _a_n_t_e_n_a _p_a_r_a _e_l _a_n_s_i_s _d_e _c_o_b_e_r_t_u_r_a _I_T_M _(_p_i_e_s_/_m_e_t_r_o_s_)
+       _(_f_l_o_t_a_n_t_e_)] [-p _p_e_r_f_i_l___t_e_r_r_e_n_o_._e_x_t] [-e _p_e_r_f_i_l___e_l_e_v_a_c_i_o_n_._e_x_t] [-h  _p_e_r_-
+       _f_i_l___a_l_t_u_r_a_._e_x_t]  [-H _p_e_r_f_i_l___a_l_t_u_r_a___n_o_r_m_a_l_i_z_a_d_a_._e_x_t] [-l _p_e_r_f_i_l___I_T_M_._e_x_t]
+       [-o _n_o_m_b_r_e___a_r_c_h_i_v_o___m_a_p_a___t_o_p_o_g_r_c_o_._p_p_m] [-b _a_r_c_h_i_v_o___l_t_e_s___c_a_r_t_o_g_r _c_o_s_._d_a_t]
+       [-s  _b_a_s_e___d_a_t_o_s___s_i_t_i_o_s_/_c_i_u_d_a_d_e_s_._d_a_t] [-d _r_u_t_a___d_i_r_e_c_t_o_r_i_o___s_d_f] [-m _r_a_d_i_o
+       _m_u_l_t_i_p_l_i_c_a_d_o_r _t_i_e_r_r_a _(_f_l_o_t_a_n_t_e_)] [-f _f_r_e_q_u_e_n_c_i_a _(_M_H_z_) _p_a_r_a _c_u_l_o_s _d_e  _l_a
+       _z_o_n_a  _d_e _F_r_e_s_n_e_l _(_f_l_o_t_a_n_t_e_)] [-R _m_m_o _r_a_d_i_o _d_e _c_o_b_e_r_t_u_r_a _(_m_i_l_l_a_s_/_k_i_l_r_o_s_)
+       _(_f_l_o_t_a_n_t_e_)] [-dB _U_m_b_r_a_l _b_a_j_o _e_l _c_u_a_l _n_o _s_e _p_r_e_s_e_n_t_a_r_l_o_s _c_o_n_t_o_r_n_o_s] [-gc
+       _A_l_t_u_r_a  _d_e_l  _c_l_u_t_t_e_r  _d_e_l  _t_e_r_r_e_n_o  _(_p_i_e_s_/_m_e_t_r_o_s_) _(_f_l_o_t_a_n_t_e_)] [-fz _p_o_r_-
+       _c_e_n_t_a_j_e _d_e_s_p_e_j_a_d_o _d_e _l_a _z_o_n_a _d_e _F_r_e_s_n_e_l _(_d_e_f_a_u_l_t _=  _6_0_)]  [-ano  _n_o_m_b_r_e
+       _a_r_c_h_i_v_o _s_a_l_i_d_a _a_l_f_a_n_u_m_c_a] [-ani _n_o_m_b_r_e _a_r_c_h_i_v_o _e_n_t_r_a_d_a _a_l_f_a_n_u_m_c_a] [-udt
+       _a_r_c_h_i_v_o___t_e_r_r_e_n_o___d_e_f_i_n_i_d_o___p_o_r___e_l___u_s_u_a_r_i_o_._d_a_t]  [-n]  [-N]  [-nf]   [-sc]
+       [-dbm] [-ngs] [-geo] [-kml] [-gpsav] [-metric] [-olditm]
+
+DDEESSCCRRIIPPCCII
+       SSPPLLAATT!!  es  una   poderosa  herramienta   para  el  an sis de terreno y
+       propagaciF cubriendo el espectro entre 20  Megahertz  y  20  Gigahertz.
+       SSPPLLAATT!!  es  Software  Libre  y estise para operar en escritorios Unix y
+       basados en Linux. La redistribuci/dificacistermitida bajo los tinos  de
+       la  licencia  p a  general  GNU  seg publicado por la Fundacie Software
+       Libre, versi. La adopciel co fuente de SSPPLLAATT!!  en  aplicaciones  propi-
+       etarias  o  de  fuente-cerrada es una violacie esta licencia, y estfBe-
+       strictamente pprroohhiibbiiddaa..
+
+       SSPPLLAATT!! eess ddiissttrriibbuuiiddoo ccoonn llaa eessppeerraannzzaa ddee qquuee sseeaa    ppeerroo  SSIINN  NNIINNGGUUNNAA
+       GGAARRAANNTT,,  aa  ggaarraannttiimmppllttaa ddee CCOOMMEERRCCIIAALLIIZZAACCII  llaa AAPPLLIICCAACCII PPAARRAA UUNN PPRROOPPIITTOO
+       PPAARRTTIICCUULLAARR.. VVeeaa llaa lliicceenncciiaa GGNNUU ppaarraa mmddeettaalllleess..
+
+IINNTTRROODDUUCCCCII
+       Las aplicaciones de SSPPLLAATT!! incluyen  la  visualizaci dise y  an sis  de
+       enlaces  de  redes inalricas WAN, sistemas de radio comunicaciones com-
+       erciales y aficionados  sobre los  20  megahertz,  enlaces   microonda,
+       estudios  de  interferencia  y coordinacie frecuencias, y determinaciel
+       contorno de cobertura de las regiones de radio y televisi errestres  an
+       gas y digitales.
+
+       SSPPLLAATT!! provdatos RF de ingenierdel sitio, tales como distancia del arco
+       terrestre y mut entre sitios, ulos de elevaciuptilt) y depresidowntilt)
+       de  la  antena,  altura  de la antena sobre nivel del mar, altura de la
+       antena sobre el promedio del terreno, azimut, distancias y  elevaciones
+       para  determinar  obstrucciones, atenuaciones de trayectoria del Modelo
+       Terreno Irregular, e intensidad de la se recibida.  Adicionalmente,  la
+       altura  mma de las antenas requerida para superar las obstrucciones del
+       terreno, la primera zona de Fresnel, y  cualquier  porcentaje  definido
+       por el usuario de la primera zona de Fresnel.
+
+       SSPPLLAATT!!  produce  reportes, grcos, y  mapas topogrcos de alta resoluciue
+       presentan trayectorias de la-de-vista, pidas por trayectoria regionales
+       y  contornos de intensidad de sea travde los cuales se puede determinar
+       el a de cobertura esperada de sistemas transmisores o  repetidoras.  Al
+       realizar  an sis  de  l a de vista y ansis del Modelo Terreno Irregular
+       cuando se emplean mles sitios de  transmisores  o  repetidores,  SSPPLLAATT!!
+       determina  las as de cobertura individuales y  mutuas  dentro de la red
+       especificada.
+
+FFIICCHHEERROOSS DDEE EENNTTRRAADDAA
+       SSPPLLAATT!! es una aplicacianejada por linea de comandos  rminal  de  textos
+       (shell), y lee los datos de entrada a travde un n de ficheros de datos.
+       Algunos archivos son obligatorios para la apropiada ejecuciel programa,
+       mientras  que otros son opcionales.  Los archivos obligatorios incluyen
+       los modelos topogrcos de elevaciigital en la forma de archivos de datos
+       de SPLAT (archivos SDF), archivos de localizaciel sitio (archivos QTH),
+       y archivos de partros para el Modelo Terreno Irregular (archivos  LRP).
+       Los   archivos   opcionales  incluyen  archivos  de  localizaci e  ciu-
+       dades/sitios,  archivos  de  l tes  cartogr cos,  archivos  de  terreno
+       definidos por el usuario, archivos de entrada de pidas
+        por  trayectoria, archivos de patrones de radiacie antenas, y archivos
+       de definicie color.
+
+FFIICCHHEERROOSS DDEE DDAATTOOSS SSPPLLAATT
+       SSPPLLAATT!! importa los datos topogrcos desde los ficheros  de  datos  SPLAT
+       (SDFs).   Estos  archivos  se  pueden  generar  desde varias fuentes de
+       informaciEn los Estados Unidos, los ficheros de datos  SPLAT se  pueden
+       generar  a  trav de la U.S.  Geological Survey Digital Elevation Models
+       (DEMs) usando la herramienta  ppoossttddoowwnnllooaadd  y  uussggss22ssddff  incluidas  con
+       SSPPLLAATT!!. Los modelos de elevaciigital USGS compatibles con esta utilidad
+       pueden ser descargados de:
+
+       _h_t_t_p_:_/_/_e_d_c_f_t_p_._c_r_._u_s_g_s_._g_o_v_/_p_u_b_/_d_a_t_a_/_D_E_M_/_2_5_0_/.
+
+       Una resoluciignificativamente mejor se puede obtener con el uso de  los
+       modelos  digitales  de  elevaciRTM versi, especialmente cuando son com-
+       plementados por datos USGS-derivados de SDF. Estos modelos de  un-grado
+       por  un-grado  s  on el resultado de la misiopogrca del radar  espacial
+       Shuttle STS-99, y est disponibles para la mayorde las regiones pobladas
+       de  la  tierra.  Los ficheros de datos SPLAT pueden ser generados desde
+       los archivos de datos SRTM-3 3 arco-segundo usando la utilidad incluida
+       ssrrttmm22ssddff.  Los  archivo SRTM-3 versi se pueden obtener a travde FTP ano
+       desde: _f_t_p_:_/_/_e_0_s_r_p_0_1_u_._e_c_s_._n_a_s_a_._g_o_v_:_2_1_/_s_r_t_m_/_v_e_r_s_i_o_n_2_/_S_R_T_M_3_/
+
+       Observe que el nombre de los archivos SRTM se refieren a la  latitud  y
+       longitud  de  la  esquina suroeste del conjunto de datos topogrcos con-
+       tenidos dentro del archivo. Por lo tanto, la regie interdebe  estar  al
+       norte  y  al  este de la latitud y longitud proporcionada por el nombre
+       del archivo SRTM.
+
+       La utilidad ssttrrmm22ssddff tambipuede ser usada  para  convertir   los  datos
+       SRTM 3-arco segundo en formato Band Interleaved by Line (.BIL) para ser
+       usados con SSPPLLAATT!!. Estos datos estdisponibles  v web  en:  _h_t_t_p_:_/_/_s_e_a_m_-
+       _l_e_s_s_._u_s_g_s_._g_o_v_/_w_e_b_s_i_t_e_/_s_e_a_m_l_e_s_s_/
+
+       los  datos Band Interleaved by Line deben ser descargados en una manera
+       especca para ser compatible con ssrrttmm22ssddff y SSPPLLAATT!!. por  favor  consulte
+       la  documentaci fBsrtm2sdf''ss  ppaarraa  iinnssttrruucccciioonneess  ssoobbrree llaa ddeessccaarrggaa ddee
+       ddaattooss ttooppooggrrccooss ..BBIILL aa ttrraavvddeell SSiittiioo WWeebb UUSSGGSS''ss SSeeaammlleessss..
+
+       IInncclluussoo ssee ppuueeddee oobbtteenneerr uunnaa mmaayyoorr rreessoolluuccii eexxaaccttiittuudd uussaannddoo llooss  ddaattooss
+       ttooppooggrr ccooss  SSRRTTMM--11  VVeerrssii .. EEssttooss ddaattooss eessttddiissppoonniibblleess ppaarraa llooss EEssttaaddooss
+       UUnniiddooss yy ssuuss tteerrrriittoorriiooss yy ppoosseessiioonneess,, yy ppuueeddeenn sseerr ddeessccaarrggaaddooss  ddeessddee::
+       _f_t_p_:_/_/_e_0_s_r_p_0_1_u_._e_c_s_._n_a_s_a_._g_o_v_:_2_1_/_s_r_t_m_/_v_e_r_s_i_o_n_2_/_S_R_T_M_1_/
+
+       LLooss  aarrcchhiivvooss  SSDDFF  ddee aallttaa rreessoolluucciiaarraa sseerr uussaaddooss ccoonn SSPPLLAATT!! HHDD ppuueeddeenn
+       sseerr ggeenneerraaddooss ddeessddee llooss ddaattooss eenn eessttee  ffoorrmmaattoo  uussaannddoo  llaa  hheerrrraammiieennttaa
+       ssrrttmm22ssddff--hhdd..
+
+       AA  ppeessaarr  ddee  llaa  eexxaaccttiittuudd  mm aallttaa qquuee llooss ddaattooss SSRRTTMM ooffrreecceenn,, eexxiisstteenn
+       aallgguunnooss vvaacc eenn llooss ccoonnjjuunnttooss ddee ddaattooss.. CCuuaannddoo ssee ddeetteeccttaann  eessttooss  vvaacc ,,
+       llaass  hheerrrraammiieennttaass  ssrrttmm22ssddff yy ssrrttmm22ssddff--hhdd llooss ssuubbssttiittuuyyeenn ppoorr llooss ddaattooss
+       eennccoonnttrraaddooss eenn llooss  aarrcchhiivvooss SSDDFF eexxiisstteenntteess ggeenneerraaddooss ccoonn  llaa  uuttiilliiddaadd
+       uussggss22ssddff))..  SSii llooss ddaattooss SSDDFF,, UUSSGGSS--ddeerriivvaaddooss nnoo eessttddiissppoonniibblleess,, llooss vvaacc
+       ssee rreeeemmppllaazzaann ccoonn eell pprroommeeddiioo ddee llooss ppiixxeelleess  aaddyyaacceenntteess,,  oo  rreeeemmppllaazzoo
+       ddiirreeccttoo..
+
+       LLooss  ffiicchheerrooss ddee ddaattooss ddee SSPPLLAATT ccoonnttiieenneenn vvaalloorreess eenntteerrooss ddee llaass eelleevvaa--
+       cciioonneess ttooppooggrrccaass eenn mmeettrrooss rreeffeerreenncciiaaddooss aall nniivveell ddeell mmaarr ppaarraa rreeggiioonneess
+       ddee  llaa ttiieerrrraa ddee 11--ggrraaddoo ppoorr 11--ggrraaddoo ccoonn uunnaa rreessoolluucciiee 33--aarrccoo sseegguunnddooss..
+       LLooss aarrcchhiivvooss SSDDFF ppuueeddeenn sseerr lleess ppoorr SSPPLLAATT!! yyaa sseeaa eenn eell ffoorrmmaattoo eessttaarr
+        ((_._s_d_f)) aassoommoo  eenn  llooss  ggeenneerraaddooss  ddiirreeccttaammeennttee  ppoorr  llaass  hheerrrraammiieennttaass
+       uussggss22ssddff,,  ssrrttmm22ssddff,,  yy  ssrrttmm22ssddff--hhdd,,  oo eenn eell ffoorrmmaattoo ccoommpprriimmiiddoo bbzziipp22
+       ((_._s_d_f_._b_z_2)).. PPuueessttoo qquuee llooss aarrcchhiivvooss ssiinn ccoommpprriimmiirr  ssee  ppuueeddeenn  pprroocceessaarr
+       lliiggeerraammeennttee  mm rrddoo qquuee llooss aarrcchhiivvooss ccoommpprriimmiiddooss,, SSPPLLAATT!! bbuussccaa llooss ddaattooss
+       SSDDFF nneecceessaarriiooss eenn ffoorrmmaattoo ssiinn ccoommpprriimmiirr pprriimmeerroo.. SSii llooss ddaattooss ssiinn  ccoomm--
+       pprriimmiirr  nnoo  ppuueeddeenn  sseerr llooccaalliizzaaddooss,, SSPPLLAATT!! eennttoonncceess bbuussccaa llooss ddaattooss eenn
+       ffoorrmmaattoo ccoommpprriimmiiddoo  bbzziipp22.. SSii ttaammppooccoo ssee ppuueeddeenn eennccoonnttrraarr llooss  aarrcchhiivvooss
+       SSDDFF  ccoommpprriimmiiddooss ppaarraa llaa rreeggiioolliicciittaaddaa,, SSPPLLAATT!! aassuummee qquuee llaa rreeggiiss eell oocc
+       oo,, yy aassiiggnnaarrnnaa eelleevvaacciieell nniivveell ddeell mmaarr aa eessttaass aass..
+
+       EEssttaa ccaarraacctteerriiccaa ddee SSPPLLAATT!! ppeerrmmiittee rreeaalliizzaarr eell aannssiiss ddee ttrraayyeeccttoorriiaass nnoo
+       ssoollaammeennttee ssoobbrree llaa ttiieerrrraa,, ssiinnoo ttaammbbiieennttrree llaass aass ccoosstteerraass nnoo rreepprreesseenn--
+       ttaaddaass ppoorr llooss ddaattooss ddeell MMooddeelloo ddee EElleevvaaccii iiggiittaall..   SSiinn  eemmbbaarrggoo,,  eessttee
+       ccoommppoorrttaammiieennttoo  ddee  SSPPLLAATT!!  rreessaallttaa  llaa  iimmppoorrttaanncciiaa ddee tteenneerr ttooddooss llooss
+       aarrcchhiivvooss SSDDFF rreeqquueerriiddooss ppaarraa llaa  rreeggii  sseerr  aannaalliizzaaddaa,,  ppaarraa  aass bbtteenneerr
+       rreessuullttaaddooss ssiiggnniiffiiccaattiivvooss..
+
+AARRCCHHIIVVOOSS DDEE LLOOCCAALLIIZZAACCII DDEELL SSIITTIIOO ((QQTTHH))
+       SSPPLLAATT!!  SPLAT!  importa  la   informaci e la localizacie los sitios del
+       transmisor y del receptor analizados por el programa  de  los  archivos
+       ASCII  que tienen una extensifI.qth.. LLooss aarrcchhiivvooss QQTTHH ccoonnttiieenneenn eell nnoomm--
+       bbrree ddeell ssiittiioo,, llaa llaattiittuudd ddeell ssiittiioo ((ppoossiittiivvaa  aall  nnoorrttee  ddeell  eeccuuaaddoorr,,
+       nneeggaattiivvaa  aall  ssuurr)),, llaa lloonnggiittuudd ddeell ssiittiioo ((eenn ggrraaddooss ooeessttee WW ddee 00 aa 336600
+       ggrraaddooss)),, yy;; LLaa aallttuurraa ddee llaa aanntteennaa ddeell ssiittiioo ssoobbrree eell nniivveell  ddeell  ssuueelloo
+       ((AAGGLL)),,  ccaaddaa  uunnoo sseeppaarraaddoo ppoorr uunn ccaarraacctteerr ddee ssaallttoo--ddee--llaa.. LLaa aallttuurraa ddee
+       llaa aanntteennaa ssee aassuummee aa sseerr eessppeecciiffiiccaaddaa eenn ppiieess aa mmeennooss qquuee  sseeaa  sseegguuiiddaa
+       ppoorr  llaa lleettrraa _m oo ddee llaa ppaallaabbrraa  _m_e_t_e_r_s  eenn mmaayyaass nnaass.. LLaa iinnffoorrmmaacciiee llaa
+       llaattiittuudd yy  ddee  llaa  lloonnggiittuudd  ssee  ppuueeddee  eexxpprreessaarr  eenn   ffoorrmmaattoo  ddeecciimmaall
+       ((7744..66888899))  ffoorrmmaattoo ggrraaddooss,, mmiinnuuttooss,, sseegguunnddooss ((DDMMSS)) ((7744 4411 2200..00))..
+
+       PPoorr  eejjeemmpplloo,,  uunn  aarrcchhiivvoo  ddee  llooccaalliizzaacciiee ssiittiioo qquuee ddeessccrriibbllaa eessttaacciiee
+       tteelleevviissiiNNJJTT--DDTT,, TTrreennttoonn,, NNJJ ((_w_n_j_t_-_d_t_._q_t_h)) ssee ppuueeddee  lleeeerr ccoommoo ssiigguuee::
+
+               WWNNJJTT--DDTT
+               4400..22882288
+               7744..66886644
+               999900..0000
+
+       Cada sitio de transmisor y receptor analizado por SSPPLLAATT!! debe ser  rep-
+       resentado por su propio archivo de la localizacie sitio (QTH).
+
+AARRCCHHIIVVOOSS DDEE PPAARRMMEETTRROOSS MMOODDEELLOO TTEERRRREENNOO IIRRRREEGGUULLAARR ((LLRRPP))
+       Los  archivos de datos de partros Modelo Terreno Irregular son requeri-
+       dos por SSPPLLAATT!! para determinar las pidas por trayectoria RF,  intesidad
+       de  campo,  o  nivel  de la potencia de la serecibida ya sea en el modo
+       punto-a-punto ediccie a. Los datos de partros para  el  Modelo  Terreno
+       Irregular  se  leen desde el archivo que tiene el mismo nombre base del
+       archivo QTH del sitio del  transmisor,  pero  con  extensi fI.lrp..  LLooss
+       AArrcchhiivvooss SSPPLLAATT!! LLRRPP ccoommppaarrtteenn eell ssiigguuiieennttee ffoorrmmaattoo ((_w_n_j_t_-_d_t_._l_r_p))::
+
+               1155..000000  ;; EEaarrtthh DDiieelleeccttrriicc CCoonnssttaanntt ((RReellaattiivvee ppeerrmmiittttiivviittyy))
+               00..000055   ;; EEaarrtthh CCoonndduuccttiivviittyy ((SSiieemmeennss ppeerr mmeetteerr))
+               330011..000000 ;; AAttmmoosspphheerriicc BBeennddiinngg CCoonnssttaanntt ((NN--uunniittss))
+               664477..000000 ;; FFrreeqquueennccyy iinn MMHHzz ((2200 MMHHzz ttoo 2200 GGHHzz))
+               55       ;; RRaaddiioo CClliimmaattee ((55 == CCoonnttiinneennttaall TTeemmppeerraattee))
+               00       ;; PPoollaarriizzaattiioonn ((00 == HHoorriizzoonnttaall,, 11 == VVeerrttiiccaall))
+               00..5500    ;; FFrraaccttiioonn ooff ssiittuuaattiioonnss ((5500%% ooff llooccaattiioonnss))
+               00..9900    ;; FFrraaccttiioonn ooff ttiimmee ((9900%% ooff tthhee ttiimmee))
+               4466000000..00 ;; PPootteenncciiaa EEffeeccttiivvaa RRaaddiiaaddaa ((EERRPP)) iinn WWaattttss ((ooppttiioonnaall))
+
+
+
+       Si un archivo LRP correspondiente al archivo QTH del sitio de transmisi
+       no puede ser encontrado, SSPPLLAATT!! explorarl directorio de trabajo  actual
+       buscando  el  archivo  "splat.lrp".  Si  este archivo tampoco puede ser
+       encontrado, entonces los partros  por  defecto  enumerados  arriba  ser
+       asignados  por  SSPPLLAATT!!  y un archivo correspondiente "splat.lrp" conte-
+       niendo estos partros por defecto serscrito al directorio actual de tra-
+       bajo.  El archivo "splat.lrp" generado se puede editar de acuerdo a las
+       necesidades del usuario.
+
+       Las constantes dielricas tcas de la tierra y sus valores de conductivi-
+       dad son los siguientes:
+
+                                  Dielectric Constant  Conductivity
+               Salt water       :        80                5.000
+               Good ground      :        25                0.020
+               Fresh water      :        80                0.010
+               Marshy land      :        12                0.007
+               Farmland, forest :        15                0.005
+               Average ground   :        15                0.005
+               Mountain, sand   :        13                0.002
+               City             :         5                0.001
+               Poor ground      :         4                0.001
+
+       Los cos de Clima de Radio usados por SSPPLLAATT!! son los siguientes:
+
+               1: Equatorial (Congo)
+               2: Continental Subtropical (Sudan)
+               3: Maritime Subtropical (West coast of Africa)
+               4: Desert (Sahara)
+               5: Continental Temperate
+               6:  Maritime  Temperate,  over land (UK and west coasts of US &
+       EU)
+               7: Maritime Temperate, over sea
+
+       El clima templado continental es comlas grandes masas de la  tierra  en
+       la  zona templada, tal como los Estados Unidos. Para trayectorias infe-
+       riores a 100 kilros, es poca la diferencia entre los  climas  templados
+       continentales y marmos.
+
+       Los  par tros  s imo  y octavo en el archivo _._l_r_p corresponden al ansis
+       estadico proporcionado por el  modelo  ITM.  En  este  ejemplo,  SSPPLLAATT!!
+       devolver a mma pida de trayectoria que ocurre el 50%  de veces (fraccie
+       tiempo, o Variabilidad Tiempo) en el 90% de las  situaciones  (fracci e
+       situaciones,  o Variabilidad de Situaciones). Esto es a menudo denotado
+       como F(50,90) en los estudios Longley_Rice. En los  Estados  Unidos  un
+       criterio  F(50,90)  es  tcamente usado para televisiigital (8-level VSB
+       modulation), mientras que F(50,50) es usado para radiodifusinala  (VSB-
+       AM+NTSC).
+
+       Para  mayor  informaci obre  los partros del modelo de propagaciTM, por
+       favor   refi  se   a:    _h_t_t_p_:_/_/_f_l_a_t_t_o_p_._i_t_s_._b_l_d_r_d_o_c_._g_o_v_/_i_t_m_._h_t_m_l    and
+       _h_t_t_p_:_/_/_w_w_w_._s_o_f_t_w_r_i_g_h_t_._c_o_m_/_f_a_q_/_e_n_g_i_n_e_e_r_i_n_g_/_p_r_o_p___l_o_n_g_l_e_y___r_i_c_e_._h_t_m_l
+
+       El  par tro final en el archivo _._l_r_p corresponde a la potencia efectiva
+       radiada (ERP), y es opcional. Si esta es incluida en el  archivo  _._l_r_p,
+       entonces  SSPPLLAATT!!  computar os  niveles de intesidad de serecibida y los
+       contornos de niveles de intensidad de  campo  cuando  se  realicen  los
+       estudios  ITM.  Si el partro es omitido, se computan  en su lugar las p
+       idas por trayectoria. El ERP provisto en  el  archivo  _._l_r_p  puede  ser
+       invalidado usando la opcifBSPLAT! _d_e _l_a_-_d_e_-_c_o_m_a_n_d_o _-_e_r_p_.  _S_i _e_l _a_r_c_h_i_v_o
+       _._l_r_p _c_o_n_t_i_e_n_e _u_n _p_a_r_t_r_o _E_R_P _y _e_n _l_u_g_a_r  _d_e  _g_e_n_e_r_a_r  _l_o_s  _c_o_n_t_o_r_n_o_s  _d_e
+       _i_n_t_e_s_i_d_a_d _d_e _c_a_m_p_o _s_e _d_e_s_e_a _g_e_n_e_r_a_r _l_o_s _c_o_n_t_o_r_n_o_s _d_e _p_i_d_a _p_o_r _t_r_a_y_e_c_t_o_-
+       _r_i_a_, _e_l _v_a_l_o_r _E_R_P _p_u_e_d_e _s_e_r _a_s_i_g_n_a_d_o _a _c_e_r_o _u_s_a_n_d_o _l_a  _o_p_c_i _f_I_-_e_r_p  _s_i_n
+       _t_e_n_e_r _q_u_e _e_d_i_t_a_r _e_l _a_r_c_h_i_v_o _._l_r_p _p_a_r_a _o_b_t_e_n_e_r _e_l _m_i_s_m_o _r_e_s_u_l_t_a_d_o_.
+
+AARRCCHHIIVVOOSS DDEE LLOOCCAALLIIZZAACCII DDEE CCIIUUDDAADDEESS
+       Los  nombres  y  las  localizaciones de ciudades, sitios de la torre, u
+       otros puntos de interse pueden importar y trazar en los mapas topogrcos
+       generados  por  SSPPLLAATT!!. SSPPLLAATT!! importa los nombres de ciudades y local-
+       izaciones de los archivos ASCII que contienen el nombre, latitud y lon-
+       gitud  de  la  localizaci e  inter Cada campo es separado por una coma.
+       Cada expediente es separado por un caracter de salto-de-linea. Al igual
+       que  con  los  archivos _._q_t_h, la informacie la latitud y la longitud se
+       puede ingresar en  formato decimal  formato de grados, minutos,  segun-
+       dos (DMS).
+
+       Por ejemplo (_c_i_t_i_e_s_._d_a_t):
+
+               Teaneck, 40.891973, 74.014506
+               Tenafly, 40.919212, 73.955892
+               Teterboro, 40.859511, 74.058908
+               Tinton Falls, 40.279966, 74.093924
+               Toms River, 39.977777, 74.183580
+               Totowa, 40.906160, 74.223310
+               Trenton, 40.219922, 74.754665
+
+       Un  total  de  cinco  ficheros de datos separados de ciudades se pueden
+       importar a la vez, y no hay lte al tamae estos  archivos.   SSPPLLAATT!!  lee
+       datos  de las ciudades en base a "primero ingresada primero servida", y
+       traza solamente las localizaciones cuyas anotaciones no esten conflicto
+       con  anotaciones  de las localizaciones les anteriormente durante en el
+       archivo actual de datos de  ciudades,  archivo  previos.  Este  compor-
+       tamiento  en  SSPPLLAATT!!   reduce  al mmo el alboroto al generar  los mapas
+       topogrcos, pero tambi determina  que  por  mandato  las  localizaciones
+       importantes estpuestas al principio del primer fichero de datos de ciu-
+       dades, y las localizaciones  de  menor  importancia  sean  colocadas  a
+       continuacin la lista o en los ficheros de datos subsecuentes.
+
+       Los  ficheros  de  datos  de las ciudades se pueden generar manualmente
+       usando cualquier editor de textos, importar de otras fuentes, o derivar
+       de  los datos disponibles de la oficina de censo de los Estados Unidos,
+       usando la herramienta cciittyyddeeccooddeerr incluida con SSPPLLAATT!!.  Estos datos est
+       disponibles     gratuitamente    v   Internet    en:    http://www.cen-
+       sus.gov/geo/www/cob/bdy_files.html, y deben estar en formato ASCII.
+
+AARRCCHHIIVVOOSS DDEE DDAATTOOSS DDEE LLIIMMIITTEESS CCAARRTTOOGGRRFFIICCOOSS
+       Los datos cartogrcos de ltes se pueden tambiimportar para trazar los  l
+       tes de las ciudades,  condados, o estados en los mapas topogrcos gener-
+       ados por SSPPLLAATT!!. Estos datos deben estar en el formato de metadatos  de
+       archivos cartogrcos de ltes  ARC/INFO Ungenerate (formato ASCII), y est
+       disponibles para los E.E.U.U..en la Oficina de Censos  v  Internet  en:
+       _h_t_t_p_:_/_/_w_w_w_._c_e_n_s_u_s_._g_o_v_/_g_e_o_/_w_w_w_/_c_o_b_/_c_o_2_0_0_0_._h_t_m_l_#_a_s_c_i_i  y  _h_t_t_p_:_/_/_w_w_w_._c_e_n_-
+       _s_u_s_._g_o_v_/_g_e_o_/_w_w_w_/_c_o_b_/_p_l_2_0_0_0_._h_t_m_l_#_a_s_c_i_i.  Un  total  de  cinco   archivos
+       cartogr cos  separados de ltes se puede importar a la vez.  No es nece-
+       sario importar ltes de estado si ya  se han importado los ltes del con-
+       dado.
+
+OOPPEERRAACCII DDEELL PPRROOGGRRAAMMAA
+       SSPPLLAATT!!  Debido a que SSPPLLAATT!! hace un uso intensivo del CPU y la memoria,
+       se invoca vla de comandos usando una serie de  opciones  y  argumentos,
+       este  tipo  de  interfaz  reduce al mmo gastos indirectos y se presta a
+       operaciones  escriptadas (batch). El uso de CPU y prioridad de  memoria
+       por SSPPLLAATT!! se pueden modificar con el uso de comandos nniiccee Unix.
+
+       El  n  y  el  tipo  de  opciones pasados a SSPPLLAATT!! determinan su modo de
+       operaci el mdo de generacie  los  datos  de   salida.  Casi  todas  las
+       opciones  de SSPPLLAATT!! se pueden llamar en cascada y en cualquier orden al
+       invocar el programa desde la la de comandos.
+
+       Simplemente tipsplat en la consola de comandos, esto retornarn  resumen
+       de las opciones de la de comando de SSPPLLAATT!!:
+
+                    --==[ SPLAT! v1.4.0 Available Options... ]==--
+
+        -t txsite(s).qth (sitio de transmisimax 4 con -c, max 30 con -L)
+        -r  rxsite.qth  (sitio  de  recepci  -c grafica a(s) de cobertura  del
+       Tx(s) con antena Rx a X pies/mts SNT
+        -L grafica mapa de pida por  trayectoria  del  TX  y  antena  RX  a  X
+       pies/mts SNT
+        -s nombres de archivos(s) de ciudades/sitios para importar (mmo 5)
+        -b nombres de archivos(s) de ltes cartogrcos para importar (mmo 5)
+        -p nombre de archivo para graficar el perfil del terreno
+        -e nombre de archivo para graficar la elevaciel terreno
+        -h nombre de archivo para graficar la altura del terreno
+        -H nombre de archivo para graficar la altura normalizada del terreno
+        -l nombre de archivo para graficar pidas por trayectoria
+        -o nombre de archivo para generar el mapa topogrco (.ppm)
+        -u nombre del archivo del terreno definido-por-el-usuario a importar
+        -d  ruta  al  directorio  que  contiene  los archivos sdf (en lugar de
+       ~/.splat_path)
+        -m multiplicador del radio de la tierra
+        -n no grafica las rutas de LDV in mapas .ppm
+        -N no produce reportes innecesarios del sitio portes de  obstrucci  -f
+       frecuencia para el culo de la zona de Fresnel (MHz)
+        -R modifica el rango por defecto para -c  (millas/kilros)
+        -sc presenta niveles de contornos suavizados en lugar de cuantizados
+        -db Umbral bajo el cual los contornos no serpresentados
+        -nf no grafica la zona de Fresnel en  los grcos de  altura
+        -fz porcentaje de despeje de la zona de Fresnel (default = 60)
+        -gc Altura del clutter del terreno (pies/metros)
+        -ngs  presenta  la topografde escala de grises como blanco en archivos
+       .ppm
+        -erp valor ERP en lugar del declarado en el archivo .lrp (Watts)
+        -ano nombre archivo salida alfanumca
+        -ani nombre archivo entrada alfanumca
+        -udt nombre del archivo de entrada de terreno definido-por-el-usuario
+        -kml genera un archivo compatible  Google  Earth  .kml  (para  enlaces
+       punto-punto)
+        -dbm  dibuja contornos de nivel de potencia de seen lugar de intesidad
+       de campo
+        -geo genera un archivo Xastir de georeferencia .geo (con salida .ppm)
+        -gpsav preserva  los archivos  temporales  gnuplot  despu de  ejecutar
+       SPLAT!
+        -metric  emplea  unidades micas para todas las I/O del usuario -olditm
+       invoca el viejo modelo de propagaciTM en lugar del nuevo ITWOM
+
+       Las opciones de la-de-comando para splat y splat-hd son idicas.
+
+       SSPPLLAATT!! opera en dos modos distintos:  _m_o_d_o  _p_u_n_t_o_-_a_-_p_u_n_t_o,  y  _m_o_d_o  _d_e
+       _p_r_e_d_i_c_c_i _e_l  _a _d_e _c_o_b_e_r_t_u_r_a, y puede ser invocado por el usuario usando
+       el modo de la de vista (LOS)   modelo   de  propagaci erreno  Irregular
+       (ITM).  El  radio de tierra verdadera, cuatro-tercios, o cualquier otro
+       definido-por-el-usuario pueden ser especificados al realizar los an sis
+       de la-de-vista.
+
+AANNLLIISSIISS PPUUNNTTOO--AA--PPUUNNTTOO
+       SSPPLLAATT!!  puede ser utilizado para determinar si existe la de vista entre
+       dos localizaciones especificadas realizando para ello el ansis del per-
+       fil del terreno. Por ejemplo:
+
+       splat -t tx_site.qth -r rx_site.qth
+
+       invoca un ansis del perfil del terreno entre el transmisor especificado
+       en _t_x___s_i_t_e_._q_t_h y el receptor especificado en _r_x___s_i_t_e_._q_t_h, y escribe  un
+       Reporte  de  Obstrucciones  SSPPLLAATT!!  al directorio de trabajo actual. El
+       reporte contiene los detalles de los sitios del transmisor y del recep-
+       tor, e identifica la localizacie cualquier obstruccietectada a lo largo
+       de la trayectoria de la-de-vista. Si una obstrucci uede  ser  despejada
+       levantando  la  antena  de  recepci  una mayor altitud, SSPPLLAATT!! indicara
+       altura mma de la antena requerida para que exista la-de-vista entre las
+       localizaciones  del transmisor y el receptor especificadas. Observe que
+       las unidades imperiales (millas, pies) se usan por defecto, a menos que
+       se use la opcifI-metric eenn llaa oorrddeenn SSPPLLAATT!! ddee llaa ddee ccoommaannddooss..
+
+       ssppllaatt --tt ttxx__ssiittee..qqtthh --rr rrxx__ssiittee..qqtthh --mmeettrriicc
+
+       Si  la  antena  se  debe  levantar  una  cantidad  significativa,  esta
+       determinacipuede tomar una cierta cantidad de tiempo. Observe  que  los
+       resultados  proporcionados  son  el  _m _m_o necesario para que exista una
+       trayectoria de la la-de-vista, y en el caso de este simple ejemplo,  no
+       considera los requisitos de la zona de Fresnel.
+
+       Las  extensiones  _q_t_h  son asumidas por SPLAT! para los archivos QTH, y
+       son opcionales cuando se especifican los argumentos -t y -r en la la de
+       comandos.  SSPPLLAATT!! lee automcamente todos los ficheros de datos de SPLAT
+       necesarios para el ansis del terreno entre  los  sitios  especificados.
+       SSPPLLAATT!!  busca  primero los archivos SDF necesarios  en el directorio de
+       trabajo actual. Si estos archivos no  se  encuentran,  SSPPLLAATT!!  entonces
+       busca en la ruta especificada por la opcifI-d::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --dd //ccddrroomm//ssddff//
+
+       Una  ruta  a  un  directorio  externo puede ser especificada creando el
+       archivo ".splat_path" en el directorio de  trabajo  del  usuario.  Este
+       archivo  _$_H_O_M_E_/_._s_p_l_a_t___p_a_t_h  debe contener una sola la de texto ASCII en
+       la que indique la ruta completa  del directorio que contiene todos  los
+       archivos SDF.
+
+       /opt/splat/sdf/
+
+       Y puede ser generado usando cualquier editor de texto.
+
+       Un  grco que muestre el perfil del terreno en funcie la distancia, par-
+       tiendo desde el receptor, entre las  localizaciones  del  transmisor  y
+       receptor se puede generar adicionando la opcifI-p:
+
+       splat -t tx_site -r rx_site -p terrain_profile.png
+
+       SPLAT!  invoca al programa ggnnuupplloott cuando genera los grcos.  La extensi
+       el nombre del archivo especificado a SSPPLLAATT!! determina el formato del gr
+       co  a  ser  producido _._p_n_g generarn archivo de grco PNG a color con una
+       resolucie 640x480, mientras que _._p_s o _._p_o_s_t_s_c_r_i_p_t  generar archivos  de
+       salida  postscritp.  La salida en formatos como GIF, Adobe Illustrator,
+       AutoCAD dxf, LaTex, y muchos otros est disponibles. Por favor  consulte
+       ggnnuupplloott,  y la documentacie ggnnuupplloott para detalles de todos los formatos
+       de salida soportados.
+
+       En el lado del receptor  un grco de elevaciones en funcie la  distancia
+       determinado por el ulo de inclinaciebido al terreno entre el receptor y
+       el transmisor se puede generar usando la opcifI-e::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --ee eelleevvaattiioonn__pprrooffiillee..ppnngg
+
+       El grco producido usando esta opcilustra los ulos de elevaci y  depresi
+       resultado  del  terreno  entre  la localizaciel receptor y el sitio del
+       transmisor desde la perspectiva   del receptor.  Un  segundo  trazo  es
+       dibujado  entre el lado izquierdo del grco (localizaciel receptor) y la
+       localizacie la antena que transmite a la derecha.  Este  trazo  ilustra
+       el   ulo  de elevaciequerido para que exista  una trayectoria de la-de-
+       vista entre el receptor y transmisor. Si la traza interseca  el  perfil
+       de  elevaci n cualquier punto del grco, entonces esto es una indicaciue
+       bajo las condiciones dadas no existe una trayectoria de la-de-vista,  y
+       las  obstrucciones  se  pueden identificar claramente en el grco en los
+       puntos de intersecci Un grco ilustrando la altura del terreno  referen-
+       ciado a la trayectoria de la-de-vista entre el transmisor y el receptor
+       se puede generar usando la opcifI-h::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --hh hheeiigghhtt__pprrooffiillee..ppnngg
+
+       La altura del terreno normalizada a las  alturas  de  las  antenas  del
+       transmisor y receptor pueden ser obtenidas con la opcifI-H::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --HH nnoorrmmaalliizzeedd__hheeiigghhtt__pprrooffiillee..ppnngg
+
+       El contorno de curvatura de la Tierra tambies graficada en este modo.
+
+       La  primera  Zona  de  Fresnel,  y el 60% de la primera Zona de Fresnel
+       puede ser adicionada al grco de perfiles de altura con la opci fI-f,,  yy
+       eessppeecciiffiiccaannddoo uunnaa ffrreeccuueenncciiaa ((MMHHzz)) aa llaa ccuuaall llaa ZZoonnaa ddee FFrreessnneell sseerrooddee--
+       llaaddaa::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --ff 443399..225500 --HH nnoorrmmaalliizzeedd__hheeiigghhtt__pprrooffiillee..ppnngg
+
+       Zonas  de  despeje  de  la  zona de Fresnel distintas al 60% pueden ser
+       especificadas usando la opcifI-fz ccoommoo ssiigguuee::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --ff 443399..225500 --ffzz 7755 --HH hheeiigghhtt__pprrooffiillee22..ppnngg
+
+       Un grco que muestre las pidas  de  trayectoria  ITM  se  puede  dibujar
+       usando la opcifI-l::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --ll ppaatthh__lloossss__pprrooffiillee..ppnngg
+
+       Como  antes,  adicionando  la  opci fI-metric  ssee  ffoorrzzaa aall ggrrccoo aa uussaarr
+       uunniiddaaddeess ddee mmeeddiiddaa mmiiccaa..   LLaa  ooppccii ffII--ggppssaavv  instruye  a  SSPPLLAATT!!  para
+       preservar  (en lugar de borrar) los archivos temporales de trabajo ggnnuu--
+       pplloott generados durante la ejecucie SSPPLLAATT!!, permitiendo al usuario  edi-
+       tar esos archivos y re-ejecutar ggnnuupplloott si lo desea.
+
+       Al  realizar  un  an sis  punto-a-punto,  un reporte SSPPLLAATT!! de ansis de
+       trayectoria es generado en la forma de un  archivo  de  texto  con  una
+       extensie archivo _._t_x_t. El reporte contiene azimut y distancias entre el
+       transmisor y receptor, asismo cuando se analizan las perdidas por espa-
+       cio-libre y trayectoria ITM. El modo de propagaciara la trayectoria est
+       ado como _L_a_-_d_e_-_V_i_s_t_a, _H_o_r_i_z_o_n_t_e _S_i_m_p_l_e, _H_o_r_i_z_o_n_t_e _D_o_b_l_e,  _D_i_f_r_a_c_c_i _o_m_i_-
+       _n_a_n_t_e, ITroposcatter dominante_. _A_d_i_c_i_o_n_a_l_m_e_n_t_e_, _s_i _e_l _r_e_c_e_p_t_o_r _e_s_t_o_c_a_l_-
+       _i_z_a_d_o _e_n _e_l _p_i_c_o _d_e _u_n_a _o_b_s_t_r_u_c_c_i_i_m_p_l_e _o _e_n  _e_l  _p_i_c_o  _d_e  _u_n_a  _s_e_g_u_n_d_a
+       _o_s_t_r_u_c_c_i SSPPLLAATT!!  _r_e_p_o_r_t_a_r _l  _R_X _e_n _e_l _P_i_c_o _d_e_l _T_e_r_r_e_n_o _a _l_o _L_a_r_g_o _d_e _l_a
+       _T_r_a_y_e_c_t_o_r_i_a _c_u_a_n_d_o _o_p_e_r_a _b_a_j_o _e_l _m_o_d_e_l_o _d_e _p_r_o_p_a_g_a_c_i_T_W_O_M_.
+
+       _D_i_s_t_a_n_c_i_a_s _y _l_o_c_a_l_i_z_a_c_i_o_n_e_s _p_a_r_a _i_d_e_n_t_i_f_i_c_a_r  _l_a_s  _o_b_s_t_r_u_c_c_i_o_n_e_s  _a  _l_o
+       _l_a_r_g_o  _d_e  _l_a  _t_r_a_y_e_c_t_o_r_i_a  _e_n_t_r_e  _e_l  _t_r_a_n_s_m_i_s_o_r _y _e_l _r_e_c_e_p_t_o_r _t_a_m_b_i_s_e
+       _p_r_o_v_e_e_n_. _S_i _l_a _p_o_t_e_n_c_i_a _e_f_e_c_t_i_v_a _r_a_d_i_a_d_a _d_e_l _t_r_a_n_s_m_i_s_o_r _e_s _e_s_p_e_c_i_f_i_c_a_d_a
+       _e_n _e_l _a_r_c_h_i_v_o _._l_r_p _d_e_l _t_r_a_n_s_m_i_s_o_r _c_o_r_r_e_s_p_o_n_d_i_e_n_t_e_, _e_n_t_o_n_c_e_s _l_a _p_r_e_d_i_c_c_i
+       _e _i_n_t_e_n_s_i_d_a_d _d_e _s_e_y _v_o_l_t_a_j_e _d_e _a_n_t_e_n_a _e_n _l_a _l_o_c_a_l_i_z_a_c_i_e _r_e_c_e_p_c_i _a_m_b_i _s_e
+       _p_r_o_v_e_e _e_n _e_l _r_e_p_o_r_t_e _d_e _a_n_s_i_s _d_e _t_r_a_y_e_c_t_o_r_i_a_.
+
+       _P_a_r_a  _d_e_t_e_r_m_i_n_a_r  _l_a  _r_e_l_a_c_i _e_a_-_r_u_i_d_o _(_S_N_R_) _e_n _e_l _s_i_t_i_o _r_e_m_o_t_o _d_o_n_d_e _e_l
+       _r_u_i_d_o _(_t_i_c_o_) _a_l_e_a_t_o_r_i_o _d_e _J_o_h_n_s_o_n _e_s _e_l _e_l _f_a_c_t_o_r _l_i_m_i_t_a_n_t_e _p_r_i_m_a_r_i_o _e_n
+       _l_a _r_e_c_e_p_c_i _S_N_R=_T-_N_J-_L+_G-_N_F
+
+       _d_o_n_d_e  TT  _e_s  _l_a  _p_o_t_e_n_c_i_a  _E_R_P  _d_e_l _t_r_a_n_s_m_i_s_o_r _e_n _d_B_W _e_n _l_a _d_i_r_e_c_c_i_d_e_l
+       _r_e_c_e_d_p_t_o_r_, NNJJ _e_s _e_l _r_u_i_d_o _d_e _J_o_h_n_s_o_n _e_n _d_B_W _(_-_1_3_6 _d_B_W _p_a_r_a _u_n _c_a_n_a_l  _d_e
+       _T_V _d_e _6 _M_H_z_)_, LL _e_s _l_a_s _p_i_d_a_s _p_o_r _t_r_a_y_e_c_t_o_r_i_a _p_r_o_v_i_s_t_a_s _p_o_r SSPPLLAATT!! _e_n _d_B
+       _(_c_o_m_o _u_n _n _p_o_s_i_t_i_v_o_)_, GG _e_s _l_a _g_a_n_a_n_c_i_a _d_e _l_a  _a_n_t_e_n_a  _r_e_c_e_p_t_o_r_a  _e_n  _d_B
+       _r_e_f_e_r_e_n_c_i_a_d_a  _a  _u_n  _r_a_d_i_a_d_o_r  _i_s_o_t_r_o_, _y NNFF _e_s _l_a _f_i_g_u_r_a _d_e _r_u_i_d_o _e_n _e_l
+       _r_e_c_e_p_t_o_r _e_n _d_B_.
+
+       TT _p_u_e_d_e _s_e_r _c_o_m_p_u_t_a_d_o _c_o_m_o _s_i_g_u_e_:
+
+       _T=_T_I+_G_T
+
+       _d_o_n_d_e TTII _e_s _l_a _c_a_n_t_i_d_a_d _a_c_t_u_a_l _d_e _p_o_t_e_n_c_i_a _R_F  _e_n_t_r_e_g_a_d_a  _a  _l_a  _a_n_t_e_n_a
+       _t_r_a_n_s_m_i_s_o_r_a _e_n _d_B_W_, GGTT  _e_s _l_a _g_a_n_a_n_c_i_a _d_e _l_a _a_n_t_e_n_a _t_r_a_n_s_m_i_s_o_r_a _(_r_e_f_e_r_-
+       _e_n_c_i_a_d_a _a _u_n_a _i_s_o_t_r_a_) _e_n _l_a _d_i_r_e_c_c_i_e_l _r_e_c_e_p_t_o_r _( _h_o_r_i_z_o_n_t_e _s_i _e_l _r_e_c_e_p_-
+       _t_o_r _e_s_t_o_b_r_e _e_l _h_o_r_i_z_o_n_t_e_)_.
+
+       _P_a_r_a  _c_a_l_c_u_l_a_r  _c_u_a_n_t_a  _m_a_s  _s_e_e_s_t_i_s_p_o_n_i_b_l_e _s_o_b_r_e _e_l _m_m_o _n_e_c_e_s_a_r_i_o _p_a_r_a
+       _c_o_n_s_e_g_u_i_r _u_n_a _e_s_p_e_c_c_a _r_e_l_a_c_i_e_a_-_r_u_i_d_o_:
+
+       _S_i_g_n_a_l__M_a_r_g_i_n=_S_N_R-_S
+
+       _d_o_n_d_e SS _e_s _l_a _m_m_a _r_e_l_a_c_i_N_R _d_e_s_e_a_d_a _(_1_5_._5 _d_B  _p_a_r_a  _A_T_S_C  _(_8_-_l_e_v_e_l  _V_S_B_)
+       _D_T_V_, _4_2 _d_B _p_a_r_a _t_e_l_e_v_i_s_i_n_a_l_a _N_T_S_C_)_.
+
+       _U_n  _m_a_p_a  _t_o_p_o_g_r _c_o  _p_u_e_d_e  _s_e_r  _g_e_n_e_r_a_d_o _p_o_r SSPPLLAATT!! _p_a_r_a _v_i_s_u_a_l_i_z_a_r _l_a
+       _t_r_a_y_e_c_t_o_r_i_a _e_n_t_r_e _e_l _t_r_a_n_s_m_i_s_o_r _y _e_l _r_e_c_e_p_t_o_r _d_e_s_d_e  _o_t_r_a  _p_e_r_s_p_e_c_t_i_v_a_.
+       _L_o_s  _m_a_p_a_s  _t_o_p_o_g_r _c_o_s  _g_e_n_e_r_a_d_o_s  _p_o_r SSPPLLAATT!! _p_r_e_s_e_n_t_a_n _l_a_s _e_l_e_v_a_c_i_o_n_e_s
+       _u_s_a_n_d_o _u_n_a _e_s_c_a_l_a _d_e _g_r_i_s_e_s _l_o_g_a_r_i_c_a_, _c_o_n _l_a_s _e_l_e_v_a_c_i_o_n_e_s _m_a_l_t_a_s _r_e_p_r_e_-
+       _s_e_n_t_a_d_a_s  _a _t_r_a_v_d_e _c_a_p_a_s _m_b_r_i_l_l_a_n_t_e_s _d_e _g_r_i_s_. _E_l _r_a_n_g_o _d_i_n_c_o _d_e _l_a _i_m_a_-
+       _g_e_n _e_s _e_s_c_a_l_a_d_a _e_n_t_r_e _l_a_s _e_l_e_v_a_c_i_o_n_e_s _m_a_l_t_a_s _y _m_b_a_j_a_s _p_r_e_s_e_n_t_e_s  _e_n  _e_l
+       _m_a_p_a_.  _L_a    _e_x_c_e_p_c_i _e  _e_s_t_o _e_s _a_l _n_i_v_e_l _d_e_l _m_a_r_, _e_l _c_u_a_l _s_e _r_e_p_r_e_s_e_n_t_a
+       _u_s_a_n_d_o _e_l _c_o_l_o_r _a_z_u_l_.
+
+       _L_a _s_a_l_i_d_a _t_o_p_o_g_r_c_a _s_e _p_u_e_d_e _e_s_p_e_c_i_f_i_c_a_r  _u_s_a_n_d_o _l_a _o_p_c_i_f_I_-_o::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --oo ttooppoo__mmaapp..ppppmm
+
+       La extensifI.ppm ddeell aarrcchhiivvoo ddee ssaalliiddaa eess  aassuummiiddaa  ppoorr  SSPPLLAATT!!,,  yy  eess
+       ooppcciioonnaall..
+
+       EEnn  eessttee  eejjeemmpplloo,, _t_o_p_o___m_a_p_._p_p_m iilluussttrraarraass llooccaalliizzaacciioonneess ddee llooss ssiittiiooss
+       eessppeecciiffiiccaaddooss ddeell ttrraannssmmiissoorr yy ddeell rreecceeppttoorr.. AAddeemm llaa ttrraayyeeccttoorriiaa  eennttrree
+       llooss  ddooss  ssiittiiooss  sseerr iibbuujjaaddaa  ssoobbrree llaass llooccaalliizzaacciioonneess ppaarraa llaass ccuuaalleess
+       eexxiissttee uunnaa ttrraayyeeccttoorriiaa ssiinn oobbssttlloo hhaacciiaa eell ttrraannssmmiissoorr ccoonn   uunnaa  aallttuurraa
+       ddee  llaa aanntteennaa ddee rreecceeppcciiiigguuaall aa llaa ddeell ssiittiioo ddeell rreecceeppttoorr ((eessppeecciiffiiccaaddoo
+       eenn _r_x___s_i_t_e_._q_t_h))..
+
+       PPuueeddee sseerr ddeesseeaabbllee ppoobbllaarr eell mmaappaa ttooppooggrrccoo ccoonn nnoommbbrreess yy llooccaalliizzaacciioonneess
+       ddee  cciiuuddaaddeess,,  ssiittiiooss ddee ttoorrrreess,, oo ddee oottrraass llooccaalliizzaacciioonneess iimmppoorrttaanntteess..
+       UUnn aarrcchhiivvoo ddee cciiuuddaaddeess ssee ppuueeddee ppaassaarr aa SSPPLLAATT!! uussaannddoo  llaa ooppcciiffII--ss::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --ss cciittiieess..ddaatt --oo ttooppoo__mmaapp
+
+       Hasta cinco archivos separados pueden ser pasados a  SSPPLLAATT!!  a  la  vez
+       luego de la opcifI-s..
+
+       LLtteess ddee eessttaaddooss yy cciiuuddaaddeess ppuueeddeenn sseerr aaddiicciioonnaaddooss aall mmaappaa eessppeecciiffiiccaannddoo
+       hhaassttaa cciinnccoo aarrcchhiivvooss ddee lltteess ccaarrttooggrrccooss ddee  CCeennssoo  BBuurreeuu  ddee  llooss  UU..SS..
+       uussaannddoo llaa ooppcciiffII--bb:
+
+       splat -t tx_site -r rx_site -b co34_d00.dat -o topo_map
+
+       En  situaciones  donde mles sitios de transmisores esten uso, se pueden
+       pasar a SSPPLLAATT!! hasta cuatro localizaciones simultas para sus  ansis:
+
+       splat -t tx_site1 tx_site2 tx_site3 tx_site4 -r rx_site -p profile.png
+
+       En este ejemplo, SSPPLLAATT!! genera cuatro reportes separados  de  obstrucci
+       de perfiles de terreno . Un simple mapa topogrco puede ser especificado
+       usando la opcifI-o,, yy llaass ttrraayyeeccttoorriiaass ddee llaa ddee vviissttaa eennttrree ccaaddaa ttrraannss--
+       mmiissoorr yy eell ssiittiioo iinnddiiccaaddoo ddeell rreecceeppttoorr sseerrrroodduucciiddoo eenn eell mmaappaa,, ccaaddaa uunnoo
+       eenn  ssuu  pprrooppiioo  ccoolloorr..  LLaa  ttrraayyeeccttoorriiaa  eennttrree  eell  pprriimmeerr   ttrraannssmmiissoorr
+       eessppeecciiffiiccaaddoo  aall  rreecceeppttoorr  sseerr eerrddee,,  llaa  ttrraayyeeccttoorriiaa eennttrree eell sseegguunnddoo
+       ttrraannssmmiissoorr yy eell rreecceeppttoorr sseerryyaann,, llaa ttrraayyeeccttoorriiaa eennttrree eell tteerrcceerr  ttrraannss--
+       mmiissoorr  yy eell rreecceeppttoorr sseerriioolleettaa,, yy llaa ttrraayyeeccttoorriiaa eennttrree eell ccuuaarrttoo ttrraannss--
+       mmiissoorr yy eell rreecceeppttoorr sseerriieennaa..
+
+       LLooss mmaappaass ttooppooggrrccooss ggeenneerraaddooss ppoorr SSPPLLAATT!! ssoonn  iimm nneess  TTrruueeCCoolloorr  PPiixxMMaapp
+       PPoorrttaabblleess  ddee  2244--bbiitt  ((PPPPMM)) yy ppuueeddeenn sseerr vviissttooss,, ccoorrrreeggiiddooss,, oo ccoonnvveerr--
+       ttiiddooss aa oottrrooss ffoorrmmaattooss ggrrccooss uussaannddoo  ppooppuullaarreess pprrooggrraammaass ddee iimmnneess ttaalleess
+       ccoommoo  xxvv,,  TThhee  GGIIMMPP,, IImmaaggeeMMaaggiicckk,, aanndd XXPPaaiinntt..  EEll ffoorrmmaattoo PPNNGG eess aallttaa--
+       mmeennttee rreeccoommeennddaaddoo ppaarraa eell aallmmaacceennaammiieennttoo ccoommpprriimmiiddoo ssiinn pp iiddaass  ddee  llooss
+       aarrcchhiivvooss  ttooppooggrrccooss ddee ssaalliiddaa  ggeenneerraaddooss ppoorr SSPPLLAATT!!..  LLaa uuttiilliiddaadd ddee llaa
+       ddee ccoommaannddooss IImmaaggeeMMaaggiicckk''ss ccoonnvviieerrttee ffllmmeennttee llooss aarrcchhiivvooss ggrr ccooss  SSPPLLAATT!!
+       PPPPMM aall ffoorrmmaattoo PPNNGG::
+
+       ccoonnvveerrtt ssppllaatt__mmaapp..ppppmm ssppllaatt__mmaapp..ppnngg
+
+       Otra  utilidad  de  de la de comandos excelente para convertir archivos
+       PPM     a     PNG     es     wpng,     y     est     isponible      en:
+       _h_t_t_p_:_/_/_w_w_w_._l_i_b_p_n_g_._o_r_g_/_p_u_b_/_p_n_g_/_b_o_o_k_/_s_o_u_r_c_e_s_._h_t_m_l.    Como  recurso  adi-
+       cional, los archivos PPM pueden  ser  comprimidos  usando  la  utilidad
+       bzip2, y ser les directamente en este formato por TThhee GGIIMMPP.
+
+       La  opci fI-ngs  aassiiggnnaa  aa ttooddoo eell tteerrrreennoo eell ccoolloorr bbllaannccoo,, yy ppuueeddee sseerr
+       uussaaddaa ccuuaannddoo ssee qquuiieerree ggeenneerraarr mmaappaass ddeesspprroovviissttooss ddee tteerrrreennoo
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --bb ccoo3344__dd0000..ddaatt --nnggss --oo wwhhiittee__mmaapp
+
+       El archivo imagen .ppm resultante puede ser convertido al formato  .png
+       con  un fondo transparente usando la utilidad ccoonnvveerrtt de IImmaaggeeMMaaggiicckk's.
+
+       convert -transparent "#FFFFFF" white_map.ppm transparent_map.png
+
+DDEETTEERRMMIINNAANNDDOO LLAA CCOOBBEERRTTUURRAA RREEGGIIOONNAALL
+       SSPPLLAATT!! puede analizar un sitio de transmisor petidora, des de sitios, y
+       predecir  la  cobertura  regional para cada sitio especificado. En este
+       modo SSPPLLAATT!! puede generar un mapa topogrco presentando la  l a-de-vista
+       geom ica  del  a de cobertura  de los sitios, basados en la localizacie
+       cada sitio y la altura de la antena receptora que  se  desea  comunicar
+       con  el  sitio  en  cuesti  Un  an sis regional puede ser realizado por
+       SSPPLLAATT!! usando la opcifI-c ccoommoo ssiigguuee::
+
+       ssppllaatt --tt ttxx__ssiittee --cc 3300..00 --ss cciittiieess..ddaatt --bb ccoo3344__dd0000..ddaatt --oo ttxx__ccoovveerraaggee
+
+       En este ejemplo, SPLAT! genera un mapa topogrco llamado _t_x___c_o_v_e_r_a_g_e_._p_p_m
+       que  ilustra la prediccie cobertura regional de la-de-vista del _t_x___s_i_t_e
+       a las estaciones receptoras que tienen una antena de 30 pies de  altura
+       sobre  el  nivel  del  terreno  (AGL). Si la opcifI-metric _e_s _u_s_a_d_a_, _e_l
+       _a_r_g_u_m_e_n_t_o _q_u_e _s_i_g_u_e _a _l_a _o_p_c_i_f_I_-_c es interpretada en metros,  en  lugar
+       de  pies.  El contenido de cities.dat son dibujados sobre el mapa, como
+       tambi los ltes cartogrcos contenidos en el archivo _c_o_3_4___d_0_0_._d_a_t.
+
+       Cuando se grafica las trayectorias de la-de-vista y las as de cobertura
+       regional,  SSPPLLAATT!! por defecto no considera los efectos de la flexitmosf
+       ca. Sin embargo esta caracterica puede ser modificada usando el  multi-
+       plicador de radio de la tierra con la opci(_-_m):
+
+       splat  -t  wnjt-dt  -c  30.0  -m 1.333 -s cities.dat -b counties.dat -o
+       map.ppm
+
+       Un radio multiplicador de 1.333 instruye a  SSPPLLAATT!! a usar el modelo  de
+       "cuatro-tercios"  para  el  ansis de propagacie la de vista.  Cualquier
+       multiplicador del radio de la tierra apropiado puede  ser  seleccionado
+       por el usuario.
+
+       Cuando  realiza  un  ansis regional, SSPPLLAATT!! genera un reporte para cada
+       estacinalizada. Los reportes de sitio SSPPLLAATT!! contienen detalles  de  la
+       localizacieogrca del sitio, su altura sobre el nivel del mar, la altura
+       de la antena sobre el promedio del terreno, y la  altura  del  promedio
+       del  terreno  calculada  en las direcciones de los azimut de 0, 45, 90,
+       135, 180, 225, 270, y 315 grados.
+
+DDEETTEERRMMIINNAANNDDOO MMTTIIPPLLEESS RREEGGIIOONNEESS DDEE CCOOBBEERRTTUURRAA DDEE LLDDVV
+       SSPPLLAATT!! tambipuede presentar as de cobertura de la-de-vista  hasta  para
+       cuatro  sitios  de transmisores separados sobre un mapa topogrco comPor
+       ejemplo:
+
+       splat -t site1 site2 site3 site4 -c 10.0 -metric -o network.ppm
+
+       Grafica las coberturas regionales de la de vista del  site1 site2 site3
+       y  site4  basado en una antena receptora localizada a 10.0 metros sobre
+       el nivel del terreno. Un mapa topogrco entonces es escrito  al  archivo
+       _n_e_t_w_o_r_k_._p_p_m.  El a de cobertura de la-de-vista del transmisor es grafi-
+       cada en los colores indicados (junto con sus valores  RGB  correspondi-
+       entes en decimal):
+
+           site1: Green (0,255,0)
+           site2: Cyan (0,255,255)
+           site3: Medium Violet (147,112,219)
+           site4: Sienna 1 (255,130,71)
+
+           site1 + site2: Yellow (255,255,0)
+           site1 + site3: Pink (255,192,203)
+           site1 + site4: Green Yellow (173,255,47)
+           site2 + site3: Orange (255,165,0)
+           site2 + site4: Dark Sea Green 1 (193,255,193)
+           site3 + site4: Dark Turquoise (0,206,209)
+
+           site1 + site2 + site3: Dark Green (0,100,0)
+           site1 + site2 + site4: Blanched Almond (255,235,205)
+           site1 + site3 + site4: Medium Spring Green (0,250,154)
+           site2 + site3 + site4: Tan (210,180,140)
+
+           site1 + site2 + site3 + site4: Gold2 (238,201,0)
+
+       Si  se  generan  archivos  _._q_t_h  separados,  cada uno representando una
+       localizacie un sitio comero con diferentes alturas  de  antena,  SSPPLLAATT!!
+       puede  generar  un  mapa  topogr co  sencillo  que ilustra la cobertura
+       regional desde las estaciones (hasta cuatro) separadas por la altura en
+       un  torre.
+
+AANNLLIISSIISS DDEE PPDDIIDDAASS PPOORR TTRRAAYYEECCTTOORRIIAA
+       Si  la opcifI-c  ssee rreeeemmppllaazzaa ppoorr llaa ooppcciiffII--LL, se puede generar un mapa
+       de pidas de trayectorias ITM:
+
+       splat -t wnjt -L 30.0 -s cities.dat -b co34_d00.dat -o path_loss_map
+
+       En este modo, SSPPLLAATT!! genera un mapa multicolor que ilustra los  niveles
+       de  se esperados (pidas por trayectoria) en las as alrededor del trans-
+       misor. Una leyenda en la parte inferior del mapa relaciona  cada  color
+       con sus respectivas pidas por trayectoria especcas en decibeles.
+
+       La  opcifI-db ppeerrmmiittee uunn uummbbrraall aa sseerr ccoonnffiigguurraaddoo ccoommoo llttee bbaajjoo eell ccuuaall
+       llooss ccoonnttoorrnnooss nnoo sseerrggrraaffiiccaaddooss eenn eell mmaappaa.. PPoorr eejjeemmpplloo,, ssii  llaass  pp iiddaass
+       ppoorr  ttrraayyeeccttoorriiaa ppoorr ddeebbaajjoo ddee --114400 ddBB ssoonn iirrrreelleevvaanntteess ppaarraa eell eessttuuddiioo
+       qquuee ssee eesstteeaalliizzaannddoo,, eell ggrrccoo ddee llaass ppiiddaass  ppoorr  ttrraayyeeccttoorriiaa  ppuueeddee  sseerr
+       lliimmiittaaddoo  aa  llaa rreeggiieelliimmiittaaddaa ppoorr eell ccoonnttoorrnnoo ddee aatteennuuaacciiddee 114400 ddBB ccoommoo
+       ssiigguuee::
+
+       ssppllaatt --tt wwnnjjtt--ddtt --LL 3300..00 --ss  cciittiieess..ddaatt  --bb  ccoo3344__dd0000..ddaatt  --ddbb  114400  --oo
+       pplloott..ppppmm
+
+       El  umbral  del  contorno  de pidas por trayectoria puede ser expresado
+       como una cantidad positiva o negativa
+
+       El rango de ansis de pidas por trayectoria puede modificado a una  dis-
+       tancia  especcada-por-el-usuario con la opcifI-R.. EEll aarrgguummeennttoo ddeebbee sseerr
+       ddaaddoo eenn mmiillllaass ((llrrooss ssii llaa ooppcciiffII--mmeettrriicc es usada).  Si  se  especifica
+       un  rango mayor que el mapa topogrco generado, SSPPLLAATT!!  realizaros culos
+       de perdidas de trayectoria ITM entre todas las cuatro esquinas  del   a
+       del  mapa  de predicci Los colores usados para ilustrar las regiones de
+       contorno en los mapas SSPPLLAATT!! de cobertura generados se pueden modificar
+       al  crear  o  modificar  los  archivos de definicie color SSPPLLAATT!!'s. Los
+       archivos de definicie  color  tienen  el  mismo  nombre  base  que  los
+       archivos  de los transmisores _._q_t_h, pero llevan extensiones _._l_c_f, _._s_c_f,
+       y _._d_c_f. Si en el directorio de trabajo actual no existen  los  archivos
+       necesarios,  cuando  SSPPLLAATT!! se estjecutando, se crea en este directorio
+       un archivo que contiene los partros por defecto de definicie color  que
+       luego puede ser editado manualmente por el usuario.
+
+       Cuando  se realiza un ansis regional  ITM y el ERP del transmisor no se
+       ha especificado  cero, un archivo de definici e  color  de  p idas  por
+       trayectoria  _._l_c_f  correspondiente al sitio del transmisor (_._q_t_h) es le
+       por SSPPLLAATT!! desde el directorio de trabajo actual. Si  el  archivo  _._l_c_f
+       correspondiente  al  sitio  del transmisor no se encuentra, entonces un
+       archivo por defecto para edicianual por el usuario es automcamente gen-
+       erado por SSPPLLAATT!!.
+
+       Un  archivo  de definicie color de pidas por trayectoria posee la sigu-
+       iente estructura: (_w_n_j_t_-_d_t_._l_c_f):
+        ; SPLAT! Auto-generated  Path-Loss  Color  Definition  ("wnjt-dt.lcf")
+       File
+        ;
+        ; Format for the parameters held in this file is as follows:
+        ;
+        ;    dB: red, green, blue
+        ;
+        ; ...where "dB" is the path loss (in dB) and
+        ; "red", "green", and "blue" are the corresponding RGB color
+        ; definitions ranging from 0 to 255 for the region specified.
+        ;
+        ; The following parameters may be edited and/or expanded
+        ; for future runs of SPLAT!  A total of 32 contour regions
+        ; may be defined in this file.
+        ;
+        ;
+         80: 255,   0,   0
+         90: 255, 128,   0
+        100: 255, 165,   0
+        110: 255, 206,   0
+        120: 255, 255,   0
+        130: 184, 255,   0
+        140:   0, 255,   0
+        150:   0, 208,   0
+        160:   0, 196, 196
+        170:   0, 148, 255
+        180:  80,  80, 255
+        190:   0,  38, 255
+        200: 142,  63, 255
+        210: 196,  54, 255
+        220: 255,   0, 255
+        230: 255, 194, 204
+
+       Si la pida por trayectoria es menor que 80 dB, el color Rojo (RGB= 255,
+       0, 0) es asignado a la regiSi la pida por trayectoria es mayor o  igual
+       a 80 dB, pero menor que 90 dB, entonces Naranja Oscuro (255, 128, 0) es
+       asignado a la regiNaranja (255, 165, 0)  es  asignado  a  regiones  que
+       tienen  una  pida por trayectoria mayor o igual a 90 dB, pero menor que
+       100 dB, y asn adelante. El terreno en escala de  grises  es  presentado
+       por  debajo del contorno de pidas por trayectoria de 230 dB.  Si se usa
+       la opcifI-sc se suavizaras transiciones entre los niveles de  contornos
+       cuantizados.
+
+AANNAALLIISSIISS DDEE IINNTTEENNSSIIDDAADD DDEE CCAAMMPPOO
+       Si  la  potencia efectiva radiada (ERP) del transmisor se especifica en
+       el archivo del transmisor _._l_r_p, o expresada en  la  linea  de  comandos
+       usando  la  opci fI-erp_, _e_n _l_u_g_a_r _d_e _l_a_s _p_i_d_a_s _p_o_r _t_r_a_y_e_c_t_o_r_i_a_, _s_e _p_r_o_-
+       _d_u_c_e_n _l_o_s _c_o_n_t_o_r_n_o_s _d_e _i_n_t_e_n_s_i_d_a_d _d_e _c_a_m_p_o  _r_e_f_e_r_e_n_c_i_a_d_o_s  _a  _d_e_c_i_b_e_l_e_s
+       _s_o_b_r_e _u_n _m_i_c_r_o_v_o_l_t_i_o _p_o_r _m_e_t_r_o _(_d_B_u_V_/_m_)_:
+
+       _s_p_l_a_t _-_t _w_n_j_t_-_d_t _-_L _3_0_._0 _-_e_r_p _4_6_0_0_0 _-_d_b _3_0 _-_o _p_l_o_t_._p_p_m
+
+       La  opci fI-db  _p_u_e_d_e _s_e_r _u_s_a_d_a _c_o_m_o _a_n_t_e_s _e_n _e_s_t_e _m_o_d_o _p_a_r_a _l_i_m_i_t_a_r _l_a
+       _m_e_d_i_c_i _l_a _c_u_a_l _e_l _c_o_n_t_o_r_n_o _d_e _i_n_t_e_n_s_i_d_a_d _d_e _c_a_m_p_o _e_s _d_i_b_u_j_a_d_o_.   _c_u_a_n_d_o
+       _s_e _d_i_b_u_j_a _e_l _c_o_n_t_o_r_n_o _d_e _i_n_t_e_n_s_i_d_a_d _d_e _c_a_m_p_o_, _s_i_n _e_m_b_a_r_g_o_, _e_l _a_r_g_u_m_e_n_t_o
+       _d_a_d_o _e_s _i_n_t_e_r_p_r_e_t_a_d_o _a _s_e_r _e_x_p_r_e_s_a_d_o _e_n _d_B_u_V_/_m_.
+
+       _E_l _a_r_c_h_i_v_o SSPPLLAATT!! _d_e _d_e_f_i_n_i_c_i_e _c_o_l_o_r _d_e _i_n_t_e_n_s_i_d_a_d  _d_e  _c_a_m_p_o  _c_o_m_p_a_r_t_e
+       _u_n_a  _e_s_t_r_u_c_t_u_r_a _m_u_y _s_i_m_i_l_a_r _a _l_o_s _a_r_c_h_i_v_o_s _._l_c_f _u_s_a_d_o_s _p_a_r_a _g_r_a_f_i_c_a_r _l_a
+       _p_i_d_a_s _p_o_r _t_r_a_y_e_c_t_o_r_i_a_.
+
+        _; _S_P_L_A_T_! _A_u_t_o_-_g_e_n_e_r_a_t_e_d _S_i_g_n_a_l _C_o_l_o_r _D_e_f_i_n_i_t_i_o_n _(_"_w_n_j_t_-_d_t_._s_c_f_"_) _F_i_l_e
+        _;
+        _; _F_o_r_m_a_t _f_o_r _t_h_e _p_a_r_a_m_e_t_e_r_s _h_e_l_d _i_n _t_h_i_s _f_i_l_e _i_s _a_s _f_o_l_l_o_w_s_:
+        _;
+        _;    _d_B_u_V_/_m_: _r_e_d_, _g_r_e_e_n_, _b_l_u_e
+        _;
+        _; _._._._w_h_e_r_e _"_d_B_u_V_/_m_" _i_s _t_h_e _s_i_g_n_a_l _s_t_r_e_n_g_t_h _(_i_n _d_B_u_V_/_m_) _a_n_d
+        _; _"_r_e_d_"_, _"_g_r_e_e_n_"_, _a_n_d _"_b_l_u_e_" _a_r_e _t_h_e _c_o_r_r_e_s_p_o_n_d_i_n_g _R_G_B _c_o_l_o_r
+        _; _d_e_f_i_n_i_t_i_o_n_s _r_a_n_g_i_n_g _f_r_o_m _0 _t_o _2_5_5 _f_o_r _t_h_e _r_e_g_i_o_n _s_p_e_c_i_f_i_e_d_.
+        _;
+        _; _T_h_e _f_o_l_l_o_w_i_n_g _p_a_r_a_m_e_t_e_r_s _m_a_y _b_e _e_d_i_t_e_d _a_n_d_/_o_r _e_x_p_a_n_d_e_d
+        _; _f_o_r _f_u_t_u_r_e _r_u_n_s _o_f _S_P_L_A_T_!  _A _t_o_t_a_l _o_f _3_2 _c_o_n_t_o_u_r _r_e_g_i_o_n_s
+        _; _m_a_y _b_e _d_e_f_i_n_e_d _i_n _t_h_i_s _f_i_l_e_.
+        _;
+        _;
+        _1_2_8_: _2_5_5_,   _0_,   _0
+        _1_1_8_: _2_5_5_, _1_6_5_,   _0
+        _1_0_8_: _2_5_5_, _2_0_6_,   _0
+         _9_8_: _2_5_5_, _2_5_5_,   _0
+         _8_8_: _1_8_4_, _2_5_5_,   _0
+         _7_8_:   _0_, _2_5_5_,   _0
+         _6_8_:   _0_, _2_0_8_,   _0
+         _5_8_:   _0_, _1_9_6_, _1_9_6
+         _4_8_:   _0_, _1_4_8_, _2_5_5
+         _3_8_:  _8_0_,  _8_0_, _2_5_5
+         _2_8_:   _0_,  _3_8_, _2_5_5
+         _1_8_: _1_4_2_,  _6_3_, _2_5_5
+          _8_: _1_4_0_,   _0_, _1_2_8
+
+       Si la intensidad de sees mayor o igual a 128 dB sobre 1 microvoltio por
+       metro  (dBuV/m), el color Rojo (255, 0, 0) es presentado para la regiSi
+       la intensidad de sees mayor o igual a 118 dBuV/m, pero  menor  que  128
+       dBuV/m,  entonces  el  color naranja (255, 165, 0) es presentado y asen
+       adelante. El terreno en escala de grises es  presentado  para  regiones
+       con intensidad de semenores que 8 dBuV/m.
+
+       Los  contornos de intensidad de separa algunos servicios de radiodifusi
+       omunes en VHF y UHF en los Estados Unidos son los siguientes:
+
+              Analog Television Broadcasting
+              ------------------------------
+              Channels 2-6:       City Grade: >= 74 dBuV/m
+                                     Grade A: >= 68 dBuV/m
+                                     Grade B: >= 47 dBuV/m
+              --------------------------------------------
+              Channels 7-13:      City Grade: >= 77 dBuV/m
+                                     Grade A: >= 71 dBuV/m
+                                     Grade B: >= 56 dBuV/m
+              --------------------------------------------
+              Channels 14-69:   Indoor Grade: >= 94 dBuV/m
+                                  City Grade: >= 80 dBuV/m
+                                     Grade A: >= 74 dBuV/m
+                                     Grade B: >= 64 dBuV/m
+
+              Digital Television Broadcasting
+              -------------------------------
+              Channels 2-6:       City Grade: >= 35 dBuV/m
+                           Service Threshold: >= 28 dBuV/m
+              --------------------------------------------
+              Channels 7-13:      City Grade: >= 43 dBuV/m
+                           Service Threshold: >= 36 dBuV/m
+              --------------------------------------------
+              Channels 14-69:     City Grade: >= 48 dBuV/m
+                           Service Threshold: >= 41 dBuV/m
+
+              NOAA Weather Radio (162.400 - 162.550 MHz)
+              ------------------------------------------
+                         Reliable: >= 18 dBuV/m
+                     Not reliable: <  18 dBuV/m
+              Unlikely to receive: <  0 dBuV/m
+
+              FM Radio Broadcasting (88.1 - 107.9 MHz)
+              ----------------------------------------
+              Analog Service Contour:  60 dBuV/m
+              Digital Service Contour: 65 dBuV/m
+
+AANNAALLIISSIISS DDEELL NNIIVVEELL DDEE PPOOTTEENNCCIIAA RREECCIIBBIIDDOO
+       Si en el archivo _._l_r_p se especifica la potencia efectiva radiada (ERP),
+       o  expresado con la opcifI-erp _a _t_r_a_v_d_e _l_a _l_a _d_e _c_o_m_a_n_d_o_s_, _j_u_n_t_o _c_o_n _l_a
+       _o_p_c_i_f_I_-_d_b_m, los contornos de nivel de potencia recibida son referencia-
+       dos a decibels sobre un milivatio (dBm):
+
+       splat -t wnjt-dt -L 30.0 -erp 46000 -dbm -db -100 -o plot.ppm
+
+       Para  limitar  la medici la cual se grafican los contornos del nivel de
+       potencia recibida, se puede usar la opcifI-db. Cuando se grafican  con-
+       tornos  de  nivel  de potencia, el argumento dado es interpretado a ser
+       expresado en dbm.
+
+       Los archivos SSPPLLAATT!! de definicie color del nivel de potencia  recibidos
+       comparten una estructura muy similar a la estructura de los archivos de
+       definicie color descritos  previamente,  excepto  que  los  niveles  de
+       potencia  en  dbm pueden ser positivos o negativos, y estlimitados a un
+       rango entre +40 dBm y -200 dBm:
+
+        ; SPLAT! Auto-generated DBM  Signal  Level  Color  Definition  ("wnjt-
+       dt.dcf") File
+        ;
+        ; Format for the parameters held in this file is as follows:
+        ;
+        ;    dBm: red, green, blue
+        ;
+        ; ...where "dBm" is the received signal power level between +40 dBm
+        ; and -200 dBm, and "red", "green", and "blue" are the corresponding
+        ;  RGB  color  definitions ranging from 0 to 255 for the region speci-
+       fied.
+        ;
+        ; The following parameters may be edited and/or expanded
+        ; for future runs of SPLAT!  A total of 32 contour regions
+        ; may be defined in this file.
+        ;
+        ;
+          +0: 255,   0,   0
+         -10: 255, 128,   0
+         -20: 255, 165,   0
+         -30: 255, 206,   0
+         -40: 255, 255,   0
+         -50: 184, 255,   0
+         -60:   0, 255,   0
+         -70:   0, 208,   0
+         -80:   0, 196, 196
+         -90:   0, 148, 255
+        -100:  80,  80, 255
+        -110:   0,  38, 255
+        -120: 142,  63, 255
+        -130: 196,  54, 255
+        -140: 255,   0, 255
+        -150: 255, 194, 204
+
+
+PPAARRMMEETTRROOSS PPAARRAA PPAATTRROONNEESS DDEE RRAADDIIAACCII DDEE AANNTTEENNAASS
+       Los patrones de voltaje de campo normalizado para planos  verticales  y
+       horizontales de antenas transmisoras son importados automcamente dentro
+       de SSPPLLAATT!! cuando se realizan los ansis de pidas por trayectoria, inten-
+       sidad de campo, intensidad de campo o nivel de potencia recibida.
+
+       Los  datos  de los patrones de antena se leen de un par de archivos que
+       tienen el mismo nombre base que el transmisor y los archivos LRP,  pero
+       con extensiones _._a_z y _._e_l, para los patrones de azimut y elevacirespec-
+       tivamente. Especificaciones acerca de la rotaci el  patr si  existe)  e
+       inclinaci ec ca  y  direccie la inclinacisi existe) tambison contenidos
+       dentro de los archivos de patrones de radiacie las antenas.
+
+       Por ejemplo las primeras pocas las de un archivo de patre azimut SSPPLLAATT!!
+       podr aparecer como sigue (_k_v_e_a_._a_z):
+
+               183.0
+               0       0.8950590
+               1       0.8966406
+               2       0.8981447
+               3       0.8995795
+               4       0.9009535
+               5       0.9022749
+               6       0.9035517
+               7       0.9047923
+               8       0.9060051
+
+       La primera la de el archivo _._a_z especifica la cantidad de rotaciel patr
+       e azimut (medido en grados desde el norte verdadero en sentido horario)
+       a  ser  aplicado  por  SSPPLLAATT!! a los datos contenidos en el archivo _._a_z.
+       Esto es seguido por el correspondiente azimut (0 a  360  grados)  y  su
+       asociado  patre campo normalizado (0.000 a 1.000) separado por un espa-
+       cio en blanco.
+
+       La estructura del archivo del patr e  elevaci fBSPLAT!  _e_s  _l_i_g_e_r_a_m_e_n_t_e
+       _d_i_f_e_r_e_n_t_e_.  _L_a  _p_r_i_m_e_r_a  _l _a  _d_e_l _a_r_c_h_i_v_o _._e_l _e_s_p_e_c_i_f_i_c_a _l_a _c_a_n_t_i_d_a_d _d_e
+       _e_l_e_v_a_c_i_e_c_c_a _a_p_l_i_c_a_d_a _a _l_a _a_n_t_e_n_a_. _N_o_t_e _q_u_e _u_n_a _e_l_e_v_a_c_i_a_c_i_a _a_b_a_j_o  _(_b_a_j_o
+       _e_l  _h_o_r_i_z_o_n_t_e_)  _e_s  _e_x_p_r_e_s_a_d_a  _c_o_m_o _u_n _u_l_o _p_o_s_i_t_i_v_o_, _m_i_e_n_t_r_a_s _q_u_e _h_a_c_i_a
+       _a_r_r_i_b_a _(_s_o_b_r_e _e_l _h_o_r_i_z_o_n_t_e_) _e_s _e_x_p_r_e_s_a_d_a _c_o_m_o _u_n  _u_l_o  _n_e_g_a_t_i_v_o_.  _E_s_t_o_s
+       _d_a_t_o_s _s_o_n _s_e_g_u_i_d_o_s _p_o_r _l_a _d_i_r_e_c_c_i_e_l _a_z_i_m_u_t _d_e _l_a _e_l_e_v_a_c_i_s_e_p_a_r_a_d_o _p_o_r _u_n
+       _e_s_p_a_c_i_o _e_n _b_l_a_n_c_o_.
+
+       _E_l _r_e_m_a_n_e_n_t_e _d_e_l _a_r_c_h_i_v_o _c_o_n_s_i_s_t_e _e_n _l_o_s _v_a_l_o_r_e_s _d_e _l_o_s _u_l_o_s _d_e _e_l_e_v_a_c_i
+       _s_u  _c_o_r_r_e_s_p_o_n_d_i_e_n_t_e  _p_a_t_r_e _r_a_d_i_a_c_i_e _v_o_l_t_a_j_e _n_o_r_m_a_l_i_z_a_d_o _(_0_._0_0_0 _a _1_._0_0_0_)
+       _s_e_p_a_r_a_d_o_s _p_o_r _u_n _e_s_p_a_c_i_o _e_n _b_l_a_n_c_o_. _L_o_s _u_l_o_s _d_e _e_l_e_v_a_c_i_e_b_e_n _s_e_r _e_s_p_e_c_i_-
+       _f_i_c_a_d_o_s  _s_o_b_r_e  _u_n  _r_a_n_g_o  _d_e _-_1_0 _a _+_9_0 _g_r_a_d_o_s_. _I_g_u_a_l _q_u_e _l_a _n_o_t_a_c_i_n _l_a
+       _e_l_e_v_a_c_i_e_c_c_a_, _u_l_o_s _d_e _e_l_e_v_a_c_i_e_g_a_t_i_v_a _s_o_n _u_s_a_d_o_s _p_a_r_a _r_e_p_r_e_s_e_n_t_a_r  _e_l_e_v_a_-
+       _c_i_o_n_e_s _s_o_b_r_e _e_l _h_o_r_i_z_o_n_t_e_,  _m_i_e_n_t_r_a_s _q_u_e _l_o_s _u_l_o_s _p_o_s_i_t_i_v_o_s _r_e_p_r_e_s_e_n_t_a_n
+       _e_l_e_v_a_c_i_o_n_e_s _b_a_j_o _e_l _h_o_r_i_z_o_n_t_e_.
+
+       _P_o_r _e_j_e_m_p_l_o _l_a_s _p_r_i_m_e_r_a_s _p_o_c_a_s _l_a_s _d_e _u_n _a_r_c_h_i_v_o _p_a_t_r _e  _e_l_e_v_a_c_i SSPPLLAATT!!
+       _p_o_d_r_a_p_a_r_e_c_e_r _c_o_m_o _s_i_g_u_e _(_k_v_e_a_._e_l_)_:
+
+               _1_._1    _1_3_0_._0
+              _-_1_0_._0   _0_._1_7_2
+              _-_9_._5    _0_._1_0_9
+              _-_9_._0    _0_._1_1_5
+              _-_8_._5    _0_._1_5_5
+              _-_8_._0    _0_._1_5_7
+              _-_7_._5    _0_._1_0_4
+              _-_7_._0    _0_._0_2_9
+              _-_6_._5    _0_._1_0_9
+              _-_6_._0    _0_._1_8_5
+
+       En este ejemplo, la antena es meccamente inclinada hacia abajo 1.1 gra-
+       dos hacia un azimut de 130 grados
+
+       Para mejores resultados, la resolucie los datos de patrones de  radiaci
+       deber ser especificados lo mas cerca posibles a los grados azimut, y la
+       resolucie datos del patre elevacieber ser especificados  lo  mas  cerca
+       posible  a  0.01  grados.  Si los datos del patrspecificado no alcanzan
+       este nivel de resoluciSSPPLLAATT!! interpolaros valores provistos para deter-
+       minar  los  datos en la resoluciequerida, aunque esto puede resultar en
+       una pida en exactitud.
+
+EEXXPPOORRTTAANNDDOO EE IIMMPPOORRTTAANNDDOO DDAATTOOSS DDEE CCOONNTTOORRNNOO RREEGGIIOONNAALL
+       Realizar un ansis de cobertura regional basado en un ansis de trayecto-
+       ria ITM puede ser un proceso que consuma mucho tiempo, especialmente si
+       los ansis son repetidos varias veces  para  descubrir  cuales  son  los
+       efectos  que los cambios a los patrones de radiacie las antenas hacen a
+       la predicciel a de cobertura
+
+       Este proceso puede ser apresurado al exportar los  datos  del  contorno
+       producidos  por  SSPPLLAATT!!  a  un  archivo de salida alfanumco _(_._a_n_o_). Los
+       datos contenidos en este archivo se modificar externamente para  incor-
+       porar  efectos  de patrones de antena, y entonces se los puede importar
+       nuevamente dentro de SSPPLLAATT!! para rdamente producir un mapa de  contorno
+       revisado.  Dependiendo  de  la  forma en la cual SSPPLLAATT!! es llamado, los
+       archivos de salida alfanumca pueden  describir  p idas  de  trayectoria
+       regional, intensidad de campo, o niveles de potencia de serecibida.
+
+       Por  ejemplo  un  archivo de salida alfanumco que contenga informacie p
+       idas por trayectoria se puede generar  por  SSPPLLAATT!!  para  un  sitio  de
+       recepci  30  pies sobre el nivel del terreno, con un radio de 50 millas
+       alrededor del sitio de transmisiara  pidas por trayectoria mmas de  140
+       dB  (asumiendo que en el archivo del transmisor _._l_r_p no se ha especifi-
+       cado la ERP) usando la siguiente sintaxis:
+
+       splat -t kvea -L 30.0 -R 50.0 -db 140 -ano pathloss.dat
+
+       Si la ERP se especifica en el archivo _._l_r_p o a travde la opcifI-erp  _d_e
+       _l_a  _l_a _d_e _c_o_m_a_n_d_o_s_, _e_l _a_r_c_h_i_v_o _d_e _s_a_l_i_d_a _a_l_f_a_n_u_m_c_a _e_n _s_u _l_u_g_a_r _c_o_n_t_e_n_d_r
+       _o_s _v_a_l_o_r_e_s _d_e _p_r_e_d_i_c_c_i_e _c_a_m_p_o _e_n  _d_B_u_V_/_m_.  _S_i _s_e _u_s_a _l_a _o_p_c_i _e  _l _a  _d_e
+       _c_o_m_a_n_d_o _-_d_B_m_, _e_n_t_o_n_c_e_s _e_l _a_r_c_h_i_v_o _d_e _s_a_l_i_d_a _a_l_f_a_n_u_m_c_a _c_o_n_t_e_n_d_r_i_v_e_l_e_s _d_e
+       _p_o_t_e_n_c_i_a _d_e _s_e_r_e_c_i_b_i_d_a _e_n _d_B_m_.
+
+       _L_o_s _a_r_c_h_i_v_o_s _d_e _s_a_l_i_d_a _a_l_f_a_n_u_m_e_r_i_c_o SSPPLLAATT!! _p_u_e_d_e_n _e_x_c_e_d_e_r _m_u_c_h_o_s  _c_i_e_n_-
+       _t_o_s  _d_e  _m_e_g_a_b_y_t_e_s _d_e _t_a_m_a_C_o_n_t_i_e_n_e_n _l_a _i_n_f_o_r_m_a_c_i_e_f_e_r_e_n_t_e_s _a _l_o_s _l_t_e_s _d_e
+       _l_a _r_e_g_i_u_e _d_e_s_c_r_i_b_e_n _s_e_g_u_i_d_o _p_o_r _l_a_t_i_t_u_d_e_s  _(_g_r_a_d_o_s  _n_o_r_t_e_)_,  _l_o_n_g_i_t_u_d_e_s
+       _(_g_r_a_d_o_s  _o_e_s_t_e_)_,  _a_z_i_m_u_t  _(_r_e_f_e_r_e_n_c_i_a_d_o_s  _a_l  _n_o_r_t_e  _v_e_r_d_a_d_e_r_o_)_, _e_l_e_v_a_-
+       _c_i_o_n_e_s_(_a _l_a _p_r_i_m_e_r_a _o_b_s_t_r_u_c_c_i _s_e_g_u_i_d_o_s _y_a _s_e_a _p_o_r _p_i_d_a_s  _p_o_r  _t_r_a_y_e_c_t_o_-
+       _r_i_a_(_e_n  _d_B_)_,  _i_n_t_e_n_s_i_d_a_d  _d_e  _c_a_m_p_o  _r_e_c_i_b_i_d_a  _(_e_n  _d_B_u_V_/_m_)_, _o _n_i_v_e_l _d_e
+       _p_o_t_e_n_c_i_a _d_e _s_e_r_e_c_i_b_i_d_a _(_e_n _d_B_m_) ssiinn ccoonnssiiddeerraarr eell ppaattrr ee  rraaddiiaaccii ee  llaa
+       aanntteennaa_.
+
+       _L_a_s  _p_r_i_m_e_r_a_s  _p_o_c_a_s _l_a_s _d_e _u_n _a_r_c_h_i_v_o _d_e _s_a_l_i_d_a _a_l_f_a_n_u_m_c_a SSPPLLAATT!!  _p_o_d_r
+       _t_e_n_e_r _l_a _s_i_g_u_i_e_n_t_e _a_p_a_r_i_e_n_c_i_a _(_p_a_t_h_l_o_s_s_._d_a_t_)_:
+
+               _1_1_9_, _1_1_7    _; _m_a_x___w_e_s_t_, _m_i_n___w_e_s_t
+               _3_5_, _3_4      _; _m_a_x___n_o_r_t_h_, _m_i_n___n_o_r_t_h
+               _3_4_._2_2_6_5_4_2_4_, _1_1_8_._0_6_3_1_0_9_6_, _4_8_._1_9_9_, _-_3_2_._7_4_7_, _6_7_._7_0
+               _3_4_._2_2_7_0_3_5_8_, _1_1_8_._0_6_2_4_4_2_1_, _4_8_._1_9_9_, _-_1_9_._1_6_1_, _7_3_._7_2
+               _3_4_._2_2_7_5_2_9_2_, _1_1_8_._0_6_1_7_7_4_7_, _4_8_._1_9_9_, _-_1_3_._7_1_4_, _7_7_._2_4
+               _3_4_._2_2_8_0_2_2_6_, _1_1_8_._0_6_1_1_0_7_2_, _4_8_._1_9_9_, _-_1_0_._5_0_8_, _7_9_._7_4
+               _3_4_._2_2_9_0_0_9_4_, _1_1_8_._0_5_9_7_7_2_3_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _8_3_._2_6 _*
+               _3_4_._2_2_9_5_0_2_8_, _1_1_8_._0_5_9_1_0_4_8_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_3_5_._4_7 _*
+               _3_4_._2_2_9_9_9_6_2_, _1_1_8_._0_5_8_4_3_7_3_, _4_8_._1_9_9_, _-_1_5_._3_5_8_, _1_3_7_._0_6 _*
+               _3_4_._2_3_0_4_8_9_6_, _1_1_8_._0_5_7_7_6_9_8_, _4_8_._1_9_9_, _-_1_5_._3_5_8_, _1_4_9_._8_7 _*
+               _3_4_._2_3_1_4_7_6_3_, _1_1_8_._0_5_6_4_3_4_8_, _4_8_._1_9_9_, _-_1_5_._3_5_8_, _1_5_4_._1_6 _*
+               _3_4_._2_3_1_9_6_9_7_, _1_1_8_._0_5_5_7_6_7_3_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_5_3_._4_2 _*
+               _3_4_._2_3_2_4_6_3_1_, _1_1_8_._0_5_5_0_9_9_7_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_3_7_._6_3 _*
+               _3_4_._2_3_2_9_5_6_4_, _1_1_8_._0_5_4_4_3_2_2_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_3_9_._2_3 _*
+               _3_4_._2_3_3_9_4_3_2_, _1_1_8_._0_5_3_0_9_7_1_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_3_9_._7_5 _*
+               _3_4_._2_3_4_4_3_6_5_, _1_1_8_._0_5_2_4_2_9_5_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_5_1_._0_1 _*
+               _3_4_._2_3_4_9_2_9_9_, _1_1_8_._0_5_1_7_6_2_0_, _4_8_._1_9_9_, _-_1_1_._8_0_6_, _1_4_7_._7_1 _*
+               _3_4_._2_3_5_4_2_3_2_, _1_1_8_._0_5_1_0_9_4_4_, _4_8_._1_9_9_, _-_1_5_._3_5_8_, _1_5_9_._4_9 _*
+               _3_4_._2_3_6_4_0_9_9_, _1_1_8_._0_4_9_7_5_9_2_, _4_8_._1_9_9_, _-_1_5_._3_5_8_, _1_5_1_._6_7 _*
+
+       En este archivo se pueden poner  comentarios  precedidos  por  punto  y
+       coma, el editor de texto vviimm ha probado ser capaz de editar archivos de
+       este tama Note que al igual que el caso de los archivos de patrones  de
+       antena,   ulos  de  elevaci egativos  se refieren a inclinaciones hacia
+       arriba (sobre el horizonte), mientras que ulos positivos se refieren  a
+       inclinaciones  hacia abajo (bajo el horizonte). Esos ulos se refieren a
+       la elevaciara la antena receptora en la altura sobre el nivel del  ter-
+       reno  especificada usando la opcifI-L ssii llaa ttrraayyeeccttoorriiaa eennttrree eell ttrraannss--
+       mmiissoorr yy eell rreecceeppttoorr nnoo ttiieennee oobbssttrruucccciioonneess.. SSii llaa ttrraayyeeccttoorriiaa eennttrree  eell
+       ttrraannssmmiissoorr  yy eell rreecceeppttoorr eessttoobbssttrruuiiddaa,, uunn aasstteerriissccoo ((**)) eess ccoollooccaaddoo aall
+       ffiinnaall ddee llaa llaa,, yy eell uulloo ddee eelleevvaacciieettoorrnnaaddoo ppoorr SSPPLLAATT!!  ssee  rreeffiieerree  aall
+       uulloo  ddee  eelleevvaaccii  llaa  pprriimmeerraa  oobbssttrruuccccii nn lluuggaarr ddee llaa llooccaalliizzaacciieeooggrrccaa
+       eessppeecciiffiiccaaddaa eenn llaa llaa.. EEssttoo ssee hhaaccee ccoonnssiiddeerraannddoo qquuee eell mmooddeelloo IITTMM ccoonn--
+       ssiiddeerraa  llaa  eenneerrgg qquuee  aallccaannzzaa  uunn ppuunnttoo ddiissttaannttee ssoobbrree uunnaa ttrraayyeeccttoorriiaa
+       oobbssttrruuiiddaa ccoommoo uunn ddeerriivvaaddoo ddee llaa eenneerrggddiissppeerrssaaddaa  ddee  llaa  ppuunnttaa  ddee  llaa
+       pprriimmeerraa  oobbssttrruuccccii  lloo  llaarrggoo  ddee llaa ttrraayyeeccttoorriiaa.. PPuueessttoo qquuee llaa eenneerrggnnoo
+       ppuueeddee aallccaannzzaarr ddiirreeccttaammeennttee llaa llooccaalliizzaacciioobbssttrruuiiddaa,, eell aaccttuuaall   uulloo  ddee
+       eelleevvaaccii eessee ppuunnttoo eess iirrrreelleevvaannttee..
+
+       CCuuaannddoo  ssee  mmooddiiffiiccaann llooss aarrcchhiivvooss SSPPLLAATT!! ddee ppiiddaass ppoorr ttrraayyeeccttoorriiaa ppaarraa
+       rreefflleejjaarr ddaattooss ddee ppaattrroonneess ddee aanntteennaa,, _s_o_l_o _l_a _a _c_o_l_u_m_n_a _n_u_m_c_a ddeebbeerr sseerr
+       eennmmeennddaaddooss  ppaarraa rreefflleejjaarr llaa ggaannaanncciiaa ddee aanntteennaa nnoorrmmaalliizzaaddaa eenn llooss uullooss
+       ddee eelleevvaaccii aazziimmuutt eessppeecciiffiiccaaddooss eenn  eell  aarrcchhiivvoo..  PPrrooggrraammaass  yy  ssccrriippttss
+       ccaappaacceess ddee rreeaalliizzaarr eessttaa ooppeerraacciiuueeddaann ccoommoo ttaarreeaa aall uussuuaarriioo..
+
+       LLooss  aarrcchhiivvooss  ddee  ssaalliiddaa  aallffaannuummccooss mmooddiiffiiccaaddooss ppuueeddeenn sseerr iimmppoorrttaaddooss
+       nnuueevvaammeennttee aa SSPPLLAATT!! ppaarraa ggeenneerraarr  mmaappaass  ddee  ccoobbeerrttuurraa  rreevviissaaddooss  ccoonn--
+       ssiiddeerraannddoo  llaa  EERRPP  yy  --ddBBmm ddee llaa mmiissmmaa mmaanneerraa qquuee ccuuaannddoo eenn aarrcchhiivvoo ddee
+       ssaalliiddaa aallffaannuummccoo ffuuee ggeenneerraaddoo oorriiggiinnaallmmeennttee..
+
+       ssppllaatt --tt kkvveeaa --aannii ppaatthhlloossss..ddaatt --ss cciittyy..ddaatt --bb ccoouunnttyy..ddaatt --oo mmaapp..ppppmm
+
+       Observe que los archivos de salida alfanumcos generados a travde  ssppllaatt
+       no  pueden ser usados con ssppllaatt--hhdd, o vice-versa debido a la incompati-
+       bilidad de resoluci entre las dos versiones del  programa.   Tambi cada
+       uno  de  los  tres  formatos  de salida de laos archivos alfanumcos son
+       incompatibles entre ellos, tal que un archivo que contenga datos  de  p
+       idas  por  trayectoria,  no  puede ser importado dentro de SSPPLLAATT!!  para
+       producir contornos de nivel de intensidad de seo de  niveles de  poten-
+       cia recibida, etc.
+
+AARRCCHHIIVVOOSS DDEE EENNTTRRAADDAA DDEE TTEERRRREENNOO DDEEFFIINNIIDDOOSS PPOORR EELL UUSSUUAARRIIOO
+       Un  archivo  de  terreno definido por el usuario es un archivo de texto
+       generado-por-el-usuario que contiene latitudes, longitudes,  y  alturas
+       sobre  el  nivel de la tierra de caractericas de terreno especca que se
+       cree son de importancia para el ansis que SSPPLLAATT!! estesarrollando,  pero
+       perceptiblemente ausentes de los archivos SDF que estsiendo usados.  Un
+       archivo de terreno definido-por-el-usuario es importado dentro de un an
+       sis de SSPPLLAATT!! usando la opcifI-udt::
+
+        ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --uuddtt uuddtt__ffiillee..ttxxtt --oo mmaapp..ppppmm
+
+       Un archivo de terreno definido-por-el-usuario tiene la siguiente apari-
+       encia y estructura:
+
+              40.32180556, 74.1325, 100.0 meters
+              40.321805, 74.1315, 300.0
+              40.3218055, 74.1305, 100.0 meters
+
+       La altura del terreno es interpretada en pies sobre el nivel del  suelo
+       a  menos  que  sea seguido por la palabra meters, y es adicionado en la
+       parte superior de el terreno especificado en  los  datos  SDF  para  la
+       localizacispecificada. Debe saber que las caractericas especificadas en
+       los archivos de terreno especificados-por-el-usuario  ser interpretados
+       en  SSPPLLAATT!!,  como  3-arco  segundos  en  latitud y longitud y como como
+       1-arco segundos en latitud y longitud en  splat-hd.  Las  caracter icas
+       descritas   en   el  archivo  de  terreno  definido-por-el-usuario  que
+       traslapen las caractericas previamente  definidas  en  el  archivo  son
+       ignoradas por SSPPLLAATT!! para evitar ambiguedades.
+
+CCLLUUTTTTEERR DDEELL TTEERRRREENNOO
+       **Wikipedia:Ruido  provocado  por  los ecos o reflexiones, en elementos
+       ajenos al sistema (monta superficie del mar, etc.)
+
+       La altura del clutter de la tierra puede  ser  especificado  usando  la
+       opcifI-gc::
+
+             ssppllaatt --tt wwnnjjtt--ddtt --rr kkdd22bbdd --ggcc 3300..00 --HH wwnnjjtt--ddtt__ppaatthh..ppnngg
+
+       La  opci fI-gc ttiieennee eell eeffeeccttoo ddee aauummeenntteerr eell nniivveell ggeenneerraall ddeell tteerrrreennoo
+       eenn llaa ccaannttiiddaadd ddee ppiieess eessppeecciiffiiccaaddaa ((oo mmeettrrooss ssii ssee uussaa llaa ooppccii ffII--mmeett--
+       rriicc),  excepto sobre as al nivel del mar y en las localizaciones de las
+       antenas transmisora y receptora.
+
+
+GGEENNEERRAACCII DDEE MMAAPPAASS TTOOPPOOGGRRFFIICCOOSS SSIIMMPPLLEESS
+       En ciertas ocasiones puede ser deseable generar un mapa topogrco de una
+       regiin graficar as de cobertura, trayectorias de la-de-vista, o generar
+       reportes de obstrucciones. Existen varias maneras de hacer esto.  Si se
+       desea  generar  un mapa topogrco ilustrando la localizacie un sitio del
+       transmisor  y receptor con un breve reporte de texto  describiendo  las
+       localizaciones  y  distancias  entre  los sitios, entonces, entonces se
+       debe invocar la opcifI-n ccoommoo ssiigguuee::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --nn --oo ttooppoo__mmaapp..ppppmm
+
+       Si no se desea un reporte de texto, entonces debe usar la opcifI-N::
+
+       ssppllaatt --tt ttxx__ssiittee --rr rrxx__ssiittee --NN --oo ttooppoo__mmaapp..ppppmm
+
+       Si se desea un mapa topogrco centrado cerca de un sitio para un radio m
+       mo especificado, un comando similar al siguiente puede ser utilizado:
+
+       splat -t tx_site -R 50.0 -s NJ_Cities -b NJ_Counties -o topo_map.ppm
+
+       donde  -R especifica el mmo radio de el mapa en millas (lros si la opci
+       fI-metric es usada). Note que el nombre del sitio_tx y la  localizaci o
+       son  presentadas  en este ejemplo. Si se desea presentar esta informaci
+       simplemente cree un archivo de ciudades SSPPLLAATT!!  con la opci_-_s) y adicie
+       a  las opciones de la la-de-comandos ilustradas arriba.  Si la opcifI-o
+       _y _e_l _a_r_c_h_i_v_o _d_e _s_a_l_i_d_a _s_o_n _o_m_i_t_i_d_o_s _e_n _e_s_a _o_p_e_r_a_c_i_l_a _s_a_l_i_d_a _t_o_p_o_g_r_c_a _e_s
+       _e_s_c_r_i_t_a  _a  _u_n _a_r_c_h_i_v_o _p_o_r _d_e_f_e_c_t_o _l_l_a_m_a_d_o _t_x___s_i_t_e_._p_p_m _e_n _e_l _d_i_r_e_c_t_o_r_i_o
+       _d_e _t_r_a_b_a_j_o _a_c_t_u_a_l_.
+
+GGEENNEERRAACCII DDEE AARRCCHHIIVVOOSS DDEE GGEEOORREEFFEERREENNCCIIAA
+       Los mapas topogrcos, de cobertura  (_-_c),  y  contornos  de  p idas  por
+       trayectoria  (_-_L) generados por SSPPLLAATT!! pueden ser importados dentro del
+       programa XXaassttiirr (X Amateur  Station Tracking  and  Information  Report-
+       ing), generando un archivo de georeferencia usando la opciSSPPLLAATT!! _-_g_e_o:
+
+       splat -t kd2bd -R 50.0 -s NJ_Cities -b NJ_Counties -geo -o map.ppm
+
+       El  archivo  de  georeferencia  creado  tendrl mismo nombre base que el
+       archivo _-_o especificado, pero con extensifI .geo_, _y _p_e_r_m_i_t_e _l_a  _a_p_r_o_p_i_-
+       _a_d_a  _i_n_t_e_r_p_r_e_t_a_c_i _p_r_e_s_e_n_t_a_c_i_e _l_o_s _g_r_c_o_s _._p_p_m SSPPLLAATT!! _e_n _e_l _p_r_o_g_r_a_m_a XXaass--
+       ttiirr_.
+
+GGEENNEERRAACCIIOONN DDEE AARRCCHHIIVVOOSS KKMMLL GGOOOOGGLLEE MMAAPP
+       Archivos Keyhole Markup Language compatibles con  GGooooggllee  EEaarrtthh  pueden
+       ser  generados  por SSPPLLAATT!! cuando se realizan ansis punto-a-punto invo-
+       cando la opcifI-kml::
+
+       ssppllaatt --tt wwnnjjtt--ddtt --rr kkdd22bbdd --kkmmll
+
+       El archivo KML generado tendra  misma  estructura  que  el  nombre  del
+       Reporte  de  Obstrucciones  para  los  sitios del transmisor y receptor
+       dados, excepto que tendrna extensifI .kml..
+
+       UUnnaa vveezz ccaarrggaaddoo ddeennttrroo ddeell GGooooggllee EEaarrtthh ((AArrcchhiivvoo ---->> AAbbrriirr)),, eell aarrcchhiivvoo
+       KKLLMM  eexxhhiibbiirr aass  llooccaalliizzaacciioonneess  ddee llooss ssiittiiooss ddee ttrraannssmmiissii rreecceeppcciinn eell
+       mmaappaa.. LLooss ppuunnttooss ddee vviissttaa ddee llaa iimmaaggeenn sseerrddeessddee llaa ppoossiiccii eell  ssiittiioo  ddee
+       ttrraannssmmiissiiiirraannddoo hhaacciiaa llaa llooccaalliizzaacciieell rreecceeppttoorr.. LLaa ttrraayyeeccttoorriiaa ppuunnttoo--aa--
+       ppuunnttoo eennttrree llooss ssiittiiooss sseerrrreesseennttaaddaa ccoommoo uunnaa llaa bbllaannccaa,, mmiieennttrraass qquuee llaa
+       ttrraayyeeccttoorriiaa ddee lliinneeaa--ddee--vviissttaa RRFF sseerrrreesseennttaaddaa eenn vveerrddee..  LLaass hheerrrraammiieenn--
+       ttaass ddee nnaavveeggaacciiee GGooooggllee EEaarrtthh llee ppeerrmmiitteenn aall uussuuaarriioo ""vvoollaarr""  aallrreeddeeddoorr
+       ddee  llaa  ttrraayyeeccttoorriiaa,,  iiddeennttiiffiiccaannddoo  sseess,, ccaammiinnooss,, yy oottrraass ccaarraacctteerriiccaass
+       ccoonntteenniiddaass..
+
+       CCuuaannddoo ssee rreeaalliizzaa eell aannssiiss ddee ccoobbeerrttuurraa rreeggiioonnaall,, eell aarrcchhiivvoo  _._k_m_l ggeenn--
+       eerraaddoo ppoorr SSPPLLAATT!! ppeerrmmiittiirrrraaffiiccaarr ccoommoo ccaappaass llooss ccoonnttoorrnnooss ddee iinntteennssiiddaadd
+       ddee sseeoo ddee ppiiddaass ppoorr ttrraayyeeccttoorriiaa ssoobbrree mmaappaass GGooooggllee EEaarrtthh ccoonn  ssuu  ccoolloorr
+       ccoorrrreessppoonnddiieennttee rreellaacciioonnaaddoo eenn llee eessqquuiinnaa ssuuppeerriioorr iizzqquuiieerrddaa..
+
+       EEll  aarrcchhiivvoo  _._k_m_l ggeenneerraaddoo tteennddrrll mmiissmmoo nnoommbbrree bbaassee ccoommoo eell ddeell aarrcchhiivvoo
+       _._p_p_m nnoorrmmaallmmeennttee ggeenneerraaddoo..
+
+
+DDEETTEERRMMIINNAACCII DDEE LLAA AALLTTUURRAA DDEE LLAA AANNTTEENNAA SSOOBBRREE EELL PPRROOMMEEDDIIOO DDEELL TTEERRRREENNOO
+       SSPPLLAATT!! determina la altura de la antena sobre el promedio  del  terreno
+       (HAAT)  de  acuerdo  al  procedimiento definido por la ComisiFederal de
+       Comunicaciones. Parte 73.313(d). De acuerdo a esta definici la  elevaci
+       el  terreno a lo largo de ocho radiales entre 2 y 16 millas (3 y 16 Kil
+       ros) desde el sitio que estiendo analizado es muestreado  y  promediado
+       para  los  azimut  cada 45 grados comenzando con el norte verdadero. Si
+       uno o mas radiales caen enteramente sobre el mar o sobre el  continente
+       fuera  de los Estados Unidos (as para las cuales no existen disponibles
+       datos topogrcos USGS), entonces esos radiales son omitidos de los culos
+       del  promedio  del terreno. Si parte de los radiales se extienden sobre
+       el mar o fuera de los Estados Unidos, entonces solo la  parte  de  esos
+       radiales  que  caen sobre la tierra de los Estados Unidos son usados en
+       la determinaciel promedio del terreno.
+
+       Note que los datos de elevaciones SRTM-3, a diferencia de los  antiguos
+       datos USGS, se extienden malle las fronteras de los Estados Unidos. Por
+       esta razlos resultados  HAAT, no estaren fiel cumplimiento con  la  FCC
+       parte  73.313(d)  en as a lo largo de la frontera de los Estados Unidos
+       si los archivos SDF usados por SSPPLLAATT!! son derivados-SRTM.
+
+       Cuando se realiza ansis punto-a-punto del terreno, SSPPLLAATT!! determina  la
+       altura  de la antena sobre el promedio del  terreno solo si suficientes
+       datos topogrcos han sido cargados por el programa para realizar  el  an
+       sis  punto-a-punto.  En la mayorde los casos, esto sererdadero, a menos
+       que el sitio en cuestio estentro de 10 millas de  la  frontera  de  los
+       datos topogrcos cargados en memoria.
+
+       Cuando  se realiza el ansis de prediccie a, suficientes datos topogrcos
+       son normalmente cargados por SSPPLLAATT!! para realizar los culos del  prome-
+       dio  del  terreno. Bajo esas condiciones, SSPPLLAATT!! proveerla altura de la
+       antena sobre el promedio del terreno, como tambiel promedio del terreno
+       sobre  el  nivel  del  mar para los azimut de 0, 45, 90, 135, 180, 225,
+       270, y 315 grados, e incluiricha informacin el reporte de sitio  gener-
+       ado.  Si uno o mde los ocho radiales caen sobre el mar o sobre regiones
+       para las cuales no existen datos SDF disponibles, SSPPLLAATT!!  reportar  sin
+       terreno la trayectoria de los radiales afectados.
+
+IINNFFOORRMMAACCII AADDIICCIIOONNAALL
+       Las   as noticias e informaciespecto al programa SSPPLLAATT!!  estisponible a
+       trav   de     la     p    na     web     oficial     localizada     en:
+       _h_t_t_p_:_/_/_w_w_w_._q_s_l_._n_e_t_/_k_d_2_b_d_/_s_p_l_a_t_._h_t_m_l.
+
+AAUUTTOORREESS
+       John A. Magliacane, KD2BD <_k_d_2_b_d_@_a_m_s_a_t_._o_r_g>
+              Creator, Lead Developer
+
+       Doug McDonald <_m_c_d_o_n_a_l_d_@_s_c_s_._u_i_u_c_._e_d_u>
+              Original Longley-Rice ITM Model integration
+
+       Ron Bentley <_r_o_n_b_e_n_t_l_e_y_@_e_a_r_t_h_l_i_n_k_._n_e_t>
+              Fresnel Zone plotting and clearance determination
+
+
+
+
+KD2BD Software                Febrero 01 de 2011                     SPLAT!(1)

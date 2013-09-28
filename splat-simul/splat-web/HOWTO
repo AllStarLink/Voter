@@ -1,0 +1,125 @@
+
+  You will need to have :
+
+    MySQL, version 5.0 or greater
+    Perl 5.0.0 or greater, with DBI package and mysql driver
+    A web server, such as Apache 2.2
+    
+
+1.  Compile and install SPLAT!.
+
+    tar jxvf splat-1.2.1.tar.bz2
+    cd splat-1.2.1
+    make
+    su make install
+
+
+2.  Your local mysql installation has a database administrator (root user) -
+    Using that account :
+
+    You will want a new db user, possibly named "splat", with a password,
+    which we assume to be  "rst599".  You really should use another password,
+    which you should set in "create.mysql" before you do the next step.
+
+    mysql -p -u root < create.mysql
+
+    If you change the password in "create.mysql", please remember it
+    for a later step.
+
+3.  The file "Site.tar.bz2" contains both the Perl code, and
+    a directory structure.  Unpack it in the directory of your
+    web server where you want SPLAT to be.
+
+    mkdir public_html/SPLAT
+
+    cd public_html/SPLAT
+    tar jxvf Site.tar.bz2
+
+
+4.  There is now a directory underneath the SPLAT directory named "SDF".
+    That directory needs to be populated with the various terrain data
+    files that you will want.
+
+    If you are only interested in North_America, then copy only the
+
+    North_America.tar.bz2
+    
+    file from splat.ecok.edu.  If you live in Europe, copy the Eurasia
+    files, and so forth.  (You can copy all of the files if you want to
+    have a site which can handle world-wide plots.  A complete installation
+    will require less than 20 GB of disk space.)
+
+    Unpack that file.
+
+    cd public_SPLAT
+    tar jxvf North_America.bz2
+
+5.  If you live in the United States, copy the files
+
+      USA.tar.bz2
+      
+     and unpack it inside the SPLAT directory:
+
+
+     ie
+     cd SPLAT; tar jxvf USA.tar.bz2
+
+     This  file contains city and political boundary information
+     from the US Geological Survey.  If you don't live in the US, you
+     may want to not bother with this file.  The CGI
+     scripts will use it, but will find nothing useful.  
+
+6.  There is a file called "DB.pl", which you must edit if you changed
+    the database password in the step above.
+    You must also set the SPLATHOME variable in that file.
+
+
+7.  Check permissions, and let 'er rip!
+
+    find SPLAT -type d -print | xargs chmod ugo+rx
+    find SPLAT -print | xarg chmod ugo+r
+    find SPLAT -name "*pl" -print | xargs chmod ugo+rx
+    chmod ugo+rwx PLOTS call_locations.txt
+
+   If you understand your server you can tighten these
+   permissions down somewhat - especially the last chmod.
+
+   The file "call_locations.txt" is written every time a station
+   is registered, and the PLOTS directory is written every time
+   a plot is generated.  The "writer" is the web server (typically
+   "apache").  All that is really needed is to
+
+      chgrp apache PLOTS call_locations.txt
+      chmod ug=rwx,o-rwx PLOTS
+      chmod ug=rw,o-rwx call_locations.txt
+
+
+8.  You may want a cronjob periodically to clean up the PLOTS
+    directory.
+    
+42 * * * * /usr/bin/find PLOTS  -type d -name "[0-9]*" -mmin +60  | /usr/bin/xargs -/bin/rm -rf >/dev/null 2>&1
+
+  will remove all plots more than an hour old. (They DO pile up!)
+
+
+9.  There are some tools in the Tools directory which may be useful.
+
+10.  If you are doing multiple transmitter plots, you may have to adjust
+     the timeout parameter for your web server.
+
+     In Apache the configuration file conf/extra/httpd-default.conf
+     set
+
+     # Timeout: The number of seconds before receives and sends time out.
+     Timeout 600
+
+     works for me.
+     
+
+
+
+    
+    
+    
+
+    
