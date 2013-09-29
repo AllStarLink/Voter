@@ -76,12 +76,22 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #define M_PI       3.14159265358979323846
 
+//#define	GGPS	// Define this if GGPS-type system
+
 /* Un-comment this to generate digital milliwatt level on output */
 /* #define DMWDIAG */
 
 // Include all headers for any enabled TCPIP Stack functions
 #include "TCPIP Stack/TCPIP.h"
 
+#if defined (GGPS)
+	#if defined(SMT_BOARD)
+		#error Cant Have GGPS on SMT board!!
+	#endif
+	#define	IS_POGSAG_TX(x) ((c & 0x7f) <= 5)
+#else
+	#define	IS_POGSAG_TX(x) (0)
+#endif
 
 #if defined(SMT_BOARD)
 
@@ -89,12 +99,15 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#define	JP8	_RA8
 	#define	JP9	_RA9
 	#define	JP10 _RA10
+
 	#define	JP11 _RB9
 	
 	#define	INITIALIZE JP8 // Short JP8 on powerup to initialize EEPROM
 	#define	INITIALIZE_WVF JP10  // Short on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATB8
+
+
 
 #ifndef	DSPBEW
 	#define	DIAGMENU
@@ -129,17 +142,18 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#define	JP9	(inputs1 & 0x80)
 	#define	JP10 (inputs2 & 1)
 	#define	JP11 (inputs2 & 2)
-	
+
 	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
 	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATA1
+	#define	TESTBIT_TRIS TRISAbits.TRISA1
 
 #ifndef	DSPBEW
 	#define	DIAGMENU
 #endif
 
-	//#define	GGPS	// Define this if GGPS-type system
+
 
 #endif
 
@@ -256,7 +270,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.35 09/21/2013";
+	VERSION[] = "1.37 09/29/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -651,7 +665,8 @@ ROM BYTE exp_lut[256] = {
 
 
 ROM short ulawtabletx[] = {
--32124,-31100,-30076,-29052,-28028,-27004,-25980,-24956,
+//-32124,-31100,-30076,-29052,-28028,-27004,-25980,-24956,
+-12000,-12000,-12000,-12000,-12000,-27004,-25980,-24956,
 -23932,-22908,-21884,-20860,-19836,-18812,-17788,-16764,
 -15996,-15484,-14972,-14460,-13948,-13436,-12924,-12412,
 -11900,-11388,-10876,-10364,-9852,-9340,-8828,-8316,
@@ -667,7 +682,8 @@ ROM short ulawtabletx[] = {
 -244,-228,-212,-196,-180,-164,-148,-132,
 -120,-112,-104,-96,-88,-80,-72,-64,
 -56,-48,-40,-32,-24,-16,-8,0,
-32124,31100,30076,29052,28028,27004,25980,24956,
+//32124,31100,30076,29052,28028,27004,25980,24956,
+12000,12000,12000,12000,12000,27004,25980,24956,
 23932,22908,21884,20860,19836,18812,17788,16764,
 15996,15484,14972,14460,13948,13436,12924,12412,
 11900,11388,10876,10364,9852,9340,8828,8316,
@@ -1372,15 +1388,29 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
 			if (mwp > 7) mwp = 0;
 #else
-			if (connected)
-				DAC1LDAT = ulawtabletx[txaudio[txdrainindex]] + s;
+			c = txaudio[txdrainindex];
+			if (connected && (!IS_POGSAG_TX(c)))
+				DAC1LDAT = ulawtabletx[c] + s;
 			else
 				DAC1LDAT = s;
+	#if defined (GGPS)
+			if (IS_POGSAG_TX(c))
+			{
+				TESTBIT_TRIS = 0;
+				if (c & 0x80) TESTBIT = 0; else TESTBIT = 1;
+			}
+			else
+			{
+				TESTBIT = 0;
+				TESTBIT_TRIS = 1;
+			}
+	#endif
 #endif
 		} else DAC1LDAT = 0;
 		txaudio[txdrainindex++] = ULAW_SILENCE;
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
+
 	}
 }
 
@@ -5125,7 +5155,11 @@ static void InitializeBoard(void)
 	PORTA=0;	//Initialize LED pin data to off state
 	PORTB=0;	//Initialize LED pin data to off state
 	// RA4 is CN0/PPS Pulse
+#if defined (GGPS)
+	TRISA = 0xFFFF;	 //RA1 is Test Bit, tristate in this case
+#else
 	TRISA = 0xFFFD;	 //RA1 is Test Bit
+#endif
 	//RB0-2 are Analog, RB3-4 are SPI select, RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), RB8 is RP8/SCK,
 	//RB9 is RP9/SDO, RB10 is RP10/SDI, RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, RB14-15 are DAC outputs
 	TRISB = 0x3487;	
