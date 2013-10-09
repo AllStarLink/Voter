@@ -66,7 +66,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 /* Debug values:
 
 1 - Alt/Main Host change notifications
-8 - Simulcast Development mode
+8 - POCSAG H/W output disable (GGPS only)
 16 - IP TOS Class for Ubiquiti
 32 - GPS Debug
 64 - Fix GPS 1 second off
@@ -88,7 +88,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#if defined(SMT_BOARD)
 		#error Cant Have GGPS on SMT board!!
 	#endif
-	#define	IS_POGSAG_TX(x) ((c & 0x7f) <= 5)
+	#define	IS_POGSAG_TX(x) (((c & 0x7f) <= 5) && (!(AppConfig.DebugLevel1 & 8)))
 #else
 	#define	IS_POGSAG_TX(x) (0)
 #endif
@@ -167,8 +167,13 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	GPSLED 2
 #define CONNLED 3
 
+#if defined (GGPS)
+#define	BAUD_RATE1 38400
+#define	BAUD_RATE2 38400
+#else
 #define	BAUD_RATE1 57600
 #define	BAUD_RATE2 4800
+#endif
 
 #define	FRAME_SIZE 160
 #define	ADPCM_FRAME_SIZE 320
@@ -270,7 +275,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.37 09/29/2013";
+	VERSION[] = "1.38 10/09/2013";
 
 typedef struct {
 	DWORD vtime_sec;
