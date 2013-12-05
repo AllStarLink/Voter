@@ -197,6 +197,10 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define GPS_NMEA_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
 #define	GPS_TSIP_WARN_TIME (5000ul * 8ul) // 5000 ms GPS Warning Time
 #define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
+#ifdef	GGPS
+#define GPS_KICK_WAIT_TIME (240000ul * 8ul) // 240000 ms GPS Timeout
+#define GPS_KICK_TIME (1000ul * 8ul) // 1000 ms GPS Reset time
+#endif
 #define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
 #define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
 #define LASTRX_TIME (6000ul * 8ul) // Timeout if nothing heard after 6 seconds
@@ -275,7 +279,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.38 10/09/2013";
+	VERSION[] = "1.39 10/24/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -388,6 +392,10 @@ DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
 WORD attempttimer;
+#ifdef	GGPS
+DWORD gpskicktimer;
+BOOL gpskicking;
+#endif
 DWORD lastrxtimer;
 WORD cwtimer;
 BYTE gpswarn;
@@ -803,7 +811,7 @@ static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                          
 	booting[] = "System Re-Booting...\n";
 
 char dummy_loc;
-BYTE IOExpOutA,IOExpOutB;
+BYTE IOExpOutA,IOExpOutB,IODirB;
 
 void main_processing_loop(void);
 
@@ -1101,6 +1109,12 @@ BYTE *cp;
 		AD1CHS0 = 0;
 		if (gotpps) ppstimer++;
 		if (gps_state != GPS_STATE_IDLE) gpstimer++;
+#ifdef	GGPS
+		if ((!gpskicking) && gotpps && (gps_state == GPS_STATE_VALID))
+			gpskicktimer = 0;
+		else
+			gpskicktimer++;
+#endif
 		if (connected) 
 		{
 			gpsforcetimer++;
@@ -1576,12 +1590,22 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	{
 		IOExp_Write(IOEXP_IOCON,0x20);
 		IOExp_Write(IOEXP_IODIRA,0xD0);
-		IOExp_Write(IOEXP_IODIRB,0xe3);
+		IODirB = 0xf3;
+		IOExp_Write(IOEXP_IODIRB,IODirB);
 		IOExpOutA = 0xDF;
 		IOExp_Write(IOEXP_OLATA,IOExpOutA);
-		IOExpOutB = 0xF3;
+		IOExpOutB = 0xD3;
 		IOExp_Write(IOEXP_OLATB,IOExpOutB);
 	}
+
+#ifdef	GGPS
+	void KickGPS(BOOL val)
+	{
+		IODirB &= 0xDF;
+		if (!val) IODirB |= 0x20;
+		IOExp_Write(IOEXP_IODIRB,IODirB);
+	}
+#endif
 	
 	void SetLED(BYTE led,BOOL val)
 	{
@@ -2963,7 +2987,29 @@ void secondary_processing_loop(void)
 				SetAudioSrc();
 			}
 		}
-
+#ifdef	GGPS
+		if (gpskicking && (gpskicktimer >= GPS_KICK_TIME))
+		{
+			KickGPS(0);
+			gpskicktimer = 0;
+			gpskicking = 0;
+		}
+		else if (!gpskicking)
+		{
+			if (gps_state == GPS_STATE_SYNCED)
+			{
+				gpskicktimer = 0;
+			}
+			else if (gpskicktimer >= GPS_KICK_WAIT_TIME)
+			{
+				KickGPS(1);
+				gpskicktimer = 0;
+				gpskicking = 1;
+				printf(logtime());
+				printf(" GPS RE-START!!\n");
+			}
+		}
+#endif
 		process_gps();
 		if (sqlcount >= 33)
 		{
@@ -4520,6 +4566,10 @@ int main(void)
 	glasertimer = 0;
 	uptimer = 0;
 	pingtimer = 0;
+#ifdef	GGPS
+	gpskicktimer = 0;
+	gpskicking = 0;
+#endif
 	missed = 0;
 	misstimer = 0;
 	misstimer1 = 0;
@@ -4527,6 +4577,7 @@ int main(void)
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
 	last_rxpacket_inbounds = 0;
+
 
 	// Initialize application specific hardware
 	InitializeBoard();
