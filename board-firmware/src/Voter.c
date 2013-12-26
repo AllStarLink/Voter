@@ -66,6 +66,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 /* Debug values:
 
 1 - Alt/Main Host change notifications
+4 - GPS/PPS Failure simulation (GGPS only)
 8 - POCSAG H/W output disable (GGPS only)
 16 - IP TOS Class for Ubiquiti
 32 - GPS Debug
@@ -279,7 +280,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.39 10/24/2013";
+	VERSION[] = "1.40 12/25/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -499,6 +500,9 @@ BOOL altchange1;
 WORD glasertimer;
 DWORD uptimer;
 WORD pingtimer;
+#ifdef GGPS
+WORD gppstimer;
+#endif
 long missed;
 WORD misstimer;
 WORD misstimer1;
@@ -904,6 +908,13 @@ BOOL ppsx;
 	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) ||
 		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) ppsx = 1;
 	else ppsx = 0;
+#ifdef	GGPS
+	if (gotpps && (ppscount >= 3) && (AppConfig.DebugLevel & 4)) 
+	{
+		IFS1bits.CNIF = 0;
+		return;
+	}
+#endif
 	if (ppsx || (ppstimer >= PPS_MUSTA_TIME))
 	{
 		if (USE_PPS && (!indiag))
@@ -917,6 +928,9 @@ BOOL ppsx;
 				lockcnt = 0;
 				samplecnt = 0;
 				fillindex = 0;
+#ifdef	GGPS
+				gppstimer = 0;
+#endif
 			}
 			else if (gotpps) 
 			{
@@ -1319,6 +1333,17 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 
 	CORCONbits.PSV = 1;
 	IFS4bits.DAC1LIF = 0;
+#ifdef	GGPS
+	if (++gppstimer >= 8000)
+	{
+		if (AppConfig.DebugLevel & 4)
+		{
+			real_time++;
+			samplecnt = 0;
+		}
+		gppstimer = 0;
+	}
+#endif
 	s = 0;
 	// Output Tx sample
 	if (testp)
@@ -1998,6 +2023,7 @@ static ROM char gpgga[] = "$GPGGA",
 extern float doubleify(BYTE *p);
 	
 	if (indiag) return;
+	if (AppConfig.DebugLevel & 2) return;
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
@@ -2129,7 +2155,7 @@ extern float doubleify(BYTE *p);
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
 			gps_time = (DWORD) mktime(&tm);
-			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
+			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 			return;
 		}
 		if (gps_buf[1] == 0xac)
@@ -2946,6 +2972,7 @@ void secondary_processing_loop(void)
 				printf(logtime());
 				printf(gpsmsg7);
 			}
+#ifndef	GGPS
 			if (gpstimer >((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME))
 			{
 				printf(logtime());
@@ -2963,6 +2990,7 @@ void secondary_processing_loop(void)
 				gpssync = 0;
 				gotpps = 0;
 			}
+#endif
 		}
 		if (gotpps && USE_PPS)
 		{
@@ -2972,6 +3000,7 @@ void secondary_processing_loop(void)
 				printf(logtime());
 				printf(gpsmsg8);
 			}
+#ifndef GGPS
 			if (ppstimer > PPS_MAX_TIME)
 			{
 				printf(logtime());
@@ -2986,6 +3015,7 @@ void secondary_processing_loop(void)
 				lastrxtimer = 0;
 				SetAudioSrc();
 			}
+#endif
 		}
 #ifdef	GGPS
 		if (gpskicking && (gpskicktimer >= GPS_KICK_TIME))
@@ -4569,6 +4599,7 @@ int main(void)
 #ifdef	GGPS
 	gpskicktimer = 0;
 	gpskicking = 0;
+	gppstimer = 0;
 #endif
 	missed = 0;
 	misstimer = 0;
