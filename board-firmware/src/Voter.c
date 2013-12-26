@@ -280,7 +280,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.40 12/25/2013";
+	VERSION[] = "1.41 12/25/2013";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2023,7 +2023,9 @@ static ROM char gpgga[] = "$GPGGA",
 extern float doubleify(BYTE *p);
 	
 	if (indiag) return;
-	if (AppConfig.DebugLevel & 2) return;
+#ifdef	GGPS
+	if (AppConfig.DebugLevel & 4) return;
+#endif
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
