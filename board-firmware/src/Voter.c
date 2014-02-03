@@ -10,7 +10,7 @@
 *   it under the terms of the GNU General Public License as published by
 *   the Free Software Foundation, either version 2 of the License, or
 *   (at your option) any later version.
-
+*
 *   Voter System is distributed in the hope that it will be useful,
 *   but WITHOUT ANY WARRANTY; without even the implied warranty of
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -66,6 +66,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 /* Debug values:
 
 1 - Alt/Main Host change notifications
+2 - Simulate outbit for testing
 4 - GPS/PPS Failure simulation (GGPS only)
 8 - POCSAG H/W output disable (GGPS only)
 16 - IP TOS Class for Ubiquiti
@@ -158,6 +159,11 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #endif
 
+#ifndef GGPS
+// Un-comment this to enable LASTRX time diagnostics
+#define	LASTRX_DIAG
+#endif
+
 #define WVF JP10				// Short on pwrup to initialize default values
 #define CAL JP9						// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
 									// this is shorted also calibrates the temp. conpensation diode (at room temp.)
@@ -214,6 +220,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	MIN_PING_TIME (95 * 8) // Minimum ping time
 #define	MISS_REPORT_TIME 100 // Interval between "miss packet" reports (1/10 secs)
 #define	PKT_MISS_TIME (500 * 8)	// 500ms for display of miss packet (winky LED) 
+#define	OUTBITS_TIME (500 * 8)	// 500ms outbits interval
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
@@ -280,7 +287,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.41 12/25/2013";
+	VERSION[] = "1.42 01/19/2014";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -307,10 +314,13 @@ BYTE mwp;
 #endif
 
 VTIME system_time;
+
+#ifdef	LASTRX_DIAG
 VTIME last_rxpacket_time;
 VTIME last_rxpacket_sys_time;
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
+#endif
 
 // Declare AppConfig structure and some other supporting stack variables
 APP_CONFIG AppConfig;
@@ -384,6 +394,11 @@ static struct {
 	char lon[10];
 	char elev[7];
 } gps_packet;
+static struct {
+	VOTER_PACKET_HEADER vph;
+	DWORD seqno;
+	DWORD ack_seqno;
+} gp_packet;
 WORD txdrainindex;
 WORD last_drainindex;
 VTIME lastrxtime;
@@ -506,6 +521,15 @@ WORD gppstimer;
 long missed;
 WORD misstimer;
 WORD misstimer1;
+DWORD outbits;
+DWORD last_outbits;
+DWORD outseqno;
+DWORD last_outseqno;
+DWORD ack_seqno;
+WORD outtimer;
+DWORD inseqno;
+char gpstrin[20];
+BYTE gpstrin_flag;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -1136,6 +1160,7 @@ BYTE *cp;
 			if (glasertimer) glasertimer--;
 			if (pingtimer) pingtimer--;
 			if (misstimer1) misstimer1--;
+			outtimer++;
 		}
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
@@ -2352,6 +2377,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	WORD mytxindex;
 	VTIME mysystem_time;
 	long mytxseqno,myhost_txseqno;
+	DWORD mylong;
+	char mystr[20];
 
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
@@ -2501,6 +2528,47 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			memclr(&gps_packet,sizeof(gps_packet));
 	}
 
+	if (!connected)
+	{
+		last_outbits = 0;
+		outseqno = 0;
+		ack_seqno = 0;
+		outtimer = 0;
+		inseqno = 0;
+	}
+
+	outbits = inputs2;
+	if (AppConfig.DebugLevel & 2) outbits |= 0x10000;
+	sprintf(mystr,"B%lX",outbits);
+
+	if (connected && 
+		((outbits != last_outbits) || 
+		((outseqno > ack_seqno) &&(outtimer >= OUTBITS_TIME))))
+	{
+        if (UDPIsPutReady(*udpSocketUser)) {
+			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+			audio_packet.vph.curtime.vtime_sec = htonl(real_time);
+			audio_packet.vph.curtime.vtime_nsec = htonl(0);
+			strcpy((char *)audio_packet.vph.challenge,challenge);
+			audio_packet.vph.digest = htonl(resp_digest);
+			audio_packet.vph.payload_type = htons(7);
+			if (outbits != last_outbits) outseqno++;
+			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+			cp = (BYTE *) &audio_packet.vph;
+			for(i = 0; i < sizeof(audio_packet.vph); i++) UDPPut(*cp++);
+			mylong = htonl(outseqno);
+			cp = (BYTE *) &mylong;
+			for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
+			mylong = htonl(inseqno);
+			cp = (BYTE *) &mylong;
+			for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
+			for(i = 0; mystr[i]; i++) UDPPut(mystr[i]);
+            UDPFlush();
+			outtimer = 0;
+			last_outbits = outbits;
+         }
+	}
+
 	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
 		n = 0;
 		cp = (BYTE *) &audio_packet;
@@ -2585,16 +2653,56 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							}
 						}
 					}
+					if (ntohs(audio_packet.vph.payload_type) == 7) // GPDATA
+					{
+						if (n >= sizeof(gp_packet))
+						{
+							memcpy(&gp_packet,&audio_packet,sizeof(gp_packet));
+							if (ntohl(gp_packet.ack_seqno) >= ack_seqno) ack_seqno = ntohl(gp_packet.ack_seqno);
+							if (ntohl(gp_packet.seqno) >= inseqno)
+							{
+								inseqno = ntohl(gp_packet.seqno);
+								cp = (BYTE *) &audio_packet;
+								cp += sizeof(gp_packet);
+								for(i = 0; (i < n - sizeof(gp_packet)) && (i < (sizeof(gpstrin) - 1)); i++) gpstrin[i] = *cp++;
+								gpstrin[i] = 0;
+								if (i)
+								{
+									gpstrin_flag = 1;
+							        if (UDPIsPutReady(*udpSocketUser)) {
+										UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+										gp_packet.vph.curtime.vtime_sec = htonl(real_time);
+										gp_packet.vph.curtime.vtime_nsec = htonl(0);
+										strcpy((char *)gp_packet.vph.challenge,challenge);
+										gp_packet.vph.digest = htonl(resp_digest);
+										gp_packet.vph.payload_type = htons(7);
+										// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+										cp = (BYTE *) &gp_packet.vph;
+										for(i = 0; i < sizeof(gp_packet.vph); i++) UDPPut(*cp++);
+										mylong = htonl(outseqno);
+										cp = (BYTE *) &mylong;
+										for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
+										mylong = htonl(inseqno);
+										cp = (BYTE *) &mylong;
+										for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
+			//							for(i = 0; mystr[i]; i++) UDPPut(mystr[i]);
+							            UDPFlush();
+							         }
+								}
+							}
+						}
+					}
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
 						short mydiff;
 
-
+#ifdef	LASTRX_DIAG
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
 						last_rxpacket_inbounds = 0;
+#endif
 						if (!USE_PPS)
 						{
 							mytxseqno = txseqno;
@@ -2622,11 +2730,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
 //printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
+#ifdef	LASTRX_DIAG
 						last_rxpacket_index = index;
+#endif
                         /* if in bounds */
                         if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
+#ifdef	LASTRX_DIAG
 							last_rxpacket_inbounds = 1;
+#endif
 							if (!USE_PPS)
 							{
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
@@ -3246,6 +3358,13 @@ void secondary_processing_loop(void)
 #ifdef	SILLY
 	printf("%lu\n",sillyval);
 #endif	
+	}
+
+	if (gpstrin_flag)
+	{
+		printf("Got gpstr: %s, seqno: %ld\n",gpstrin,inseqno);
+		gpstrin[0] = 0;
+		gpstrin_flag = 0;
 	}
 
 	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
@@ -4400,7 +4519,9 @@ int main(void)
 	WORD sel;
 	time_t t;
 	BYTE i;
+#ifdef	LASTRX_DIAG
 	long mydiff,mydiff1;
+#endif
 
     static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
 
@@ -4443,7 +4564,12 @@ int main(void)
 		entsel[] = "Enter Selection (1-27,97-99,r,q,d) : ";
 
 
-	static ROM char oprdata[] = "S/W Version: %s\n"
+#ifdef GGPS
+	static char 
+#else
+	static ROM char
+#endif
+	   oprdata[] = "S/W Version: %s\n"
 		"System Uptime: %lu.%lu Secs\n"
 		"IP Address: %d.%d.%d.%d\n",
 		oprdata1[] = 
@@ -4606,11 +4732,21 @@ int main(void)
 	missed = 0;
 	misstimer = 0;
 	misstimer1 = 0;
+	outbits = 0;
+	last_outbits = 0;
+	outseqno = 0;
+	inseqno = 0;
+	last_outseqno = 0;
+	ack_seqno = 0;
+	outtimer = 0;
+	gpstrin[0] = 0;
+	gpstrin_flag = 0;
+#ifdef	LASTRX_DIAG
 	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
 	last_rxpacket_inbounds = 0;
-
+#endif
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -5087,6 +5223,7 @@ __builtin_nop();
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				main_processing_loop();
 				secondary_processing_loop();
+#ifdef	LASTRX_DIAG
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
@@ -5107,6 +5244,7 @@ __builtin_nop();
 					last_rxpacket_index,last_rxpacket_inbounds);
 				main_processing_loop();
 				secondary_processing_loop();
+#endif
 				printf(paktc);
 				fflush(stdout);
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
