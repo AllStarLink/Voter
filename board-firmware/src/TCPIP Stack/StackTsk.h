@@ -161,7 +161,8 @@ typedef struct __attribute__((__packed__))
 	DWORD DebugLevel1;
 	BOOL EthFullDuplex;
 	WORD LaunchDelay;
-	BYTE Zeros[566];
+	WORD CTCSSThreshold;
+	BYTE Zeros[564];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
