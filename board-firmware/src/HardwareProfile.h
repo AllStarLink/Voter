@@ -74,7 +74,7 @@ extern char dummy_loc;
 // Set Configuration Registers
 _FGS( GSS_OFF & GCP_OFF & GWRP_OFF )
 _FOSCSEL( FNOSC_PRIPLL & IESO_OFF )
-_FOSC( FCKSM_CSDCMD & IOL1WAY_OFF & OSCIOFNC_ON & POSCMD_EC )
+_FOSC( FCKSM_CSDCMD & IOL1WAY_OFF & OSCIOFNC_OFF & POSCMD_XT )
 _FWDT( FWDTEN_OFF & WINDIS_OFF & WDTPRE_PR32 & WDTPOST_PS4096)
 _FPOR(ALTI2C_OFF & FPWRT_PWR1 )	
 _FICD(JTAGEN_OFF & ICS_PGD3 )
@@ -87,7 +87,6 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 // dsPIC33F processor
 #define GetSystemClock()		(76800000ul)      // Hz
-
 #define GetInstructionClock()	(GetSystemClock()/2)
 #define GetPeripheralClock()	GetInstructionClock()
 
@@ -95,14 +94,9 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 #if defined(SMT_BOARD)
 
-#ifdef	RTCMPLUS
-	#define	SPISel(x) { _LATC0 = 1; _LATC1= 1; _LATA7 = 1; _LATA3 = 1; LATC ^= x & 3; if (x == 4) _LATA7 = 0; else if (x == 8) _LATA3 = 0;}
-#else
 	#define	SPISel(x) { _LATC0 = 1; _LATC1= 1; _LATC2 = 1; LATC ^= x; }
-#endif
 	#define SPICS_ENC 1
 	#define	SPICS_POT 4
-	#define	SPICS_MEZZ 8
 	#define	SPICS_EEPROM 2
 	#define	SPICS_IDLE 0
 	#define	SPICS_POT_IDLE 0

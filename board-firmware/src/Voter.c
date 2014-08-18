@@ -1,7 +1,7 @@
 /*
 * VOTER Client System Firmware for VOTER board
 *
-* Copyright (C) 2011-2013
+* Copyright (C) 2011-2014
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
 *
 * This file is part of the VOTER System Project 
@@ -10,7 +10,7 @@
 *   it under the terms of the GNU General Public License as published by
 *   the Free Software Foundation, either version 2 of the License, or
 *   (at your option) any later version.
-*
+
 *   Voter System is distributed in the hope that it will be useful,
 *   but WITHOUT ANY WARRANTY; without even the implied warranty of
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -66,7 +66,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 /* Debug values:
 
 1 - Alt/Main Host change notifications
-2 - Simulate outbit for testing
 4 - GPS/PPS Failure simulation (GGPS only)
 8 - POCSAG H/W output disable (GGPS only)
 16 - IP TOS Class for Ubiquiti
@@ -78,7 +77,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #define M_PI       3.14159265358979323846
 
-//#define	RTCMPLUS
 //#define	GGPS	// Define this if GGPS-type system
 
 /* Un-comment this to generate digital milliwatt level on output */
@@ -91,8 +89,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#if defined(SMT_BOARD)
 		#error Cant Have GGPS on SMT board!!
 	#endif
-#endif
-#if defined(GGPS) || defined(RTCMPLUS)
 	#define	IS_POGSAG_TX(x) (((c & 0x7f) <= 5) && (!(AppConfig.DebugLevel1 & 8)))
 #else
 	#define	IS_POGSAG_TX(x) (0)
@@ -100,11 +96,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #if defined(SMT_BOARD)
 
-#ifdef	RTCMPLUS
-	#define CTCSSIN (adcothers[ADCCTCSS] >= AppConfig.CTCSSThreshold)
-#else
 	#define	CTCSSIN	_RA7
-#endif
 	#define	JP8	_RA8
 	#define	JP9	_RA9
 	#define	JP10 _RA10
@@ -115,20 +107,14 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#define	INITIALIZE_WVF JP10  // Short on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATB8
-	#define	TESTBIT_TRIS _TRISB8
+
 
 
 #ifndef	DSPBEW
-#ifndef RTCMPLUS
-#define	DIAGMENU
-#endif
+	#define	DIAGMENU
 #endif
 
 #else
-
-#ifdef	RTCMPLUS
-#error RTCMPLUS not valid for non-SMT board!!!
-#endif
 
 	#define	IOEXP_IODIRA 0
 	#define	IOEXP_IODIRB 1
@@ -172,11 +158,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #endif
 
-#ifndef GGPS
-// Un-comment this to enable LASTRX time diagnostics
-//#define	LASTRX_DIAG
-#endif
-
 #define WVF JP10				// Short on pwrup to initialize default values
 #define CAL JP9						// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
 									// this is shorted also calibrates the temp. conpensation diode (at room temp.)
@@ -197,30 +178,17 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 #define	FRAME_SIZE 160
 #define	ADPCM_FRAME_SIZE 320
-#ifdef	RTCMPLUS
-#ifdef	DSPBEW
-#define	MAX_BUFLEN 3800 // 0.475 seconds of buffer
-#else
-#define	MAX_BUFLEN 5400 // 0.675 seconds of buffer
-#endif
-#else
 #ifdef	DSPBEW
 #define	MAX_BUFLEN 4800 // 0.6 seconds of buffer
 #else
-#define	MAX_BUFLEN 6400 // 0.8 seconds of buffer (was 6400)
-#endif
+#define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
 #endif
 #define	DEFAULT_TX_BUFFER_LENGTH 3000 // approx 300ms of Buffer
 #define	VOTER_CHALLENGE_LEN 10
-#ifdef	RTCMPLUS
-#define	ADCOTHERS 4
-#else
-#define ADCOTHERS 3
-#endif
+#define	ADCOTHERS 3
 #define	ADCSQNOISE 0
 #define	ADCDIODE 2
 #define	ADCSQPOT 1
-#define	ADCCTCSS 3
 #define NOISE_SLOW_THRESHOLD 500   // Figures seem to be stable >= 20db quieting or so
 #define DEFAULT_VOTER_PORT 667
 #define	PPS_WARN_TIME (1200 * 8) // 1200ms PPS Warning Time
@@ -246,7 +214,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	MIN_PING_TIME (95 * 8) // Minimum ping time
 #define	MISS_REPORT_TIME 100 // Interval between "miss packet" reports (1/10 secs)
 #define	PKT_MISS_TIME (500 * 8)	// 500ms for display of miss packet (winky LED) 
-#define	OUTBITS_TIME (500 * 8)	// 500ms outbits interval
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
@@ -258,7 +225,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	DIAG_NOISE_GAIN 0x28
 #define	NAPEAKS 50
 #define	QUALCOUNT 4
-#define	SPI_IOCNT 5  // read up to 5 SPI bytes per time "around"
 
 #define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
 #define CLIP 32635
@@ -314,7 +280,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.46 03/04/2014";
+	VERSION[] = "1.47 08/18/2014";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -341,13 +307,10 @@ BYTE mwp;
 #endif
 
 VTIME system_time;
-
-#ifdef	LASTRX_DIAG
 VTIME last_rxpacket_time;
 VTIME last_rxpacket_sys_time;
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
-#endif
 
 // Declare AppConfig structure and some other supporting stack variables
 APP_CONFIG AppConfig;
@@ -421,11 +384,6 @@ static struct {
 	char lon[10];
 	char elev[7];
 } gps_packet;
-static struct {
-	VOTER_PACKET_HEADER vph;
-	DWORD seqno;
-	DWORD ack_seqno;
-} gp_packet;
 WORD txdrainindex;
 WORD last_drainindex;
 VTIME lastrxtime;
@@ -548,26 +506,6 @@ WORD gppstimer;
 long missed;
 WORD misstimer;
 WORD misstimer1;
-DWORD outbits;
-DWORD last_outbits;
-DWORD outseqno;
-DWORD last_outseqno;
-DWORD ack_seqno;
-WORD outtimer;
-DWORD inseqno;
-char gpstrin[20];
-BYTE gpstrin_flag;
-WORD spiidx;
-WORD spilen;
-WORD gotspi;
-BYTE wasesc;
-BYTE spicmd;
-BYTE inplus;
-DWORD outstatus;
-DWORD lastoutstatus;
-DWORD instatus;
-DWORD tempstatus;
-DWORD lastinstatus;
 #ifdef DSPBEW
 DWORD fftresult;
 #endif
@@ -1198,7 +1136,6 @@ BYTE *cp;
 			if (glasertimer) glasertimer--;
 			if (pingtimer) pingtimer--;
 			if (misstimer1) misstimer1--;
-			outtimer++;
 		}
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
@@ -1379,10 +1316,7 @@ BYTE *cp;
 			}
 		}
 #if defined(SMT_BOARD)
-		if (adcindex == 3)
-			AD1CHS0 = 8;
-		else
-			AD1CHS0 = adcindex + 1;
+		AD1CHS0 = adcindex + 1;
 #else
 		AD1CHS0 = adcindex + 2;
 #endif
@@ -1503,7 +1437,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				DAC1LDAT = ulawtabletx[c] + s;
 			else
 				DAC1LDAT = s;
-#if defined(GGPS) || defined(RTCMPLUS)
+	#if defined (GGPS)
 			if (IS_POGSAG_TX(c))
 			{
 				TESTBIT_TRIS = 0;
@@ -1514,7 +1448,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				TESTBIT = 0;
 				TESTBIT_TRIS = 1;
 			}
-#endif
+	#endif
 #endif
 		} else DAC1LDAT = 0;
 		txaudio[txdrainindex++] = ULAW_SILENCE;
@@ -1554,16 +1488,6 @@ void __attribute__((interrupt, auto_psv)) _MathError(void)
 
 int myfgets(char *buffer, unsigned int len);
 
-#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
-
-#define ClearSPIDoneFlag()
-static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
-{
-    while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
-}
-
-#define SPI_ON_BIT          (IOEXP_SPISTATbits.SPIEN)
-
 #if defined(SMT_BOARD)
 
 ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
@@ -1602,80 +1526,18 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		else _LATB2 = 0;
 	}
 
-#if	defined (RTCMPLUS)
-
-	#define	SPI_START 0xAA
-	#define	SPI_ESC 0xAB
-	#define	SPI_IDLE 0xFF
-
-	void P1_IO(BYTE *buf,BYTE len)
-	{
-	
-	    volatile BYTE vDummy;
-	    BYTE vSPIONSave,i;
-	    WORD SPICON1Save;
-
-	    // Save SPI state
-	    SPICON1Save = IOEXP_SPICON1;
-	    vSPIONSave = SPI_ON_BIT;
-	
-	    // Configure SPI
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = (0x0003 | 0x0120);   /* 64:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
-	    SPI_ON_BIT = 1;
-
-	    SPISel(SPICS_MEZZ);
-		if (len == 0) 
-		{
-	    	IOEXP_SSPBUF = SPI_IDLE;
-		    WaitForDataByte();
-		    *buf = IOEXP_SSPBUF;
-			Nop();
-			Nop();
-		}
-		else
-		{
-		    IOEXP_SSPBUF = SPI_START;
-		    WaitForDataByte();
-		    vDummy = IOEXP_SSPBUF;
-			Nop();
-			Nop();
-		    IOEXP_SSPBUF = len;
-		    WaitForDataByte();
-		    vDummy = IOEXP_SSPBUF;
-			Nop();
-			Nop();
-			for(i = 0; i < len; i++)
-			{
-				if ((buf[i] == SPI_START) || (buf[i] == SPI_ESC) || (buf[i] == SPI_IDLE))
-				{
-				    IOEXP_SSPBUF = SPI_ESC;
-				    WaitForDataByte();
-				    vDummy = IOEXP_SSPBUF;
-					Nop();
-					Nop();
-				}
-			    IOEXP_SSPBUF = buf[i];
-			    WaitForDataByte();
-			    vDummy = IOEXP_SSPBUF;
-				Nop();
-				Nop();
-			}
-		}
-	    SPISel(SPICS_IDLE);
-		Nop();
-		Nop();
-	    // Restore SPI State
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = SPICON1Save;
-	    SPI_ON_BIT = vSPIONSave;
-	
-		ClearSPIDoneFlag();
-	}
-#endif
-
 #else
 
+	#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+	
+	#define ClearSPIDoneFlag()
+	static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
+	{
+	    while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
+	}
+	
+	#define SPI_ON_BIT          (IOEXP_SPISTATbits.SPIEN)
+	
 	void IOExp_Write(BYTE reg,BYTE val)
 	{
 	
@@ -1822,30 +1684,12 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
 #endif
 
-#ifdef	RTCMPLUS
-void send_status(void)
-{
-BYTE str[5];
 
-	str[0] = 2; // Status command
-	str[1] = outstatus & 0x7f;
-	str[2] = (BYTE)((outstatus >> 8) & 0x7f);
-	str[3] = (BYTE)((outstatus >> 16) & 0x7f);
-	str[4] = (BYTE)((outstatus >> 24) & 0x7f);
-printf("%02X %02X %02X %02X %02X\n",str[0],str[1],str[2],str[3],str[4]);
-	P1_IO(str,5);
-}
-#endif
+
 
 void RTCM_Reset(void)
 {
-WORD i;
-
 	SetPTT(0);
-#ifdef RTCMPLUS
-	P1_IO((BYTE *)"\126\206",2); // 86 dec, 0x86 hex -- In honor of Harrold Karry
-#endif
-	for(i = 0; i < 10000; i++) Nop();
 	Reset();
 	while(1) DISABLE_INTERRUPTS();
 }
@@ -2087,7 +1931,8 @@ BOOL getGPSStr(void)
 {
 BYTE	c;
 
-		if (!DataRdyUART2()) return 0;
+	while (DataRdyUART2())
+	{
 		c = ReadUART2();
 		if (c == '\n')
 		{
@@ -2095,7 +1940,7 @@ BYTE	c;
 			gps_bufindex = 0;
 			return 1; 
 		}
-		if (c < ' ') return 0;
+		if (c < ' ') continue;
 		gps_buf[gps_bufindex++] = c;
 		if (gps_bufindex >= (sizeof(gps_buf) - 1))
 		{
@@ -2103,7 +1948,8 @@ BYTE	c;
 			gps_bufindex = 0;
 			return 1; 
 		}
-		return 0;
+	}
+	return 0;
 }
 
 BOOL getTSIPPacket(void)
@@ -2508,8 +2354,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	WORD mytxindex;
 	VTIME mysystem_time;
 	long mytxseqno,myhost_txseqno;
-	DWORD mylong;
-	char mystr[20];
 
 	mytxindex = last_drainindex;
 	mysystem_time = system_time;
@@ -2519,9 +2363,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	if (indiag) return;
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
-		
 		system_time.vtime_sec = timing_time;
-		system_time.vtime_nsec = timing_index * 125000;
+		system_time.vtime_nsec = (timing_index / 160) * 20000000ul; 
 		time_filled = 1;
 	}
 
@@ -2584,11 +2427,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 #else
 			rssiheld = rssi;
 #endif
-			if (instatus & 2)
-			{
-				rssiheld = rssi = 0;
-				tosend = 0;
-			}
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
@@ -2606,10 +2444,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 	            if (tosend)
 				{
+					
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS())
 					{
 						UDPPut(rssiheld);
-						for(i = 0; i < j; i++) UDPPut((instatus & 1) ? ULAW_SILENCE : audio_buf[filling_buffer ^ 1][i]);
+						for(i = 0; i < j; i++) UDPPut(audio_buf[filling_buffer ^ 1][i]);
 						elketimer = 0;
 					}
 					else
@@ -2661,47 +2500,6 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				gpsforcetimer = 0;
 	         }
 			memclr(&gps_packet,sizeof(gps_packet));
-	}
-
-	if (!connected)
-	{
-		last_outbits = 0;
-		outseqno = 0;
-		ack_seqno = 0;
-		outtimer = 0;
-		inseqno = 0;
-	}
-
-	outbits = inputs2;
-	if (AppConfig.DebugLevel & 2) outbits |= 0x10000;
-	sprintf(mystr,"B%lX",outbits);
-
-	if (connected && 
-		((outbits != last_outbits) || 
-		((outseqno > ack_seqno) &&(outtimer >= OUTBITS_TIME))))
-	{
-        if (UDPIsPutReady(*udpSocketUser)) {
-			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-			audio_packet.vph.curtime.vtime_sec = htonl(real_time);
-			audio_packet.vph.curtime.vtime_nsec = htonl(0);
-			strcpy((char *)audio_packet.vph.challenge,challenge);
-			audio_packet.vph.digest = htonl(resp_digest);
-			audio_packet.vph.payload_type = htons(7);
-			if (outbits != last_outbits) outseqno++;
-			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
-			cp = (BYTE *) &audio_packet.vph;
-			for(i = 0; i < sizeof(audio_packet.vph); i++) UDPPut(*cp++);
-			mylong = htonl(outseqno);
-			cp = (BYTE *) &mylong;
-			for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
-			mylong = htonl(inseqno);
-			cp = (BYTE *) &mylong;
-			for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
-			for(i = 0; mystr[i]; i++) UDPPut(mystr[i]);
-            UDPFlush();
-			outtimer = 0;
-			last_outbits = outbits;
-         }
 	}
 
 	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
@@ -2788,56 +2586,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							}
 						}
 					}
-					if (ntohs(audio_packet.vph.payload_type) == 7) // GPDATA
-					{
-						if (n >= sizeof(gp_packet))
-						{
-							memcpy(&gp_packet,&audio_packet,sizeof(gp_packet));
-							if (ntohl(gp_packet.ack_seqno) >= ack_seqno) ack_seqno = ntohl(gp_packet.ack_seqno);
-							if (ntohl(gp_packet.seqno) >= inseqno)
-							{
-								inseqno = ntohl(gp_packet.seqno);
-								cp = (BYTE *) &audio_packet;
-								cp += sizeof(gp_packet);
-								for(i = 0; (i < n - sizeof(gp_packet)) && (i < (sizeof(gpstrin) - 1)); i++) gpstrin[i] = *cp++;
-								gpstrin[i] = 0;
-								if (i)
-								{
-									gpstrin_flag = 1;
-							        if (UDPIsPutReady(*udpSocketUser)) {
-										UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-										gp_packet.vph.curtime.vtime_sec = htonl(real_time);
-										gp_packet.vph.curtime.vtime_nsec = htonl(0);
-										strcpy((char *)gp_packet.vph.challenge,challenge);
-										gp_packet.vph.digest = htonl(resp_digest);
-										gp_packet.vph.payload_type = htons(7);
-										// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
-										cp = (BYTE *) &gp_packet.vph;
-										for(i = 0; i < sizeof(gp_packet.vph); i++) UDPPut(*cp++);
-										mylong = htonl(outseqno);
-										cp = (BYTE *) &mylong;
-										for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
-										mylong = htonl(inseqno);
-										cp = (BYTE *) &mylong;
-										for(i = 0; i < sizeof(mylong); i++) UDPPut(*cp++);
-			//							for(i = 0; mystr[i]; i++) UDPPut(mystr[i]);
-							            UDPFlush();
-							         }
-								}
-							}
-						}
-					}
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
 						short mydiff;
 
-#ifdef	LASTRX_DIAG
+
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
 						last_rxpacket_inbounds = 0;
-#endif
 						if (!USE_PPS)
 						{
 							mytxseqno = txseqno;
@@ -2865,15 +2623,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
 //printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
-#ifdef	LASTRX_DIAG
 						last_rxpacket_index = index;
-#endif
                         /* if in bounds */
                         if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
                         {
-#ifdef	LASTRX_DIAG
 							last_rxpacket_inbounds = 1;
-#endif
 							if (!USE_PPS)
 							{
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
@@ -2976,15 +2730,6 @@ void main_processing_loop(void)
 			/* if had link, lost it, and now have it again, reset processor (silly TCP/IP stack!) */
 			if (linkstate == 2) RTCM_Reset();
 	}
-#ifdef RTCMPLUS
-	if (HasCOR() && HasCTCSS()) outstatus |= 1UL; else outstatus &= ~1UL;
-	if (option_flags & OPTION_FLAG_FLATAUDIO) outstatus |= 2UL; else outstatus &= ~2UL;
-	if (outstatus != lastoutstatus)
-	{
-		send_status();
-		lastoutstatus = outstatus;
-	}
-#endif
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
 		if (altdns)
@@ -3214,102 +2959,9 @@ void secondary_processing_loop(void)
 
 	static WORD mynoise;
 
-#ifdef RTCMPLUS
-	BYTE rxval;
-	WORD myidx,iocnt;
-#endif
-
 #if !defined(SMT_BOARD)
 	inputs1 = IOExp_Read(IOEXP_GPIOA);
 	inputs2 = IOExp_Read(IOEXP_GPIOB);
-#endif
-
-#ifdef	RTCMPLUS
-
-	iocnt = 0;
-	do
-	{
-		P1_IO(&rxval,0);
-		if ((rxval == SPI_ESC) && (!wasesc))
-		{
-			wasesc = 1;
-		}
-		else
-		{
-			if (!wasesc)
-			{
-				if (rxval == SPI_START)
-				{
-					spiidx = 0;
-					spilen = 0;
-					spicmd = 0;
-				}
-			}
-			wasesc = 0;
-			if ((spiidx == 0) && (rxval == SPI_START)) // Start Byte
-			{
-				spiidx = 1;
-			}
-			else if (spiidx == 1) // Count Byte
-			{
-				if (rxval > 253)
-				{
-					spiidx = 0;
-					spilen = 0;
-					spicmd = 0;
-				}
-				else
-				{
-					spilen = rxval + 2;
-					spiidx++;
-				}
-			}
-			else if (spiidx && (spiidx < spilen)) // Data Byte
-			{
-				myidx = spiidx;
-				spiidx++;
-	//				printf("SPI [%d/%d]: %02X\n",myidx - 2,spilen - 2,rxval);
-				if (myidx == 2) spicmd = rxval;
-				else
-				{
-					switch(spicmd)
-					{
-						case 1: // ASCII chars
-							putchar(rxval);
-							spiidx = 0;
-							spilen = 0;
-							break;
-						case 2: // Status from other side
-							if (myidx == 3)
-							{
-								tempstatus = (DWORD)rxval;
-							}
-							else if (myidx == 4)
-							{
-								tempstatus += ((DWORD)rxval) << 8;
-							}
-							else if (myidx == 5)
-							{
-								tempstatus += ((DWORD)rxval) << 16;
-							}
-							else if (myidx == 6)
-							{
-								tempstatus += ((DWORD)rxval) << 24;
-								instatus = tempstatus;
-								spiidx = 0;
-								spilen = 0;
-							}
-							break;
-						default:
-							spiidx = 0;
-							spilen = 0;
-							break;
-					}
-				}
-			}
-		}
-	}
-	while ((iocnt++ < SPI_IOCNT) && (rxval != 0xff)) ;
 #endif
 
 	if (!indiag)
@@ -3462,7 +3114,7 @@ void secondary_processing_loop(void)
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 		isoffline = ((!connected) && (AppConfig.FailMode == 3));
-		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (!(instatus & 4)) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
+		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			repeatit = 1;
 			if (isoffline) hangtimer = AppConfig.HangTime + 1;
@@ -3485,13 +3137,13 @@ void secondary_processing_loop(void)
 			{
 				if (!USE_PPS)
 				{
-					if (ptt && ((txseqno > (txseqno_ptt + 3)) || (!qualtx)))
+					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (!qualtx)))
 					{
 						host_ptt = 0;
 						ptt = 0;
 						SetPTT(0);
 					}
-					else if ((!ptt) && (txseqno <= (txseqno_ptt + 3)) && qualtx)
+					else if ((!ptt) && (txseqno <= (txseqno_ptt + 2)) && qualtx)
 					{
 						host_ptt = 1;
 						ptt = 1;
@@ -3595,19 +3247,6 @@ void secondary_processing_loop(void)
 #ifdef	SILLY
 	printf("%lu\n",sillyval);
 #endif	
-	}
-
-	if (gpstrin_flag)
-	{
-		printf("Got gpstr: %s, seqno: %ld\n",gpstrin,inseqno);
-		gpstrin[0] = 0;
-		gpstrin_flag = 0;
-	}
-
-	if (lastinstatus != instatus)
-	{
-		printf("New STATUS: %ld\n",instatus);
-		lastinstatus = instatus;
 	}
 
 	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
@@ -4052,21 +3691,6 @@ int count,x;
 			main_processing_loop();
 			secondary_processing_loop();
 		}
-#ifdef	RTCMPLUS
-		if (inplus)
-		{
-			char xstr[10];
-
-			if ((c == 26) || (c == 24))
-			{
-				inplus = 0;
-				break;
-			}
-			sprintf(xstr,"\001%c",c);
-			P1_IO((BYTE *)xstr,strlen(xstr));
-			continue;
-		}
-#endif
 		if (c == 127) continue;
 		if (c == 3) 
 		{
@@ -4337,12 +3961,7 @@ static void IPMenu()
 		BOOL bootok,ok;
 		int sel;
 
-#ifndef DSPBEW
-		static
-#else
-		static  ROMNOBEW
-#endif
-		   char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+		static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
 		"1  - (Static) IP Address (%d.%d.%d.%d)\n",
 		menu1[] = 
 		"2  - (Static) Netmask (%d.%d.%d.%d)\n",
@@ -4782,16 +4401,14 @@ int main(void)
 	WORD sel;
 	time_t t;
 	BYTE i;
-#ifdef	LASTRX_DIAG
 	long mydiff,mydiff1;
-#endif
 
     static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
-	static ROM char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
+	static /* ROM */ char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
 		menu2[] = 
 		"2  - VOTER Server Address (FQDN) (%s)\n"
@@ -4819,21 +4436,15 @@ int main(void)
 #endif
 		"18 - \"Duplex Mode 3\" (0=DISABLED, 1-255 Hang Time) (1/10 secs) (%u)\n"
 		"19 - Simulcast Launch Delay (%u) (approx 200 ns, 5 = 1us, > 0 to ENA SC)\n"
-		"20 - Ext. CTCSS Input Threshold (%u) (0-1023)\n"
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
 		"i - IP Parameters menu, o - Offline Mode Parameters menu\n"
 		"q - Disconnect Remote Console Session, r - reboot system, d - diagnostics\n\n",
-		entsel[] = "Enter Selection (1-20,97-99,r,q,d) : ";
+		entsel[] = "Enter Selection (1-27,97-99,r,q,d) : ";
 
 
-#ifdef GGPS
-	static char 
-#else
-	static ROM char
-#endif
-	   oprdata[] = "S/W Version: %s\n"
+	static ROM char oprdata[] = "S/W Version: %s\n"
 		"System Uptime: %lu.%lu Secs\n"
 		"IP Address: %d.%d.%d.%d\n",
 		oprdata1[] = 
@@ -4996,21 +4607,11 @@ int main(void)
 	missed = 0;
 	misstimer = 0;
 	misstimer1 = 0;
-	outbits = 0;
-	last_outbits = 0;
-	outseqno = 0;
-	inseqno = 0;
-	last_outseqno = 0;
-	ack_seqno = 0;
-	outtimer = 0;
-	gpstrin[0] = 0;
-	gpstrin_flag = 0;
-#ifdef	LASTRX_DIAG
 	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
 	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
 	last_rxpacket_inbounds = 0;
-#endif
+
 
 	// Initialize application specific hardware
 	InitializeBoard();
@@ -5210,10 +4811,10 @@ __builtin_nop();
 		secondary_processing_loop();
 #ifdef	DSPBEW
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode,
-			AppConfig.Duplex3,AppConfig.LaunchDelay,AppConfig.CTCSSThreshold);
+			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #else
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
-			AppConfig.Duplex3,AppConfig.LaunchDelay,AppConfig.CTCSSThreshold);
+			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
 
 		aborted = 0;
@@ -5253,22 +4854,11 @@ __builtin_nop();
 				OffLineMenu();
 				continue;
 		}
-#ifdef	RTCMPLUS
-		if ((strchr(cmdstr,'P')) || strchr(cmdstr,'p'))
-		{
-				printf("\nPLUS>\n");
-				inplus = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				inplus = 0;
-				printf("\nMAIN>\n");
-				continue;
-		}
-#endif
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 20)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
+		if (((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 20)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
@@ -5442,15 +5032,6 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
-#ifdef RTCMPLUS
-			case 20: // RTCM Plus CTCSS Threshold
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1023))
-				{
-					AppConfig.CTCSSThreshold = i1;
-					ok = 1;
-				}
-				break;
-#endif
 #ifdef	DUMPENCREGS
 			case 96:
 				DumpETHReg();
@@ -5496,9 +5077,6 @@ __builtin_nop();
 				main_processing_loop();
 				secondary_processing_loop();
 #endif
-#ifdef	RTCMPLUS
-				printf("AN8: %d (0-1023)\n",adcothers[ADCCTCSS]);
-#endif
 				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
@@ -5510,7 +5088,6 @@ __builtin_nop();
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				main_processing_loop();
 				secondary_processing_loop();
-#ifdef	LASTRX_DIAG
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
@@ -5531,7 +5108,6 @@ __builtin_nop();
 					last_rxpacket_index,last_rxpacket_inbounds);
 				main_processing_loop();
 				secondary_processing_loop();
-#endif
 				printf(paktc);
 				fflush(stdout);
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
@@ -5619,11 +5195,7 @@ static void InitializeBoard(void)
 	T3CONbits.TON = 1;		//Turn it on
 
 #if defined(SMT_BOARD)
-#ifdef RTCMPLUS
-	AD1PCFGL = 0xFEF0;				// Enable AN0-AN3,AN8 as analog 
-#else
-	AD1PCFGL = 0xFFF0;				// Enable AN0-AN3 as analog
-#endif
+	AD1PCFGL = 0xFFF0;				// Enable AN0-AN3 as analog 
 #else
 	AD1PCFGL = 0xFFE2;				// Enable AN0, AN2-AN4 as analog 
 #endif
@@ -5647,34 +5219,16 @@ static void InitializeBoard(void)
 
 #if defined(SMT_BOARD)
 
-#if defined(RTCMPLUS)
-	PORTA = 0x88;	
-#else
-	PORTA = 0;
-#endif
-	PORTB = 0x3c00;
-	PORTC = 7;
-
-#ifdef	RTCMPLUS
-	// RA3 is Mezzanine CS, RA4 is CN0/PPS Pulse, RA7-POTCS, RA8-RA10 jumpers */
-	TRISA = 0xFF77;	
-#else
+	PORTA=0;	
+	PORTB=0x3c00;
+	PORTC=7;	
 	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers */
-	TRISA = 0xFFFF;
-#endif
+	TRISA = 0xFFFF;	 
 	//RB0-1 are Analog, RB2-3 are audio select, RB4 is PTT, RB5-6 are Programming Pins, RB7 is INT0 (Ethenet INT)
 	//RB8 is Test Pin, RB9 is JP11, RB10-13 are LEDs, RB14-15 are DAC outputs
-	TRISB = 0x0283;// 0x02E3;
-#if defined(GGPS) || defined(RTCMPLUS)
-	TESTBIT_TRIS = 1;
-#endif
-#ifdef	RTCMPLUS	
-	//RC0-RC1 are CS pins, RC2 is CTCSS IN,RC4 is RP20/SDO, RC5 is RP21/SCK, RC7 is RP23/U1TX,  RC9 is RP25/U2TX
-	TRISC = 0xFD4C;
-#else
+	TRISB = 0x0283;// 0x02E3;	
 	//RC0-RC2 are CS pins, RC4 is RP20/SDO, RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
 	TRISC = 0xFD48;
-#endif
 
 	__builtin_write_OSCCONL(OSCCON & ~0x40); //clear the bit 6 of OSCCONL to unlock pin re-map
 	_U1RXR = 22;	// RP22 is UART1 RX
@@ -5816,7 +5370,6 @@ static void InitAppConfig(void)
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
-	AppConfig.CTCSSThreshold = 850;
 
 	#if defined(EEPROM_CS_TRIS)
 	{
