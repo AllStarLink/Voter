@@ -1,4 +1,4 @@
-/*
+/* 
 * VOTER Client System Firmware for VOTER board
 *
 * Copyright (C) 2011-2014
@@ -225,6 +225,10 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	DIAG_NOISE_GAIN 0x28
 #define	NAPEAKS 50
 #define	QUALCOUNT 4
+#ifdef	GGPS
+#define	HWLOCK (inputs2 & 16)  // Has GPS H/W lock (for GGPS)
+#define HWLOCK_TIME (10000ul * 8) // 10000ms for lock settle
+#endif
 
 #define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
 #define CLIP 32635
@@ -280,7 +284,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.47 08/18/2014";
+	VERSION[] = "1.48 09/23/2014";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -502,6 +506,7 @@ DWORD uptimer;
 WORD pingtimer;
 #ifdef GGPS
 WORD gppstimer;
+DWORD hwlocktimer;
 #endif
 long missed;
 WORD misstimer;
@@ -914,6 +919,11 @@ BOOL ppsx;
 		IFS1bits.CNIF = 0;
 		return;
 	}
+	if (hwlocktimer < HWLOCK_TIME)
+	{
+		IFS1bits.CNIF = 0;
+		return;
+	}
 #endif
 	if (ppsx || (ppstimer >= PPS_MUSTA_TIME))
 	{
@@ -1098,6 +1108,8 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
+
+
 WORD index;
 long accum;
 short saccum;
@@ -1150,11 +1162,346 @@ BYTE *cp;
 			uptimer++;
 			if (misstimer) misstimer--;
 		}
+#ifdef	GGPS
+		if (HWLOCK)
+		{
+			if (hwlocktimer < HWLOCK_TIME)
+				hwlocktimer++;
+		}
+		else
+		{
+			hwlocktimer = 0;
+		}
+#endif
 	}
 	else
 	{
 		last_index = last_index1;
 		last_index1 = index;
+		if (!(SIMULCAST_ENABLE && USE_PPS))
+		{
+			if (gotpps || (!USE_PPS))
+			{
+				if (fillindex == 0)
+				{
+					next_index = samplecnt;
+					next_time = real_time;
+				}
+				last_adcsample = index;
+				// Make 16 bit number from 12 bit ADC sample
+				saccum = index;
+				saccum -= 2048;
+				accum = saccum * 16;
+	            if (accum > amax)
+	            {
+	                amax = accum;
+	                discounteru = discfactor;
+	            }
+	            else if (--discounteru <= 0)
+	            {
+	                discounteru = discfactor;
+	                amax = (long)((amax * 32700) / 32768L);
+	            }
+	            if (accum < amin)
+	            {
+	                amin = accum;
+	                discounterl = discfactor;
+	            }
+	            else if (--discounterl <= 0)
+	            {
+	                discounterl = discfactor;
+	                amin = (long)((amin * 32700) / 32768L);
+	            }
+				if ((!USE_PPS) && (samplecnt == 8000)) samplecnt = 0;
+				if (samplecnt++ < 8000)
+				{
+					if (option_flags & OPTION_FLAG_ADPCM)
+					{
+						val = index;
+						val -= 2048;
+						val *= 16;
+	
+						adpcm_index = enc_index;
+						valpred = enc_valprev;
+					    step = stepsizeTable[adpcm_index];
+						
+						/* Step 1 - compute difference with previous value */
+						diff = val - valpred;
+						sign = (diff < 0) ? 8 : 0;
+						if ( sign ) diff = (-diff);
+					
+						/* Step 2 - Divide and clamp */
+						/* Note:
+						** This code *approximately* computes:
+						**    delta = diff*4/step;
+						**    vpdiff = (delta+0.5)*step/4;
+						** but in shift step bits are dropped. The net result of this is
+						** that even if you have fast mul/div hardware you cannot put it to
+						** good use since the fixup would be too expensive.
+						*/
+						delta = 0;
+						vpdiff = (step >> 3);
+						
+						if ( diff >= step ) {
+						    delta = 4;
+						    diff -= step;
+						    vpdiff += step;
+						}
+						step >>= 1;
+						if ( diff >= step  ) {
+						    delta |= 2;
+						    diff -= step;
+						    vpdiff += step;
+						}
+						step >>= 1;
+						if ( diff >= step ) {
+						    delta |= 1;
+						    vpdiff += step;
+						}
+					
+						/* Step 3 - Update previous value */
+						if ( sign )
+						  valpred -= vpdiff;
+						else
+						  valpred += vpdiff;
+					
+						/* Step 4 - Clamp previous value to 16 bits */
+						if ( valpred > 32767 )
+						  valpred = 32767;
+						else if ( valpred < -32768 )
+						  valpred = -32768;
+					
+						/* Step 5 - Assemble value, update index and step values */
+						delta |= sign;
+						
+						adpcm_index += indexTable[delta];
+						if ( adpcm_index < 0 ) adpcm_index = 0;
+						if ( adpcm_index > 88 ) adpcm_index = 88;
+						enc_valprev = valpred;
+						enc_index = adpcm_index;
+						if (fillindex & 1)
+						{
+							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
+						}
+						else
+						{
+							enc_lastdelta = delta;
+						}
+						fillindex++;
+					}
+					else  // is ULAW
+					{
+				        short sample,sign, exponent, mantissa;
+				        BYTE ulawbyte;
+				
+						sample = index;
+						sample -= 2048;
+						sample *= 16;
+				        /* Get the sample into sign-magnitude. */
+				        sign = (sample >> 8) & 0x80;          /* set aside the sign */
+				        if (sign != 0)
+				                sample = -sample;              /* get magnitude */
+				        if (sample > CLIP)
+				                sample = CLIP;             /* clip the magnitude */
+				
+				        /* Convert from 16 bit linear to ulaw. */
+				        sample = sample + BIAS;
+				        exponent = exp_lut[(sample >> 7) & 0xFF];
+				        mantissa = (sample >> (exponent + 3)) & 0x0F;
+				        ulawbyte = ~(sign | (exponent << 4) | mantissa);
+	
+						audio_buf[filling_buffer][fillindex++] = ulawbyte;
+					}
+					if (txseqno == 0) txseqno = 3;
+					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
+					{
+						if (option_flags & OPTION_FLAG_ADPCM)
+						{
+							cp = &audio_buf[filling_buffer][fillindex >> 1];
+							*cp++ = (enc_prev_valprev & 0xff00) >> 8;
+							*cp++ = enc_prev_valprev & 0xff;
+							*cp = enc_prev_index;
+							enc_prev_valprev = enc_valprev;
+							enc_prev_index = enc_index;
+							txseqno++;
+							if (host_txseqno) host_txseqno++;
+						}
+						txseqno++;
+						if (host_txseqno) host_txseqno++;
+						filled = 1;
+						fillindex = 0;
+						filling_buffer ^= 1;
+						last_drainindex = txdrainindex;
+						timing_index = next_index;
+						timing_time = next_time;
+						apeak = (long)(amax - amin) / 2;
+						for(i = NAPEAKS -1; i; i--) apeaks[i] = apeaks[i - 1];
+						apeaks[0] = apeak;
+					}
+				}
+			}
+		} 
+#if defined(SMT_BOARD)
+		AD1CHS0 = adcindex + 1;
+#else
+		AD1CHS0 = adcindex + 2;
+#endif
+		sqlcount++;
+	}
+	adcother ^= 1;
+	IFS0bits.AD1IF = 0;
+}
+
+void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
+{
+	BYTE c;
+	short s;
+
+WORD index;
+long accum;
+short saccum;
+BYTE i;
+
+//Stuff for ADPCM encode
+int val;			/* Current input sample value */
+int sign;			/* Current adpcm sign bit */
+BYTE delta;			/* Current adpcm output value */
+int diff;			/* Difference between val and valprev */
+int step;			/* Stepsize */
+int vpdiff;			/* Current change to valpred */
+long valpred;		/* Predicted output value */
+int adpcm_index;
+BYTE *cp;
+
+	CORCONbits.PSV = 1;
+	IFS4bits.DAC1LIF = 0;
+#ifdef	GGPS
+	if (++gppstimer >= 8000)
+	{
+		if (AppConfig.DebugLevel & 4)
+		{
+			real_time++;
+			samplecnt = 0;
+		}
+		gppstimer = 0;
+	}
+#endif
+	s = 0;
+	// Output Tx sample
+	if (testp)
+	{
+		DAC1LDAT = testp[testidx++ + 1];
+		if (testidx >= testp[0]) testidx = 0;
+	}
+	else 
+	{
+		if (cwptr && (!cwtimer1))
+		{
+			if (--cwtimer)
+			{
+				if ((cwlen > 1) && (!(cwlen & 1))) s = cwtone[cwidx++];
+				if (cwidx >= CWTONELEN) cwidx = 0;
+			}
+			else
+			{
+				cwidx = 0;
+				if (cwlen)
+				{
+					cwlen--;
+					cwtimer = AppConfig.CWSpeed;
+					if (!(cwlen & 1))
+					{
+						if (cwlen > 1)
+						{
+							if (cwdat & 1) cwtimer = AppConfig.CWSpeed * 3;
+							cwdat = cwdat >> 1;
+						}
+					}
+					else if (cwlen == 1) 
+						cwtimer = AppConfig.CWSpeed * 2;
+				}
+				else
+				{
+					cwtimer = 0;
+					cwlen = 0;
+					cwdat = 0;
+					while((c = *cwptr++))
+					{
+						if (c < ' ') continue;
+						if (c > 'Z') continue;
+						c -= ' ';
+						if (mbits[c].len)
+						{
+							cwlen = mbits[c].len * 2;
+							cwdat = mbits[c].dat;
+							if (cwdat & 1) cwtimer = AppConfig.CWSpeed * 3;
+							else cwtimer = AppConfig.CWSpeed;
+							cwdat = cwdat >> 1;
+						}
+						else
+						{
+							cwlen = 1;
+							cwdat = 0;
+							cwtimer = AppConfig.CWSpeed * 6;
+						}
+						break;
+					}
+					if (!cwlen) 
+					{
+						cwptr = 0;
+						cwtimer1 = AppConfig.CWAfterTime;
+					}
+				}
+			}
+		}
+		if (repeatit)
+		{
+			short s1;
+
+			s1 = last_index << 4;
+			s += s1 - 32768;
+		}
+		if (ptt && (!host_ptt) && tone_fac)
+		{  
+	      	tone_v1 = tone_v2;
+	        tone_v2 = tone_v3;
+	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
+			s += tone_v3;
+		}
+		if (ptt)
+		{
+#ifdef	DMWDIAG
+			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
+			if (mwp > 7) mwp = 0;
+#else
+			c = txaudio[txdrainindex];
+			if (connected && (!IS_POGSAG_TX(c)))
+				DAC1LDAT = ulawtabletx[c] + s;
+			else
+				DAC1LDAT = s;
+	#if defined (GGPS)
+			if (IS_POGSAG_TX(c))
+			{
+				TESTBIT_TRIS = 0;
+				if (c & 0x80) TESTBIT = 0; else TESTBIT = 1;
+			}
+			else
+			{
+				TESTBIT = 0;
+				TESTBIT_TRIS = 1;
+			}
+	#endif
+#endif
+		} else DAC1LDAT = 0;
+		txaudio[txdrainindex++] = ULAW_SILENCE;
+		if (txdrainindex >= AppConfig.TxBufferLength)
+		txdrainindex = 0;
+	}
+
+	if (SIMULCAST_ENABLE && USE_PPS)
+	{
+		index = last_index1;
+
 		if (gotpps || (!USE_PPS))
 		{
 			if (fillindex == 0)
@@ -1315,146 +1662,6 @@ BYTE *cp;
 				}
 			}
 		}
-#if defined(SMT_BOARD)
-		AD1CHS0 = adcindex + 1;
-#else
-		AD1CHS0 = adcindex + 2;
-#endif
-		sqlcount++;
-	}
-	adcother ^= 1;
-	IFS0bits.AD1IF = 0;
-}
-
-void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
-{
-	BYTE c;
-	short s;
-
-	CORCONbits.PSV = 1;
-	IFS4bits.DAC1LIF = 0;
-#ifdef	GGPS
-	if (++gppstimer >= 8000)
-	{
-		if (AppConfig.DebugLevel & 4)
-		{
-			real_time++;
-			samplecnt = 0;
-		}
-		gppstimer = 0;
-	}
-#endif
-	s = 0;
-	// Output Tx sample
-	if (testp)
-	{
-		DAC1LDAT = testp[testidx++ + 1];
-		if (testidx >= testp[0]) testidx = 0;
-	}
-	else 
-	{
-		if (cwptr && (!cwtimer1))
-		{
-			if (--cwtimer)
-			{
-				if ((cwlen > 1) && (!(cwlen & 1))) s = cwtone[cwidx++];
-				if (cwidx >= CWTONELEN) cwidx = 0;
-			}
-			else
-			{
-				cwidx = 0;
-				if (cwlen)
-				{
-					cwlen--;
-					cwtimer = AppConfig.CWSpeed;
-					if (!(cwlen & 1))
-					{
-						if (cwlen > 1)
-						{
-							if (cwdat & 1) cwtimer = AppConfig.CWSpeed * 3;
-							cwdat = cwdat >> 1;
-						}
-					}
-					else if (cwlen == 1) 
-						cwtimer = AppConfig.CWSpeed * 2;
-				}
-				else
-				{
-					cwtimer = 0;
-					cwlen = 0;
-					cwdat = 0;
-					while((c = *cwptr++))
-					{
-						if (c < ' ') continue;
-						if (c > 'Z') continue;
-						c -= ' ';
-						if (mbits[c].len)
-						{
-							cwlen = mbits[c].len * 2;
-							cwdat = mbits[c].dat;
-							if (cwdat & 1) cwtimer = AppConfig.CWSpeed * 3;
-							else cwtimer = AppConfig.CWSpeed;
-							cwdat = cwdat >> 1;
-						}
-						else
-						{
-							cwlen = 1;
-							cwdat = 0;
-							cwtimer = AppConfig.CWSpeed * 6;
-						}
-						break;
-					}
-					if (!cwlen) 
-					{
-						cwptr = 0;
-						cwtimer1 = AppConfig.CWAfterTime;
-					}
-				}
-			}
-		}
-		if (repeatit)
-		{
-			short s1;
-
-			s1 = last_index << 4;
-			s += s1 - 32768;
-		}
-		if (ptt && (!host_ptt) && tone_fac)
-		{  
-	      	tone_v1 = tone_v2;
-	        tone_v2 = tone_v3;
-	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
-			s += tone_v3;
-		}
-		if (ptt)
-		{
-#ifdef	DMWDIAG
-			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
-			if (mwp > 7) mwp = 0;
-#else
-			c = txaudio[txdrainindex];
-			if (connected && (!IS_POGSAG_TX(c)))
-				DAC1LDAT = ulawtabletx[c] + s;
-			else
-				DAC1LDAT = s;
-	#if defined (GGPS)
-			if (IS_POGSAG_TX(c))
-			{
-				TESTBIT_TRIS = 0;
-				if (c & 0x80) TESTBIT = 0; else TESTBIT = 1;
-			}
-			else
-			{
-				TESTBIT = 0;
-				TESTBIT_TRIS = 1;
-			}
-	#endif
-#endif
-		} else DAC1LDAT = 0;
-		txaudio[txdrainindex++] = ULAW_SILENCE;
-		if (txdrainindex >= AppConfig.TxBufferLength)
-		txdrainindex = 0;
-
 	}
 }
 
@@ -1619,7 +1826,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		IOExp_Write(IOEXP_IODIRB,IODirB);
 		IOExpOutA = 0xDF;
 		IOExp_Write(IOEXP_OLATA,IOExpOutA);
-		IOExpOutB = 0xD3;
+		IOExpOutB = 0x53;
 		IOExp_Write(IOEXP_OLATB,IOExpOutB);
 	}
 
@@ -1682,9 +1889,15 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 		if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
 	}
 
+#ifdef	GGPS
+	void TickleDog(void)
+	{
+		IODirB ^= 0x80;
+		IOExp_Write(IOEXP_IODIRB,IODirB);
+	}
 #endif
 
-
+#endif
 
 
 void RTCM_Reset(void)
@@ -3670,6 +3883,9 @@ int count,x;
 		for(;;)
 		{
 			ClrWdt();
+#ifdef	GGPS
+			TickleDog();
+#endif
 			if ((!netisup) && 
 				((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
 					netisup = 1;
@@ -5073,7 +5289,8 @@ __builtin_nop();
 				main_processing_loop();
 				secondary_processing_loop();
 #ifdef	GGPS
-				printf("GPS H/W Lock: %s\n",(inputs2 & 16) ? "1" : "0");
+				printf("GPS H/W Lock: %s (%s)\n",
+					(hwlocktimer >= HWLOCK_TIME) ? "1" : "0",HWLOCK ? "1" : "0");
 				main_processing_loop();
 				secondary_processing_loop();
 #endif
@@ -5248,7 +5465,7 @@ static void InitializeBoard(void)
 #if defined (GGPS)
 	TRISA = 0xFFFF;	 //RA1 is Test Bit, tristate in this case
 #else
-	TRISA = 0xFFFD;	 //RA1 is Test Bit
+	TRISA = 0xFFF5;  //RA1/RA3 Test Bits   was 0xFFFD;	 //RA1 is Test Bit
 #endif
 	//RB0-2 are Analog, RB3-4 are SPI select, RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), RB8 is RP8/SCK,
 	//RB9 is RP9/SDO, RB10 is RP10/SDI, RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, RB14-15 are DAC outputs
