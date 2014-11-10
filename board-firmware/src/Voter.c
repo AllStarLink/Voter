@@ -66,6 +66,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 /* Debug values:
 
 1 - Alt/Main Host change notifications
+2 - Ignore HWlock (GGPS only)
 4 - GPS/PPS Failure simulation (GGPS only)
 8 - POCSAG H/W output disable (GGPS only)
 16 - IP TOS Class for Ubiquiti
@@ -154,8 +155,6 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 	#define	DIAGMENU
 #endif
 
-
-
 #endif
 
 #define WVF JP10				// Short on pwrup to initialize default values
@@ -214,6 +213,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	MIN_PING_TIME (95 * 8) // Minimum ping time
 #define	MISS_REPORT_TIME 100 // Interval between "miss packet" reports (1/10 secs)
 #define	PKT_MISS_TIME (500 * 8)	// 500ms for display of miss packet (winky LED) 
+#define	SECOND_TIME (1000 * 8)	// 1000ms
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
@@ -226,6 +226,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #define	NAPEAKS 50
 #define	QUALCOUNT 4
 #ifdef	GGPS
+#define	GRESTARTTIME 604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
+#define	GSODMIN 10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
+#define	GSODMAX 14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
 #define	HWLOCK (inputs2 & 16)  // Has GPS H/W lock (for GGPS)
 #define HWLOCK_TIME (10000ul * 8) // 10000ms for lock settle
 #endif
@@ -284,7 +287,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
 	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.48 09/23/2014";
+	VERSION[] = "1.49 11/10/2014";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -504,9 +507,16 @@ BOOL altchange1;
 WORD glasertimer;
 DWORD uptimer;
 WORD pingtimer;
+WORD secondtimer;
 #ifdef GGPS
 WORD gppstimer;
+DWORD grestarttimer;
 DWORD hwlocktimer;
+BOOL gps_unhappy;
+BOOL ggps_unavail;
+BOOL hwlock;
+BYTE oldhwlock;
+BYTE oldok;
 #endif
 long missed;
 WORD misstimer;
@@ -921,6 +931,7 @@ BOOL ppsx;
 	}
 	if (hwlocktimer < HWLOCK_TIME)
 	{
+		gpssync = 0;
 		IFS1bits.CNIF = 0;
 		return;
 	}
@@ -1111,6 +1122,8 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 
 
 WORD index;
+
+#ifndef GGPS
 long accum;
 short saccum;
 BYTE i;
@@ -1125,6 +1138,7 @@ int vpdiff;			/* Current change to valpred */
 long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
+#endif
 
 	CORCONbits.PSV = 1;
 	index = ADC1BUF0;
@@ -1136,7 +1150,7 @@ BYTE *cp;
 		if (gotpps) ppstimer++;
 		if (gps_state != GPS_STATE_IDLE) gpstimer++;
 #ifdef	GGPS
-		if ((!gpskicking) && gotpps && (gps_state == GPS_STATE_VALID))
+		if (((!gpskicking) && gotpps && (gps_state == GPS_STATE_VALID)) || (!USE_PPS))
 			gpskicktimer = 0;
 		else
 			gpskicktimer++;
@@ -1162,8 +1176,15 @@ BYTE *cp;
 			uptimer++;
 			if (misstimer) misstimer--;
 		}
+		if (secondtimer++ >= SECOND_TIME)
+		{
+			secondtimer = 0;
 #ifdef	GGPS
-		if (HWLOCK)
+			grestarttimer++;
+#endif
+		}
+#ifdef	GGPS
+		if (hwlock)
 		{
 			if (hwlocktimer < HWLOCK_TIME)
 				hwlocktimer++;
@@ -1178,6 +1199,7 @@ BYTE *cp;
 	{
 		last_index = last_index1;
 		last_index1 = index;
+#ifndef GGPS
 		if (!(SIMULCAST_ENABLE && USE_PPS))
 		{
 			if (gotpps || (!USE_PPS))
@@ -1341,6 +1363,7 @@ BYTE *cp;
 				}
 			}
 		} 
+#endif
 #if defined(SMT_BOARD)
 		AD1CHS0 = adcindex + 1;
 #else
@@ -1497,8 +1520,11 @@ BYTE *cp;
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
 	}
-
+#ifdef	GGPS
+	if (1)
+#else
 	if (SIMULCAST_ENABLE && USE_PPS)
+#endif
 	{
 		index = last_index1;
 
@@ -1902,7 +1928,15 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
 void RTCM_Reset(void)
 {
+#ifdef	GGPS
+volatile DWORD i;
+#endif
+
 	SetPTT(0);
+#ifdef	GGPS
+	for(i = 0; i < 30000000; i++) ClrWdt();
+#endif
+	while(!EmptyUART()) ClrWdt();
 	Reset();
 	while(1) DISABLE_INTERRUPTS();
 }
@@ -2239,6 +2273,15 @@ extern float doubleify(BYTE *p);
 	
 	if (indiag) return;
 #ifdef	GGPS
+	if (gps_state == GPS_STATE_SYNCED)
+	{
+		if (gps_unhappy)
+		{
+			printf(logtime());
+			printf(" GPS back in sync\n");
+		}
+		gps_unhappy = 0;
+	}
 	if (AppConfig.DebugLevel & 4) return;
 #endif
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
@@ -2270,7 +2313,12 @@ extern float doubleify(BYTE *p);
 	{
 		if (!getGPSStr()) return;
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
+#ifdef GGPS
+			printf("%d GPS-DEBUG: %s\n",ggps_unavail,gps_buf);
+#else
 			printf("GPS-DEBUG: %s\n",gps_buf);
+#endif
+
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 		if (n < 1) return;
 		if (!strcmp(strs[0],gpgsv))
@@ -2283,6 +2331,22 @@ extern float doubleify(BYTE *p);
 			struct tm tm;
 	
 			if (n < 10) return;
+#ifdef GGPS
+			if (strcmp(strs[2],"A"))
+			{
+				if (!gps_unhappy)
+				{
+					gps_unhappy = 1;
+					printf(logtime());
+					printf(" Warning: GPS out of sync\n");
+				}
+				ggps_unavail = 1;
+			}
+			else
+			{
+				ggps_unavail = 0;
+			}
+#endif
 			memset(&tm,0,sizeof(tm));
 			tm.tm_sec = twoascii(strs[1] + 4);
 			tm.tm_min = twoascii(strs[1] + 2);
@@ -3170,11 +3234,41 @@ void secondary_processing_loop(void)
 	static DWORD tdiag = 0;
 #endif
 
+#ifdef GGPS
+	DWORD sod;
+#endif
+
 	static WORD mynoise;
 
 #if !defined(SMT_BOARD)
 	inputs1 = IOExp_Read(IOEXP_GPIOA);
 	inputs2 = IOExp_Read(IOEXP_GPIOB);
+#endif
+
+#ifdef	GGPS
+	if (ggps_unavail)
+		hwlock = 0;
+	else
+		hwlock = 1;
+	if (gps_state == GPS_STATE_IDLE) 
+		hwlock = 0;
+	// If HW lock input not disabled, disqualify hwlock if not locked in h/w
+	if ((!(AppConfig.DebugLevel & 2)) && (!HWLOCK))
+		hwlock = 0;
+	sod = system_time.vtime_sec % 86400UL;
+	if (USE_PPS)
+	{
+		if ((grestarttimer >= GRESTARTTIME) && (sod >= GSODMIN) && (sod <= GSODMAX))
+		{
+			printf(logtime());
+			printf(" Time to reset....\n");
+			RTCM_Reset();
+		}
+	}
+	else
+	{
+		grestarttimer = 0;
+	}
 #endif
 
 	if (!indiag)
@@ -3234,26 +3328,35 @@ void secondary_processing_loop(void)
 #endif
 		}
 #ifdef	GGPS
-		if (gpskicking && (gpskicktimer >= GPS_KICK_TIME))
+		if (USE_PPS)
 		{
-			KickGPS(0);
+			if (gpskicking && (gpskicktimer >= GPS_KICK_TIME))
+			{
+				KickGPS(0);
+				gpskicktimer = 0;
+				gpskicking = 0;
+			}
+			else if (!gpskicking)
+			{
+				if ((gps_state == GPS_STATE_SYNCED) && (!gps_unhappy))
+				{
+					gpskicktimer = 0;
+				}
+				else if (gpskicktimer >= GPS_KICK_WAIT_TIME)
+				{
+					KickGPS(1);
+					gpskicktimer = 0;
+					gpskicking = 1;
+					printf(logtime());
+					printf(" GPS RE-START!!\n");
+				}
+			}
+		}
+		else
+		{
+			if (gpskicking) KickGPS(0);
 			gpskicktimer = 0;
 			gpskicking = 0;
-		}
-		else if (!gpskicking)
-		{
-			if (gps_state == GPS_STATE_SYNCED)
-			{
-				gpskicktimer = 0;
-			}
-			else if (gpskicktimer >= GPS_KICK_WAIT_TIME)
-			{
-				KickGPS(1);
-				gpskicktimer = 0;
-				gpskicking = 1;
-				printf(logtime());
-				printf(" GPS RE-START!!\n");
-			}
 		}
 #endif
 		process_gps();
@@ -3524,6 +3627,19 @@ void secondary_processing_loop(void)
 		}
    }
 
+#ifdef GGPS
+	if (ggps_unavail != oldok)
+	{
+		printf("GGPS_UNAVAIL: %d, hwlock: %d, timer: %ld\n",ggps_unavail,hwlock,hwlocktimer);
+		oldok = ggps_unavail;
+	}
+	if (HWLOCK != oldhwlock)
+	{
+		printf("HWLOCK: %d, hwlock: %d, timer: %ld\n",HWLOCK,hwlock,hwlocktimer);
+		oldhwlock = HWLOCK;
+	}
+#endif
+
 #ifdef	DIAGMENU
 
    // "Diagnostic Suite" handler
@@ -3726,6 +3842,16 @@ void secondary_processing_loop(void)
 		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
 	}
 	altdnsnotify = 0;
+#ifdef	GGPS
+	if (missed > 0)
+	{
+		printf(logtime());
+		printf(miss_str,-missed);
+		CloseTelnetConsole();
+		printf(booting);
+		RTCM_Reset();
+	}
+#endif
 	if (missed && (!misstimer))
 	{
 		printf(logtime());
@@ -4815,10 +4941,16 @@ int main(void)
 	glasertimer = 0;
 	uptimer = 0;
 	pingtimer = 0;
+	secondtimer = 0;
 #ifdef	GGPS
 	gpskicktimer = 0;
 	gpskicking = 0;
 	gppstimer = 0;
+	gps_unhappy = 0;
+	ggps_unavail = 0;
+	hwlock = 0;
+	oldhwlock = 255;
+	oldok = 255;
 #endif
 	missed = 0;
 	misstimer = 0;
@@ -5070,6 +5202,29 @@ __builtin_nop();
 				OffLineMenu();
 				continue;
 		}
+#ifdef	GGPS
+		if ((strchr(cmdstr,'G')) || strchr(cmdstr,'g'))
+		{
+			if (USE_PPS)
+			{
+				if (!gpskicking)
+				{
+					KickGPS(1);
+					gpskicktimer = 0;
+					gpskicking = 1;
+					printf("GPS MANUAL RE-START!!\n");
+				}
+				else
+				{
+					printf("GPS already re-setting!!\n");
+				}
+				continue;
+			}
+			printf(invalselection);
+			continue;
+		}
+#endif
+		
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
 		if (((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
@@ -5289,8 +5444,9 @@ __builtin_nop();
 				main_processing_loop();
 				secondary_processing_loop();
 #ifdef	GGPS
-				printf("GPS H/W Lock: %s (%s)\n",
-					(hwlocktimer >= HWLOCK_TIME) ? "1" : "0",HWLOCK ? "1" : "0");
+				printf("GPS H/W Lock: %s (%s,%s)\n",
+					(hwlocktimer >= HWLOCK_TIME) ? "1" : "0",
+						hwlock ? "1" : "0",HWLOCK ? "1" : "0");
 				main_processing_loop();
 				secondary_processing_loop();
 #endif
@@ -5465,7 +5621,7 @@ static void InitializeBoard(void)
 #if defined (GGPS)
 	TRISA = 0xFFFF;	 //RA1 is Test Bit, tristate in this case
 #else
-	TRISA = 0xFFF5;  //RA1/RA3 Test Bits   was 0xFFFD;	 //RA1 is Test Bit
+	TRISA = 0xFFFD;	 //RA1 is Test Bit -- Set to 0xFFF5 for RA1/RA3 Test Bits
 #endif
 	//RB0-2 are Analog, RB3-4 are SPI select, RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), RB8 is RP8/SCK,
 	//RB9 is RP9/SDO, RB10 is RP10/SDI, RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, RB14-15 are DAC outputs

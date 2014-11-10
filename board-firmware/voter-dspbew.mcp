@@ -226,7 +226,7 @@ file_045=src\TCPIP Stack\TCP.h
 file_046=src\TCPIP Stack\DynDNS.h
 file_047=src\TCPIP Stack\ICMP.h
 file_048=src\DSP Library\dspcommon.inc
-file_049=C:\Users\Jim\Desktop\fe-firmware\src\p33FJ128GP802.gld
+file_049=src\p33FJ128GP802.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=

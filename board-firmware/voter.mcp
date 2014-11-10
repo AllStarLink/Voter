@@ -198,7 +198,7 @@ file_038=src\TCPIP Stack\Telnet.h
 file_039=src\TCPIP Stack\TCP.h
 file_040=src\TCPIP Stack\DynDNS.h
 file_041=src\TCPIP Stack\ICMP.h
-file_042=C:\Users\Jim\Desktop\fe-firmware\src\p33FJ128GP802.gld
+file_042=src\p33FJ128GP802.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
