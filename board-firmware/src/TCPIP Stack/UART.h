@@ -67,6 +67,7 @@ unsigned int getsUART(unsigned int length,char *buffer,
                        unsigned int uart_data_wait);
 char DataRdyUART(void);
 char BusyUART(void);
+char EmptyUART(void);
 BYTE ReadUART(void);
 void WriteUART(BYTE data);
 void putsUART2(char *buffer);

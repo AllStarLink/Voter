@@ -285,6 +285,17 @@ BYTE ret;
 	return ret;
 }
 
+char EmptyUART(void)
+{  
+BYTE ret;
+
+	DISABLE_INTERRUPTS();
+	if (txputidx == txgetidx) ret = 1;
+	else ret = 0;
+	ENABLE_INTERRUPTS();
+	return ret;
+}
+
 
 /***************************************************************************
 * Function Name     : ReadUART                                             *

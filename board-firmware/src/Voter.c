@@ -1,7 +1,7 @@
 /* 
 * VOTER Client System Firmware for VOTER board
 *
-* Copyright (C) 2011-2014
+* Copyright (C) 2011-2015
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
 *
 * This file is part of the VOTER System Project 
@@ -284,10 +284,11 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
 	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
-	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n", 
-	newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-	badmix[] = "  ERROR! Host not acknowledging non-GPS disciplined operation\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.49 11/10/2014";
+	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n";
+ 
+char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
+	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
+	VERSION[] = "1.50 04/25/2015";
 
 typedef struct {
 	DWORD vtime_sec;
