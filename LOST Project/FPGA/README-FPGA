@@ -1,0 +1,72 @@
+LOST - Logger Of Signal Transitions
+
+A device that, given a precise reference clock, allows logging of signal transitions
+with very precise timing accuracy over a VERY VERY long (ludicrous, actually) period of
+time (92,233,720,368.54775808 seconds, which is just short of 3,000 years!!).
+
+This was designed and implemented primarily as a means to capture and aloow analysis
+of signals and their consistency over a long period of time. The ASCII output is intended
+to be "piped" into a computer running software that captures and saves the inormation,
+and allows analysis with the intent of finding inconsistencies in what *should* be
+consistent timing/sequences of the signals in question (over potentially VERY long
+periods of time, perhaps months).
+
+Depending on FPGA selection, a number of input (sampling) channels may be supported
+with varying FIFO depth (in this case it was built for a Xilinx Spartan XC6SLX9,
+which supports 4 channels with a FIFO depth of 2048). Any number of combinations
+could theroetically be accomplished, depending upon resources available in the
+selected FPGA (RAM size, etc).
+
+The current verilog code must be modified to support sonething other then 4 channels.
+
+The device takes an external very precise clock, and some number of inputs (up to 4 in
+this case), and generates a "serial record" (at 115200 bps) every time any input signal
+changes, in the following format: 
+
+(part of header 'snipped' from system.v) 
+
+/*
+ * SERIAL DATA FORMAT
+ *
+ * When an event occurs, a 21 byte ASCII serial data packet will be emitted.
+ * The format of this packet is as follows:
+ *
+ *
+ * :ssdddddddddddddddd\r\n
+ *
+ * The output is ASCII.
+ *
+ * ss 				- Status bits in ASCII hex
+ * dddddddddddddddd - Data bits in ASCII hex (count + data bit) 
+ * most significant bits first
+ *
+ * 
+ * Status:
+ * -------
+ *
+ * BIT
+ * 7	Error (OVERRUN) Flag
+ * 6-4	Reserved
+ * 3-0  Channel ID
+ *
+ * 1. The overrun error flag will be sent if the FIFO was overrun on a
+ *	  specific channel. The count and data bytes will be undefined.
+ *
+ * 2. The reserved bits are set to 0
+ *
+ * 3. The channel ID indicates the channel which posted the event.
+ *
+ *
+ * Count and data bytes
+ *
+ * 
+ *
+ * Bits 63:1	Number of 10MHz clocks since reset
+ * Bit 0		New state of the data bit
+ *
+ * Upon reset, an initial event will be posted on all channels.
+ */
+ 
+Concieved by and functionally specified by Jim Dixon.
+Verilog (FPGA) code written by Steve RoDgers, and 'poked
+at' by Jim Dixon.

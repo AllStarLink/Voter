@@ -1,0 +1,57 @@
+#
+#  L O S T -- Logger Of Signal Transitions
+#  Version 1.0, 10/11/2015
+# 
+#  Copyright 2015, Stephen A. Rodgers. All rights reserved.
+#  Copyright 2015, Jim Dixon <jim@lambdatel.com>
+# 
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
+# 
+
+// For NON-PLL (direct 100MHz clock input), define these
+NET "clk" TNM_NET = "clk";
+TIMESPEC TS_masterclk = PERIOD "clk" 10 ns HIGH 50 %;
+// or, for PLL operation define these
+#NET "clk100" TNM_NET = "clk100";
+#TIMESPEC TS_masterclk = PERIOD "clk100" 10 ns HIGH 50 %;
+#NET "clk20" LOC = P85;
+#NET "locked" LOC = P50;
+#NET "clk20" IOSTANDARD = LVCMOS33;
+#NET "locked" IOSTANDARD = LVCMOS33;
+
+# For on-board 50 MHz clock, use P56
+#NET "clk" LOC = P56;
+# or, for external clock (PLL or not), use P84
+NET "clk" LOC = P84;
+
+NET "rstn" LOC = P38;
+NET "serialout" LOC = P51;
+NET "datain_ch0" LOC = P124;
+NET "datain_ch1" LOC = P127;
+NET "datain_ch2" LOC = P132;
+NET "datain_ch3" LOC = P134;
+
+
+NET "clk" IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET "datain_ch0" IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET "datain_ch1" IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET "datain_ch2" IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET "datain_ch3" IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET "rstn" IOSTANDARD = LVCMOS33 | PULLUP;
+NET "serialout" IOSTANDARD = LVCMOS33;
+
