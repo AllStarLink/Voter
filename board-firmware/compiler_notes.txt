@@ -1,6 +1,6 @@
 How-to (Re-)Compile Firmware for the VOTER Board
 Lee Woldanski, VE7FET
-2017/02/18
+2017/08/07
 
 If you look in the votersystem.pdf, you will find a procedure to modify and load the bootloader in to
 the PIC of a VOTER board. 
@@ -105,15 +105,21 @@ the bootloader... so don't do that.
 If you want to enable "Chuck Squelch", open the HardwareProfile.h and un-comment #define CHUCK. 
 
 You may also want to go down to Line 291 in Voter.c (right click on the window, go to Properties -->
-"C" File Types --> Line Numbers) and tack on CHUCK after 1.50 (the current version number) so that 
-when you load this firmware, the version will be shown as 1.50CHUCK, and you'll know that 
+"C" File Types --> Line Numbers) and tack on CHUCK after 1.60 (the current version number) so that 
+when you load this firmware, the version will be shown as 1.60CHUCK, and you'll know that 
 Chuck Squelch is compiled in. We should probably make that more automagic in the future...
 
 
 If you want to compile the DSPBEW version, open the DSPBEW project file instead.
 
+**NOTE***: the .mcp files with the "smt" suffix are for the RTCM (built with SMT parts). The non-smt 
+files are for the ORIGINAL through-hole VOTER boards. The difference is that the VOTER uses a dsPIC33FJ128GP802 
+and the RTCM uses a dsPIC33FJ128GP804.
+
+If you are compiling for the RTCM, go to Configure --> Select Device and choose the appropriate device for 
+your board from the Device list. If you don't select the right one, the board will not boot.
+
 
 That's it!
 
-Now you should be able to modify at-will. :) 
-
+Now you should be able to modify at-will. :)

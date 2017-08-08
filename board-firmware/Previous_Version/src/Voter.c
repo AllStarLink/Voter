@@ -288,7 +288,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
  
 char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.60 08/07/2017";
+	VERSION[] = "1.50 04/25/2015";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2436,7 +2436,7 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = gps_buf[15] - 1; 
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
-			gps_time = (DWORD) mktime(&tm) + 619315200;
+			gps_time = (DWORD) mktime(&tm);
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 			return;
 		}
