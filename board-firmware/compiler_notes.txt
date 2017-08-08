@@ -15,9 +15,11 @@ http://www.microchip.com/development-tools/downloads-archive
 
 Download MPLAB IDE 32-bit Windows v8.66:
 http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_v8_66.zip
+http://dvswitch.org/files/AllStarLink/Voter/MPLAB_IDE_v8_66.zip
 
 Download MPLAB C Compiler for PIC24 and dsPIC DSCs v3.31 ***NOT v.3.25***:
 http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe
+http://dvswitch.org/files/AllStarLink/Voter/mplabc30-v3_31-windows-installer.exe
 
 Optionally, install Windows Virtual PC and XP Mode. This is getting to be pretty old software,
 so let's run it under XP Mode so we can keep it isolated (install it in a virtual machine).
