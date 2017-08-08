@@ -1,6 +1,6 @@
 How-to (Re-)Compile Firmware for the VOTER Board
 Lee Woldanski, VE7FET
-2017/08/07
+2017/08/08
 
 If you look in the votersystem.pdf, you will find a procedure to modify and load the bootloader in to
 the PIC of a VOTER board. 
@@ -41,7 +41,7 @@ Extract it somewhere (ie. in the XP Mode Virtual PC).
 
 Launch the MPLAB IDE.
 
-Go to Configure --> Settings --> Projects and deselect one-to-one project mode.
+Go to Configure --> Settings --> Projects and de-select one-to-one project mode.
 
 
 Bootloader

@@ -288,7 +288,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
  
 char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.60 08/07/2017";
+	VERSION[] = "1.51 08/07/2017";
 
 typedef struct {
 	DWORD vtime_sec;
