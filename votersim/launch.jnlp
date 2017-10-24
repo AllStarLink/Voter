@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<jnlp codebase="https://allstarlink.org/votersim/" href="launch.jnlp" spec="1.0+">
+    <information>
+        <title>VoterSim</title>
+        <vendor>Jim Dixon, WB6NIL</vendor>
+        <homepage href="http://allstarlink.org"/>
+        <description>Simulator for chan_voter</description>
+        <description kind="short">VoterSim</description>
+
+
+    <offline-allowed/>
+</information>
+<security>
+<all-permissions/>
+</security>
+    <resources>
+<j2se version="1.5+"/>
+<jar eager="true" href="VoterSim.jar" main="true"/>
+
+
+    <jar href="lib/appframework-1.0.3.jar"/>
+<jar href="lib/swing-worker-1.1.jar"/>
+</resources>
+    <application-desc main-class="votersim.VoterSimApp">
+
+    </application-desc>
+</jnlp>
