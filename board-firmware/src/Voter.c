@@ -2449,7 +2449,7 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = gps_buf[15] - 1; 
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
-			gps_time = (DWORD) mktime(&tm) + 619315200;
+			gps_time = (DWORD) mktime(&tm) + (AppConfig.DateFix * 619315200);
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 			return;
 		}
@@ -4631,6 +4631,8 @@ static void OffLineMenu()
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
 		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
+	 	menu1b[] = 
+	 	"12 - GPS DateFix (0=NORMAL, 1=+19.7 years, 2=+39.4 years) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -4644,6 +4646,8 @@ static void OffLineMenu()
 		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
+	 	printf(menu1b,AppConfig.DateFix);
+	 	main_processing_loop();
 		printf(menu2);
 		fflush(stdout);
 		aborted = 0;
@@ -4770,6 +4774,13 @@ static void OffLineMenu()
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
 				{
 					AppConfig.OffLineNoDeemp = i1;
+					ok = 1;
+				}
+				break;
+			case 12: // GPS DateFix
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				{
+					AppConfig.DateFix = i1;
 					ok = 1;
 				}
 				break;
@@ -5791,6 +5802,7 @@ static void InitAppConfig(void)
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
 	AppConfig.FailTime = 6000;
+	AppConfig.DateFix = 0;
 
 	#if defined(EEPROM_CS_TRIS)
 	{
