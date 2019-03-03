@@ -54,6 +54,7 @@
  								EEPROM_BUFFER_SIZE, USE_LCD
  * Howard Schlunder		8/09/06	Removed MCHP_MAC, added STACK_USE_NBNS, 
  *								STACK_USE_DNS, and STACK_USE_GENERIC_TCP_EXAMPLE
+ * Chuck Henderson WB9UUS 3/3/2019 Added DateFix storage
  ********************************************************************/
 #ifndef __STACK_TSK_H
 #define __STACK_TSK_H
@@ -162,7 +163,8 @@ typedef struct __attribute__((__packed__))
 	BOOL EthFullDuplex;
 	WORD LaunchDelay;
 	WORD CTCSSThreshold;
-	BYTE Zeros[564];
+	BYTE DateFix;
+	BYTE Zeros[563];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
