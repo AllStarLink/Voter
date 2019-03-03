@@ -3,6 +3,8 @@
 *
 * Copyright (C) 2011-2015
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
+* Copyright (C) 2016-2018
+* Chuck Henderson, WB9UUS <wb9uus@liandee.com>
 *
 * This file is part of the VOTER System Project 
 *
@@ -288,7 +290,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
  
 char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.51 08/07/2017";
+	VERSION[] = "1.52 03/02/2019";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -380,6 +382,9 @@ DWORD vnoise32;
 DWORD lastvnoise32[3];
 BOOL wascor;
 BOOL lastcor;
+#ifdef CHUCK
+BOOL idneeded;
+#endif
 BYTE option_flags;
 static struct {
 	VOTER_PACKET_HEADER vph;
@@ -2313,7 +2318,11 @@ extern float doubleify(BYTE *p);
 	if (AppConfig.GPSProto == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
+#ifndef CHUCK
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
+#else
+		if (AppConfig.DebugLevel & 32)
+#endif
 #ifdef GGPS
 			printf("%d GPS-DEBUG: %s\n",ggps_unavail,gps_buf);
 #else
@@ -2363,7 +2372,11 @@ extern float doubleify(BYTE *p);
 			else
 				gps_time = (DWORD) mktime(&tm);
 			if (AppConfig.DebugLevel & 32)
+#ifdef CHUCK
+				printf("GPS-DEBUG: mon: %d, gps_time: %ld, real_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,real_time,ctime((time_t *)&gps_time));
+#else
 				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+#endif
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
@@ -3434,6 +3447,14 @@ void secondary_processing_loop(void)
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			repeatit = 1;
+#ifdef CHUCK
+		if (!idneeded) {
+			if (failtimer > AppConfig.FailTime) {
+				failtimer = AppConfig.FailTime - 800;
+			}
+			idneeded = 1;
+		}
+#endif
 			if (isoffline) hangtimer = AppConfig.HangTime + 1;
 			else hangtimer = AppConfig.Duplex3;
 		} else repeatit = 0;
@@ -3899,10 +3920,31 @@ void secondary_processing_loop(void)
 					failtimer = 0;
 				}
 			}
+#ifdef CHUCK
+// check for id early on unkey
+			if (isoffline && (hangtimer == (AppConfig.HangTime - 1))) {
+				if ((connfail == 2) && (AppConfig.FailTime > 1200) &&
+					(failtimer >= (AppConfig.FailTime - 1200)) && AppConfig.FailString[0] && idneeded)
+				{
+				hangtimer--;
+				domorse((char *)AppConfig.FailString);
+ 				idneeded = 0;
+				failtimer = 0;
+				}
+
+			}
+#endif			
 			if ((connfail == 2) && AppConfig.FailTime && 
-				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0])
+				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0]
+#ifdef CHUCK
+				&& idneeded
+#endif
+			   	)
 			{
 				domorse((char *)AppConfig.FailString);
+#ifdef CHUCK
+				idneeded = 0;
+#endif
 				failtimer = 0;
 			}
 		}
@@ -3913,6 +3955,10 @@ void secondary_processing_loop(void)
 			if (!connfail) connfail = 2;
 			domorse((char *)AppConfig.FailString);
 			failtimer = 0;
+#ifdef CHUCK
+		idneeded = 0;
+#endif
+
 		}
 	}
        // If the local IP address has changed (ex: due to DHCP lease change)
