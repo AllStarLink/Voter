@@ -5784,12 +5784,13 @@ static void InitAppConfig(void)
 	AppConfig.CWSpeed = 400;
 	AppConfig.CWBeforeTime = 4000;
 	AppConfig.CWAfterTime = 4000;
-	strcpy((char *)AppConfig.FailString,"OFF LINE");
-	strcpy((char *)AppConfig.UnFailString,"OK");
+	strcpy((char *)AppConfig.FailString,"WZ9ZZZ /R");
+	strcpy((char *)AppConfig.UnFailString,"E");
 	AppConfig.HangTime = 15;
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
+	AppConfig.FailTime = 6000;
 
 	#if defined(EEPROM_CS_TRIS)
 	{
