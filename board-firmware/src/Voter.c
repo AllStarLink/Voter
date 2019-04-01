@@ -2368,9 +2368,9 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = twoascii(strs[9] + 2) - 1;
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 			if (AppConfig.DebugLevel & 64)
-				gps_time = (DWORD) mktime(&tm) + (AppConfig.DateFix * 619315200) + 1;
+				gps_time = (DWORD) mktime(&tm) + ((DWORD) AppConfig.DateFix * 619315200) + 1;
 			else
-				gps_time = (DWORD) mktime(&tm) + (AppConfig.DateFix * 619315200);
+				gps_time = (DWORD) mktime(&tm) + ((DWORD) AppConfig.DateFix * 619315200);
 			if (AppConfig.DebugLevel & 32)
 #ifdef CHUCK
 				printf("GPS-DEBUG: mon: %d, gps_time: %ld, real_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,real_time,ctime((time_t *)&gps_time));
@@ -2449,7 +2449,7 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = gps_buf[15] - 1; 
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
-			gps_time = (DWORD) mktime(&tm) + (AppConfig.DateFix * 619315200);
+			gps_time = (DWORD) mktime(&tm) + ((DWORD) AppConfig.DateFix * 619315200);
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 			return;
 		}
