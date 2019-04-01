@@ -4676,7 +4676,7 @@ static void OffLineMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 11))
+		if ((sel >= 1) && (sel <= 12))
 		{
 			printf(entnewval);
 			if (aborted) continue;
