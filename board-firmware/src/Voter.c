@@ -2368,9 +2368,9 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = twoascii(strs[9] + 2) - 1;
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 			if (AppConfig.DebugLevel & 64)
-				gps_time = (DWORD) mktime(&tm) + 1;
+				gps_time = (DWORD) mktime(&tm) + (AppConfig.DateFix * 619315200) + 1;
 			else
-				gps_time = (DWORD) mktime(&tm);
+				gps_time = (DWORD) mktime(&tm) + (AppConfig.DateFix * 619315200);
 			if (AppConfig.DebugLevel & 32)
 #ifdef CHUCK
 				printf("GPS-DEBUG: mon: %d, gps_time: %ld, real_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,real_time,ctime((time_t *)&gps_time));
