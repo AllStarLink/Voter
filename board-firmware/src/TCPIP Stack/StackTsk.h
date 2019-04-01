@@ -163,8 +163,8 @@ typedef struct __attribute__((__packed__))
 	BOOL EthFullDuplex;
 	WORD LaunchDelay;
 	WORD CTCSSThreshold;
-	DWORD DateFix;
-	BYTE Zeros[560];
+	BYTE DateFix;
+	BYTE Zeros[563];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
