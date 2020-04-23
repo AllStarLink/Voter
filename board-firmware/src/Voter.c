@@ -3,7 +3,7 @@
 *
 * Copyright (C) 2011-2015
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
-* Copyright (C) 2016-2018
+* Copyright (C) 2016-2020
 * Chuck Henderson, WB9UUS <wb9uus@liandee.com>
 *
 * This file is part of the VOTER System Project 
@@ -282,7 +282,7 @@ enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
 enum {CODEC_ULAW,CODEC_ADPCM} ;
 
-ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
+ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in use = ",
 	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
 	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
@@ -290,7 +290,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
  
 char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.52 03/02/2019";
+	VERSION[] = "1.54 04/14/2020";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -2370,12 +2370,29 @@ extern float doubleify(BYTE *p);
 			if (AppConfig.DebugLevel & 64)
 				gps_time = (DWORD) mktime(&tm) + ((DWORD) AppConfig.DateFix * 619315200) + 1;
 			else
-				gps_time = (DWORD) mktime(&tm) + 619315200;
+				switch (AppConfig.DateFix)
+				{
+					case 1: 
+					gps_time = ((DWORD) mktime(&tm) + 592109000);
+					break;
+					case 2:
+					gps_time = ((DWORD) mktime(&tm) + 619315200);
+					break;
+					case 3:
+					gps_time = ((DWORD) mktime(&tm) + 1211424200);
+					break;
+					case 4:
+					gps_time = ((DWORD) mktime(&tm) + 1238630400);
+					break;
+					default:
+					gps_time = (DWORD) mktime(&tm);
+					break;
+				}
 			if (AppConfig.DebugLevel & 32)
 #ifdef CHUCK
-				printf("GPS-DEBUG: mon: %d, gps_time: %ld, real_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,real_time,ctime((time_t *)&gps_time));
-#else
-				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+				printf("GPS-DEBUG: mon: %d, gps_time: %lu, real_time: %lu, ctime: %s\n",tm.tm_mon,gps_time,real_time,ctime((time_t *)&gps_time));
+#else 
+				printf("GPS-DEBUG: mon: %d, gps_time: %lu, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
 #endif
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
@@ -2393,6 +2410,8 @@ extern float doubleify(BYTE *p);
 			printf(gpsmsg1);
 		}
 #ifndef	GGPS
+		gps_nsat = atoi(strs[7]);
+			
 		n = atoi(strs[6]);
 		if ((n < 1) || (n > 2)) 
 		{
@@ -4632,7 +4651,7 @@ static void OffLineMenu()
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
 		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
 	 	menu1b[] = 
-	 	"12 - GPS DateFix (0=NORMAL, 1=+19.7 years, 2=+39.4 years) (%d)\n",
+	 	"12 - GPS DateFix (0=NORMAL, 1=+19.7 years, 2=+19.8 years) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -4778,7 +4797,7 @@ static void OffLineMenu()
 				}
 				break;
 			case 12: // GPS DateFix
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 4))
 				{
 					AppConfig.DateFix = i1;
 					ok = 1;
