@@ -3,6 +3,8 @@
 *
 * Copyright (C) 2011-2015
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
+* Copyright (C) 2016-2020
+* Chuck Henderson, WB9UUS <wb9uus@liandee.com>
 *
 * This file is part of the VOTER System Project 
 *
@@ -280,7 +282,7 @@ enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
 enum {CODEC_ULAW,CODEC_ADPCM} ;
 
-ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
+ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in use = ",
 	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
 	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
 	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
@@ -288,7 +290,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
  
 char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.51 08/07/2017";
+	VERSION[] = "1.54 04/14/2020";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -380,6 +382,9 @@ DWORD vnoise32;
 DWORD lastvnoise32[3];
 BOOL wascor;
 BOOL lastcor;
+#ifdef CHUCK
+BOOL idneeded;
+#endif
 BYTE option_flags;
 static struct {
 	VOTER_PACKET_HEADER vph;
@@ -2313,7 +2318,11 @@ extern float doubleify(BYTE *p);
 	if (AppConfig.GPSProto == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
+#ifndef CHUCK
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
+#else
+		if (AppConfig.DebugLevel & 32)
+#endif
 #ifdef GGPS
 			printf("%d GPS-DEBUG: %s\n",ggps_unavail,gps_buf);
 #else
@@ -2359,11 +2368,32 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = twoascii(strs[9] + 2) - 1;
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 			if (AppConfig.DebugLevel & 64)
-				gps_time = (DWORD) mktime(&tm) + 1;
+				gps_time = (DWORD) mktime(&tm) + ((DWORD) AppConfig.DateFix * 619315200) + 1;
 			else
-				gps_time = (DWORD) mktime(&tm);
+				switch (AppConfig.DateFix)
+				{
+					case 1: 
+					gps_time = ((DWORD) mktime(&tm) + 592109000);
+					break;
+					case 2:
+					gps_time = ((DWORD) mktime(&tm) + 619315200);
+					break;
+					case 3:
+					gps_time = ((DWORD) mktime(&tm) + 1211424200);
+					break;
+					case 4:
+					gps_time = ((DWORD) mktime(&tm) + 1238630400);
+					break;
+					default:
+					gps_time = (DWORD) mktime(&tm);
+					break;
+				}
 			if (AppConfig.DebugLevel & 32)
-				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+#ifdef CHUCK
+				printf("GPS-DEBUG: mon: %d, gps_time: %lu, real_time: %lu, ctime: %s\n",tm.tm_mon,gps_time,real_time,ctime((time_t *)&gps_time));
+#else 
+				printf("GPS-DEBUG: mon: %d, gps_time: %lu, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+#endif
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
@@ -2380,6 +2410,8 @@ extern float doubleify(BYTE *p);
 			printf(gpsmsg1);
 		}
 #ifndef	GGPS
+		gps_nsat = atoi(strs[7]);
+			
 		n = atoi(strs[6]);
 		if ((n < 1) || (n > 2)) 
 		{
@@ -2436,7 +2468,7 @@ extern float doubleify(BYTE *p);
 				tm.tm_mon = gps_buf[15] - 1; 
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
-			gps_time = (DWORD) mktime(&tm) + 619315200;
+			gps_time = (DWORD) mktime(&tm) + ((DWORD) AppConfig.DateFix * 619315200);
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 			return;
 		}
@@ -3434,6 +3466,14 @@ void secondary_processing_loop(void)
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			repeatit = 1;
+#ifdef CHUCK
+		if (!idneeded) {
+			if (failtimer > AppConfig.FailTime) {
+				failtimer = AppConfig.FailTime - 800;
+			}
+			idneeded = 1;
+		}
+#endif
 			if (isoffline) hangtimer = AppConfig.HangTime + 1;
 			else hangtimer = AppConfig.Duplex3;
 		} else repeatit = 0;
@@ -3899,10 +3939,31 @@ void secondary_processing_loop(void)
 					failtimer = 0;
 				}
 			}
+#ifdef CHUCK
+// check for id early on unkey
+			if (isoffline && (hangtimer == (AppConfig.HangTime - 1))) {
+				if ((connfail == 2) && (AppConfig.FailTime > 1200) &&
+					(failtimer >= (AppConfig.FailTime - 1200)) && AppConfig.FailString[0] && idneeded)
+				{
+				hangtimer--;
+				domorse((char *)AppConfig.FailString);
+ 				idneeded = 0;
+				failtimer = 0;
+				}
+
+			}
+#endif			
 			if ((connfail == 2) && AppConfig.FailTime && 
-				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0])
+				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0]
+#ifdef CHUCK
+				&& idneeded
+#endif
+			   	)
 			{
 				domorse((char *)AppConfig.FailString);
+#ifdef CHUCK
+				idneeded = 0;
+#endif
 				failtimer = 0;
 			}
 		}
@@ -3913,6 +3974,10 @@ void secondary_processing_loop(void)
 			if (!connfail) connfail = 2;
 			domorse((char *)AppConfig.FailString);
 			failtimer = 0;
+#ifdef CHUCK
+		idneeded = 0;
+#endif
+
 		}
 	}
        // If the local IP address has changed (ex: due to DHCP lease change)
@@ -4585,6 +4650,8 @@ static void OffLineMenu()
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
 		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n",
+	 	menu1b[] = 
+	 	"12 - GPS DateFix (0=NORMAL, 1=+19.7 years, 2=+19.8 years) (%d)\n",
 		menu2[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
@@ -4598,6 +4665,8 @@ static void OffLineMenu()
 		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
+	 	printf(menu1b,AppConfig.DateFix);
+	 	main_processing_loop();
 		printf(menu2);
 		fflush(stdout);
 		aborted = 0;
@@ -4626,7 +4695,7 @@ static void OffLineMenu()
 		}
 		printf(" \n");
 		sel = atoi(cmdstr);
-		if ((sel >= 1) && (sel <= 11))
+		if ((sel >= 1) && (sel <= 12))
 		{
 			printf(entnewval);
 			if (aborted) continue;
@@ -4724,6 +4793,13 @@ static void OffLineMenu()
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
 				{
 					AppConfig.OffLineNoDeemp = i1;
+					ok = 1;
+				}
+				break;
+			case 12: // GPS DateFix
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 4))
+				{
+					AppConfig.DateFix = i1;
 					ok = 1;
 				}
 				break;
@@ -5738,12 +5814,14 @@ static void InitAppConfig(void)
 	AppConfig.CWSpeed = 400;
 	AppConfig.CWBeforeTime = 4000;
 	AppConfig.CWAfterTime = 4000;
-	strcpy((char *)AppConfig.FailString,"OFF LINE");
-	strcpy((char *)AppConfig.UnFailString,"OK");
+	strcpy((char *)AppConfig.FailString,"WZ9ZZZ /R");
+	strcpy((char *)AppConfig.UnFailString,"E");
 	AppConfig.HangTime = 15;
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
+	AppConfig.FailTime = 6000;
+	AppConfig.DateFix = 0;
 
 	#if defined(EEPROM_CS_TRIS)
 	{

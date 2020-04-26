@@ -61,7 +61,7 @@ extern char dummy_loc;
 #define SMT_BOARD
 #endif
 
-// #define CHUCK
+#define CHUCK
 
 #if	defined CHUCK
 #define	CHUCK_SQUELCH
