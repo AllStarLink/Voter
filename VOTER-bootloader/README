@@ -1,0 +1,13 @@
+The VOTER uses a dsPIC33FJ128GP802 and the RTCM uses a dsPIC33FJ128GP804.
+
+
+There are two parts to the firmware, a bootloader, and then the actual firmware file. The bootloader starts when power is applied, and allows you to talk to the dsPIC and load new firmware files over ethernet. If the bootloader is not intercepted by the loading tool, it will continue to boot the current firmware file.
+
+
+All new boards will need to have the bootloader installed first, followed by a firmware file. You can load a firmware file directly (.hex) in to the dsPIC, but then you will not have any of the bootloader remote loading features.
+
+
+This is the  current bootloader (.cof file). The -smt file is for the RTCM, if you needed to replace the dsPIC on it for some reason, and needed to re-load the bootloader. It needs to be loaded with a PICKit programmer, through the ICSP header.
+
+
+Current firmware (.cry files) are available elsewhere in this repository. They are loaded with the EBLEX C30 Programmer via ethernet.
