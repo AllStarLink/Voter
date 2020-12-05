@@ -3,6 +3,9 @@
 *
 * Copyright (C) 2011-2015
 * Jim Dixon, WB6NIL <jim@lambdatel.com>
+* Copyright (C) 2016-2020
+* Chuck Henderson, WB9UUS <wb9uus@liandee.com>
+* Lee Woldanski, VE7FET <ve7fet@tparc.org>
 *
 * This file is part of the VOTER System Project 
 *
@@ -75,6 +78,13 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 128 - Fix GPS 1 month off (WTF,O??)
 
 */
+
+/* Update the version number for the firmware here */
+#ifdef DSPBEW
+char	VERSION[] = "1.51 BEW 08/07/2017";
+#else
+char	VERSION[] = "1.51 08/07/2017";
+#endif
 
 #define M_PI       3.14159265358979323846
 
@@ -287,8 +297,7 @@ ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] 
 	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n";
  
 char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n",
-	VERSION[] = "1.51 08/07/2017";
+	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n";
 
 typedef struct {
 	DWORD vtime_sec;
