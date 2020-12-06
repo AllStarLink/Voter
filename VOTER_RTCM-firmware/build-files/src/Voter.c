@@ -227,6 +227,7 @@ char	VERSION[] = "1.60 12/05/2020";
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
 #define	TSIP_FACTOR 57.295779513082320876798154814105
+#define ADD_1024_WEEKS 619315200 // 1024 weeks for Tbolt time fudge
 #define	ULAW_SILENCE 0xff
 #define	ADPCM_SILENCE 0
 #define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))
@@ -377,6 +378,7 @@ BYTE gps_nsat;
 BOOL gpssync;
 BOOL gotpps;
 DWORD gps_time;
+WORD gpsweek;
 BYTE ppscount;
 DWORD last_interval;
 BYTE lockcnt;
@@ -2440,12 +2442,40 @@ extern float doubleify(BYTE *p);
 			tm.tm_hour = gps_buf[13];
 			tm.tm_mday = gps_buf[14];
 			if (AppConfig.DebugLevel & 128)
-				tm.tm_mon = gps_buf[15]; 
+				tm.tm_mon = gps_buf[15]; // add 1 month, some GPS are broken?
 			else
-				tm.tm_mon = gps_buf[15] - 1; 
+				tm.tm_mon = gps_buf[15] - 1; // tm_mon counts 0-11, so -1 to get correct month
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
 			tm.tm_year = w - 1900;
-			gps_time = (DWORD) mktime(&tm) + 619315200;
+
+			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8);
+
+			if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
+			{
+				gps_time = (DWORD) mktime(&tm);
+			}
+			else
+			{
+			/* This is a Tbolt, so the firmware is broken. We need to figure out what week 
+			it thinks it is, and correct it.*/
+				if ((gpsweek >= 0) && (gpsweek <= 935)) // for weeks 0-935, add 1024 weeks
+				{
+					gps_time = (DWORD) mktime(&tm) + (DWORD) ADD_1024_WEEKS;
+				}
+				if ((gpsweek >= 936) && (gpsweek <= 1023)) // for weeks 936-1023, add 2048 weeks
+				{
+					gps_time = (DWORD) mktime(&tm) + (2 * (DWORD) ADD_1024_WEEKS);
+				}
+				if (gpsweek >= 1024) // this isn't a Tbolt, so don't fudge the time
+				{
+					gps_time = (DWORD) mktime(&tm);
+				}
+
+			}
+			
+			if (AppConfig.DebugLevel & 32)
+			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
+			
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 			return;
 		}
@@ -4771,7 +4801,7 @@ int main(void)
 		menu3[] = 
 		"7  - Tx Buffer Length (%d)\n"
 		"8  - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
-		"81 - GPS Type (0=Normal, 1=Trimble Thunderbolt) (%d)\n"
+		"81 - GPS Type (0=Normal TSIP, 1=Trimble Thunderbolt) (%d)\n"
 		"9  - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n",
 		menu4[] = 
