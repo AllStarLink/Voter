@@ -81,9 +81,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-char	VERSION[] = "1.60 BEW 12/05/2020";
+char	VERSION[] = "1.60 BEW 12/06/2020 Chuck";
 #else
-char	VERSION[] = "1.60 12/05/2020";
+char	VERSION[] = "1.60 12/06/2020 Chuck";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -226,7 +226,7 @@ char	VERSION[] = "1.60 12/05/2020";
 #define	SECOND_TIME (1000 * 8)	// 1000ms
 #define	NCOLS 75
 #define	LEVDISP_FACTOR 25
-#define	TSIP_FACTOR 57.295779513082320876798154814105
+#define	TSIP_FACTOR 57.295779513082320876798154814105 // radians to degrees, Trimble reports lat/long in rads
 #define ADD_1024_WEEKS 619315200 // 1024 weeks for Tbolt time fudge
 #define	ULAW_SILENCE 0xff
 #define	ADPCM_SILENCE 0
@@ -379,6 +379,7 @@ BOOL gpssync;
 BOOL gotpps;
 DWORD gps_time;
 WORD gpsweek;
+WORD gpsleap;
 BYTE ppscount;
 DWORD last_interval;
 BYTE lockcnt;
@@ -2429,26 +2430,36 @@ extern float doubleify(BYTE *p);
 	}
 	else /* is a Trimble TSIP Device */
 	{
+/* We are looking for two types of packets from TSIP devices:
+	The 0x8f-ab Primary Timing Packet
+	The 0x8f-ac Supplementary Timing Packet
+
+   Both packets are read in to the gps_buf array. NOTE, our array count is off by one, if you 
+   are looking at the TSIP reference, since gps_buf[0] contains the Header Byte, instead of the 
+   Subcode byte.
+*/
 		if (!getTSIPPacket()) return;
-		if (gps_buf[0] != 0x8f) return;
-		if (gps_buf[1] == 0xab) 
+		if (gps_buf[0] != 0x8f) return; // "Superpacket" Header
+		if (gps_buf[1] == 0xab) // AB is the Primary Timing Packet
 		{
 			struct tm tm;
 			WORD w;
 	
 			memset(&tm,0,sizeof(tm));
-			tm.tm_sec = gps_buf[11];
-			tm.tm_min = gps_buf[12];
-			tm.tm_hour = gps_buf[13];
-			tm.tm_mday = gps_buf[14];
+			tm.tm_sec = gps_buf[11]; // seconds 0-59
+			tm.tm_min = gps_buf[12]; // minutes 0-59
+			tm.tm_hour = gps_buf[13]; // hours 0-23
+			tm.tm_mday = gps_buf[14]; // day of month 1-21
+			/* gps_buf[15] is Month of Year, 1-12, HOWEVER, tm_mon counts 0-11!! */
 			if (AppConfig.DebugLevel & 128)
 				tm.tm_mon = gps_buf[15]; // add 1 month, some GPS are broken?
 			else
 				tm.tm_mon = gps_buf[15] - 1; // tm_mon counts 0-11, so -1 to get correct month
-			w = gps_buf[17] | ((WORD)gps_buf[16] << 8);
-			tm.tm_year = w - 1900;
+			w = gps_buf[17] | ((WORD)gps_buf[16] << 8); // 4-digit year (two bytes)
+			tm.tm_year = w - 1900; // tm_year is relative to years since 1900
 
-			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8);
+			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8); // gps week number (two bytes)
+
 
 			if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
 			{
@@ -2470,30 +2481,46 @@ extern float doubleify(BYTE *p);
 				{
 					gps_time = (DWORD) mktime(&tm);
 				}
-
 			}
+
+			gpsleap = gps_buf[9] | ((WORD)gps_buf[8] << 8); // GPS-UTC offset (leap seconds)
+
+			/* If the timing flags are all 0, then we are using GPS time, 
+			   GPS PPS, time is set, we have UTC info (leap seconds), and we 
+			   are getting time from the GPS. Therefore, we need to correct the time to UTC 
+			   by subtracting the leap seconds, so that we can co-exist with other GPS that are 
+			   reporting time in UTC. Otherwise, this device will be ignored by chan_voter, 
+			   because the time will be offset (by leap seconds). */
+			if (!gps_buf[10]) 
+			{
+				gps_time = gps_time - gpsleap;
+			}
+
 			
 			if (AppConfig.DebugLevel & 32)
 			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
 			
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
-			return;
+		 	return;
 		}
-		if (gps_buf[1] == 0xac)
+		if (gps_buf[1] == 0xac) // AC is the Supplemental Timing Packet
 		{
 			BOOL happy;
 			int x,y;
 			float f;
 
 			happy = 1;
-			if (gps_buf[13]) happy = 0;
-			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) happy = 0;
-			if (gps_buf[9] || gps_buf[10]) happy = 0;
-			if ((gps_buf[12] & 0x1f) | gps_buf[11]) happy = 0;
+			if (gps_buf[13]) happy = 0; // GPS Decoding Status - 0=doing fixes
+			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) happy = 0; // Discipline Activity, Phase Locked and Recovery Mode?
+			if (gps_buf[9] || gps_buf[10]) happy = 0; // 0=No Critical Alarms
+			if ((gps_buf[11] & 0x1f) | gps_buf[12]) happy = 0; // 0=No Minor Alarms
+			/* Minor alarms are tricky! gps_buf[11] is Bits 8-12, gps_buf[12] is Bits 0-7
+			ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
+			   gps_buf[11]=0x08 -> Almanac not complete */
 			if (AppConfig.DebugLevel & 32)
 			{
-				printf("GPS-DEBUG: TSIP: ok %d, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
-					happy,gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+				printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+					happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
 			}
 			gpswarn = 0;
 			gpstimer = 0;
@@ -2524,7 +2551,7 @@ extern float doubleify(BYTE *p);
 				gpssync = 0;
 				gotpps = 0;
 			}
-			gps_nsat = 3;
+			gps_nsat = 3; // Hah, we're faking the number of received sats.
 			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 			{
 				gps_state = GPS_STATE_VALID;
