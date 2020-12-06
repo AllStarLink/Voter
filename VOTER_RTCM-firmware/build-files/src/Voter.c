@@ -81,9 +81,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-char	VERSION[] = "1.51 BEW 08/07/2017";
+char	VERSION[] = "1.60 BEW 12/05/2020";
 #else
-char	VERSION[] = "1.51 08/07/2017";
+char	VERSION[] = "1.60 12/05/2020";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -2425,7 +2425,7 @@ extern float doubleify(BYTE *p);
 		gps_packet.lon[8] = *strs[5];
 		strncpy(gps_packet.elev,strs[9],6);
 	}
-	else /* is a Trimble Thunderbolt */
+	else /* is a Trimble TSIP Device */
 	{
 		if (!getTSIPPacket()) return;
 		if (gps_buf[0] != 0x8f) return;
@@ -4771,6 +4771,7 @@ int main(void)
 		menu3[] = 
 		"7  - Tx Buffer Length (%d)\n"
 		"8  - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
+		"81 - GPS Type (0=Normal, 1=Trimble Thunderbolt) (%d)\n"
 		"9  - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n",
 		menu4[] = 
@@ -5161,7 +5162,7 @@ __builtin_nop();
 			AppConfig.HostPassword);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
+		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel1);
@@ -5237,9 +5238,9 @@ __builtin_nop();
 		
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170))
+		if (((sel >= 1) && (sel <= 19)) || ( sel == 81) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 19)) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 19)) || ( sel == 81) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
@@ -5328,6 +5329,13 @@ __builtin_nop();
 						AppConfig.GPSPolarity = 0;
 					}
 					AppConfig.GPSProto = i1;
+					ok = 1;
+				}
+				break;
+			case 81: // GPS is a Thunderbolt
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
+				{
+					AppConfig.GPSTbolt = i1;
 					ok = 1;
 				}
 				break;
@@ -5753,6 +5761,7 @@ static void InitAppConfig(void)
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
+	AppConfig.GPSTbolt = 0;
 
 	#if defined(EEPROM_CS_TRIS)
 	{
