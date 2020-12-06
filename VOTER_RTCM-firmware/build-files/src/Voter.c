@@ -75,15 +75,15 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 16 - IP TOS Class for Ubiquiti
 32 - GPS Debug
 64 - Fix GPS 1 second off
-128 - Fix GPS 1 month off (WTF,O??)
+128 - Fix GPS 1 month off (subtracts one month)
 
 */
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-char	VERSION[] = "1.60 BEW 12/06/2020 Chuck";
+char	VERSION[] = "1.60 BEW 12/06/2020";
 #else
-char	VERSION[] = "1.60 12/06/2020 Chuck";
+char	VERSION[] = "1.60 12/06/2020";
 #endif
 
 #define M_PI       3.14159265358979323846
