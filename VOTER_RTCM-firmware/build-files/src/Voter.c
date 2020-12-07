@@ -5380,20 +5380,6 @@ __builtin_nop();
 			case 8: // GPS Type
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP))
 				{
-					if ((AppConfig.GPSProto != GPS_TSIP) && 
-						(i1 == GPS_TSIP))
-					{
-						AppConfig.GPSBaudRate = 9600;
-						AppConfig.PPSPolarity = 0;
-						AppConfig.GPSPolarity = 0;
-					}
-					if ((AppConfig.GPSProto == GPS_TSIP) && 
-						(i1 != GPS_TSIP))
-					{
-						AppConfig.GPSBaudRate = 4800;
-						AppConfig.PPSPolarity = 0;
-						AppConfig.GPSPolarity = 0;
-					}
 					AppConfig.GPSProto = i1;
 					ok = 1;
 				}

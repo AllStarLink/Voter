@@ -31,4 +31,5 @@ This version drops the original squelch code (which actually had a bug in it), a
 
 Add some comments to the source, trying to figure out what some parts do. Looks like the un-documented "Saywer" mode forces the PL filter OUT of the receive audio path, when in OFFLINE mode, if enabled (Sawyer=1).
 
+Remove the "autoconfiguration" of the baud rate, and resetting PPS/GPS polarity to 0 when changing to/from NMEA/TSIP. This just adds confusion when trying to set up a GPS. Leave the baud and polarity settings alone.
 
