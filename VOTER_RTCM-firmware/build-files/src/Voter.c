@@ -81,9 +81,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-char	VERSION[] = "1.60 BEW 12/06/2020";
+char	VERSION[] = "2.00 BEW 12/06/2020";
 #else
-char	VERSION[] = "1.60 12/06/2020";
+char	VERSION[] = "2.00 12/06/2020";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -168,9 +168,9 @@ char	VERSION[] = "1.60 12/06/2020";
 #endif
 
 #define WVF JP10				// Short on pwrup to initialize default values
-#define CAL JP9						// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
-									// this is shorted also calibrates the temp. conpensation diode (at room temp.)
-#define	LEVDISP JP11			// Short to change GPS/CONNECT LED's to be audio level display97:
+#define CAL JP9					// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
+						// this is shorted also calibrates the temp. conpensation diode (at room temp.)
+#define	LEVDISP JP11				// Short to change GPS/CONNECT LED's to be audio level display97:
 
 #define SYSLED 0
 #define	SQLED 1
@@ -899,15 +899,12 @@ static BYTE calcrssi(WORD val)
 DWORD d;
 short i,x;
 
-#ifdef	CHUCK_RSSI
-
-	if (val < 200)
+	if (val < 200) // The first part of this IF is "Chuck RSSI"
 	{
 	        x = 255 - val;
 	}
 	else
-#endif
-	{
+	{ // This is the original RSSI calculation
 	        d = (((DWORD)val + 1) << 8);
 	        i = log2fix(isqrt(d) << 4);
 	        x = 255 - ((i << 3) / 39);
@@ -1910,6 +1907,18 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	}
 	
 	void SetAudioSrc(void)
+	/* Determine the filtering for the receive audio.
+	   ASEL1 = IOExpOutB mask Bit 4 = SPB2, setting to 1 is PL Filter IN, setting to 0 is PL Filter OUT
+	   ASEL2 = IOExpOutB mask Bit 8 = SPB3, Setting to 1 is NO de-emphasis, setting to 0 is de-emphazised
+
+	   myflags holds the bitmask
+	   myflags 0 = de-emphazised,  PL filtered
+	   myflags 1 = no de-emphasis, PL filtered
+	   myflags 4 = de-emphasized,  no PL filter
+	   myflags 5 = no de-emphasis, no PL filter
+
+	   "Sawyer Mode" (Sawyer=1) forces the PL Filter OFF in Offline mode
+	*/
 	{
 	BYTE oldout,myflags;
 
@@ -5541,7 +5550,7 @@ __builtin_nop();
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
 				mydiff = last_rxpacket_sys_time.vtime_sec - last_rxpacket_time.vtime_sec;
@@ -5549,10 +5558,10 @@ __builtin_nop();
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Last Rx Pkt index: %ld, inbounds: %d\n",
+				printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",
 					last_rxpacket_index,last_rxpacket_inbounds);
 				main_processing_loop();
 				secondary_processing_loop();

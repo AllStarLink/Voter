@@ -57,10 +57,6 @@ static BYTE looptimer;				// GP loop timer for interrupt state machines
 static BYTE noisehead;				// Noise history buffer head
 static WORD mavnoise32;  			// Modified average noise over 32 samples
 static WORD noisehistory[NHBSIZE];		// Noise history buffer
-#ifndef CHUCK_SQUELCH
-static short int fastslow;			// Fast Slow counter
-static short int fastslowadjust;		// Time adjust amount for close time 
-#endif
 static WORD sqposm, sqposp;		// Squelch position without, with positive, and with negative hysteresis
 
 // RAM variables intended to be read by other modules
@@ -133,11 +129,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 {
 
 	BYTE x;
-#ifdef CHUCK_SQUELCH
 	WORD noise50msago;
-#else
-	WORD n;
-#endif
 	WORD sqposcomp;
 	short int tcomp;
 
@@ -167,7 +159,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 
 	// Calculate long term modified average
 
-#ifdef CHUCK_SQUELCH
+	// CHUCK_SQUELCH
 	mavnoise32 = ((mavnoise32 * 31) + noise) >> 5; // average over the last 120ms including current noise
 	// Take an average of the oldest 2 samples in the history buffer
 	// on arival here noisehead points to oldest sample in 16 sample array
@@ -179,52 +171,6 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 	x &= (NHBSIZE - 1);
 	noise50msago += noisehistory[x];
 	noise50msago >>= 1;
-#else
-	mavnoise32 = ((mavnoise32 * 31) + noise) >> 5;
-
-	// Take an average of the last 2 samples in the history buffer
-	x = noisehead + 1;
-	x &= (NHBSIZE - 1);
-	n = noisehistory[x] + 1;
-	x &= (NHBSIZE - 1);
-	n += noisehistory[x];
-	n >>= 1;
-
-	// Calculate  fast slow counter offset
-
-	if(n  < 16)
-	      fastslowadjust = -15;
-	else if(n < 20)
-	      fastslowadjust = -13;
-	else if(n < 24)
-	      fastslowadjust = -11;
-	else if(n < 30)
-	      fastslowadjust = -9;
-	else if(n < 36)
-	      fastslowadjust = -7;
-	else if(n < 64)
-	      fastslowadjust = -5;
-	else if(n < 72)
-	      fastslowadjust = -3;
-	else if(n < 128)
-	      fastslowadjust = -1;
-	else if (n < 144)
-              fastslowadjust = 1;
-	else if(n < 256)
-	      fastslowadjust = 50;
-	else if(n < 512)
-	      fastslowadjust = 100;
-	else
-	      fastslowadjust = 200;
-	
-	if( fastslow + fastslowadjust > FASTSLOWLIMIT)
-	      fastslow = FASTSLOWLIMIT;
-
-	else if( fastslow + fastslowadjust < 0)
-	      fastslow = 0;
-	else
-	      fastslow += fastslowadjust;
-#endif
 
 	// *** State machines ***
 
@@ -317,12 +263,8 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 				sqled = 0;
 				cor = 0;
 				if(mavnoise32 < sqposm){
-#ifdef CHUCK_SQUELCH
 					if (iscaled) cor = 1;
 					sqled = 1;
-#else
-					fastslow = FASTSLOWLIMIT;
-#endif
 					sqstate = OPEN;
 				}
 				break;
@@ -330,7 +272,6 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 			case OPEN:
 				if (iscaled) cor = 1;
 				sqled = 1;
-#ifdef CHUCK_SQUELCH
 				if(noise50msago < 64) {  // relativly strong signal 50ms ago?
 					if(noise >= sqposp){ // but carrier gone right now (due to unkey) (no averaging) then instantly close.
 						mavnoise32 = CALNOISE;
@@ -345,59 +286,6 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 					sqstate = CLOSED;
 				}
 				break;
-#else
-				if(!fastslow){
-					sqstate = OPEN_FAST; // Fast squelch mode
-				}
-				else{	
-					if(mavnoise32 >= sqposp){ // Carrier gone?
-						looptimer = CLOSETIME;
-						sqstate = TAIL;
-					}
-				}
-				break;
-
-
-			case TAIL:
-				if (iscaled) cor = 1;
-				sqled = 1;
-				if(!looptimer){
-					if(mavnoise32 < sqposp){ // Go back to slow mode
-						fastslow = FASTSLOWLIMIT;
-						sqstate = OPEN;
-					}
-					else{
-						cor = 0;
-						sqled = 0;
-						sqstate = CLOSED; // If last transmission noisy, close right away as the signal may come back.
-					}
-				}
-				break;
-
-		
-			case OPEN_FAST:
-				if (iscaled) cor = 1;
-				sqled = 1;
-				if(fastslow > FASTSLOWTHRESH){
-					sqstate = OPEN;
-					fastslow = FASTSLOWLIMIT;
-				}
-				else if(noise >= sqposp){
-					mavnoise32 = CALNOISE; // Make it look like there's no signal
-					looptimer = REOPENHOLDOFF;
-					fastslow = FASTSLOWLIMIT;
-					cor = 0;
-					sqled = 0;
-					sqstate = REOPEN_HOLDOFF;
-				}
-				break;
-
-
-			case REOPEN_HOLDOFF:
-				if(!looptimer)
-					sqstate = CLOSED;
-				break;
-#endif
 
 			default:
 				sqstate = CLOSED;

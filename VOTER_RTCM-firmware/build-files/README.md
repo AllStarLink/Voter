@@ -26,3 +26,9 @@ Added additional bytes (gps_buf[2] and [3]) to the TSIP debug to see Receiver mo
 
 Fixed the check of Supplemental Timing Packet 0xAC Minor Alarms, gps_buf bytes were swapped. Not critical, as we are checking for everything to be 0 (no alarms) anyways, but debugging makes more sense when we are looking at the right bits. gps_buf[12] is the low byte (Bits 0-7), and gps_buf[11] is the high byte (Bits 8-12).
 
+2.00 12/07/2020
+This version drops the original squelch code (which actually had a bug in it), and makes "Chuck Squelch" the default squelch. As such, all binaries will have Chuck Squelch, there will be no binaries compiled with the original squelch (that code has been removed).
+
+Add some comments to the source, trying to figure out what some parts do. Looks like the un-documented "Saywer" mode forces the PL filter OUT of the receive audio path, when in OFFLINE mode, if enabled (Sawyer=1).
+
+
