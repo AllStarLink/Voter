@@ -33,3 +33,6 @@ Add some comments to the source, trying to figure out what some parts do. Looks 
 
 Remove the "autoconfiguration" of the baud rate, and resetting PPS/GPS polarity to 0 when changing to/from NMEA/TSIP. This just adds confusion when trying to set up a GPS. Leave the baud and polarity settings alone.
 
+This version reverses the logic for ToS/DSCP marking of packets. Now, by default, we will mark all packets outbound from the VOTER/RTCM with DSCP 48 (802.1p Class 6 aka Network Control ToS). Debug Level 16 now DISABLES ToS, changing the packets to Routine. Don't forget, you still need utos=y in your voter.conf to mark packets from the server TO the VOTER/RTCM.
+
+

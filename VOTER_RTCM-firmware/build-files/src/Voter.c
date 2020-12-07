@@ -72,7 +72,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 2 - Ignore HWlock (GGPS only)
 4 - GPS/PPS Failure simulation (GGPS only)
 8 - POCSAG H/W output disable (GGPS only)
-16 - IP TOS Class for Ubiquiti
+16 - Disable IP TOS Class for Ubiquiti
 32 - GPS Debug
 64 - Fix GPS 1 second off
 128 - Fix GPS 1 month off (subtracts one month)
