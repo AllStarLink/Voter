@@ -29,12 +29,6 @@
 #define SQOPEN		928		// Squelch open setting
 #define CALNOISE	900		// Peak noise amplitude to look for during calibration.
 #define HYSTERESIS	24		// Amount of hysteresis to open /close in noisy mode
-#ifndef CHUCK_SQUELCH
-#define CLOSETIME	70		// # of ticks for max close time
-#define FASTSLOWLIMIT	1000		// Fast/Slow limit
-#define FASTSLOWTHRESH	16		// Counts demarcating fast and slow squelch mode
-#define REOPENHOLDOFF	32		// # of ticks to wait after a strong signal dissapears
-#endif
 #define ADCFS		1023	// ADC Full scale value
 #define ADCMIN		0		// ADC minimum value
 
