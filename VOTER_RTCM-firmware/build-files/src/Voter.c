@@ -421,6 +421,7 @@ DWORD lastrxtimer;
 WORD cwtimer;
 BYTE gpswarn;
 BOOL ppswarn;
+BOOL ppsx;
 UDP_SOCKET udpSocketUser;
 NODE_INFO udpServerNode;
 DWORD dwLastIP;
@@ -913,6 +914,8 @@ short i,x;
 	return(x);
 }
 
+/* This ISR uses Change Notification, and runs when PPS changes. PPS is connected to RA4 (CN0).
+   Every time we get a PPS signal, we mask off RA4 (0x10) and read it. If it is valid, we clear ppsx and continue. */ 
 void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
 
@@ -926,13 +929,15 @@ int vpdiff;			/* Current change to valpred */
 long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
-BOOL ppsx;
 
 	CORCONbits.PSV = 1;
 	// If PPS signal is asserted
 	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) ||
-		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) ppsx = 1;
-	else ppsx = 0;
+		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) 
+		ppsx = 1; // PPS not good
+	else
+		ppsx = 0; // PPS is good
+
 #ifdef	GGPS
 	if (gotpps && (ppscount >= 3) && (AppConfig.DebugLevel & 4)) 
 	{
@@ -2338,7 +2343,10 @@ extern float doubleify(BYTE *p);
 #ifdef GGPS
 			printf("%d GPS-DEBUG: %s\n",ggps_unavail,gps_buf);
 #else
-			printf("GPS-DEBUG: %s\n",gps_buf);
+			{
+				printf("GPS-DEBUG: %s\n",gps_buf);
+				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+			}
 #endif
 
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
@@ -2507,8 +2515,11 @@ extern float doubleify(BYTE *p);
 
 			
 			if (AppConfig.DebugLevel & 32)
+			{
 			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
-			
+				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+			}
+
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 		 	return;
 		}
@@ -4881,6 +4892,7 @@ int main(void)
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
 		"GPS Lock: %d\n"
+		"PPS BAD or Wrong Polarity: %d\n"
 		"Connected: %d\n"
 		"COR: %d\n",
 		oprdata7[] = 
@@ -5510,7 +5522,7 @@ __builtin_nop();
 				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor);
+				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,ppsx,connected,lastcor);
 				main_processing_loop();
 				secondary_processing_loop();
 #ifdef	GGPS
