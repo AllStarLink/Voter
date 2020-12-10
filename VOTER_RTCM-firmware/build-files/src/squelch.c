@@ -26,7 +26,6 @@
 #include "TCPIP Stack/TCPIP.h"
 
 // Tunable constants
-#define SQOPEN		928		// Squelch open setting
 #define CALNOISE	900		// Peak noise amplitude to look for during calibration.
 #define HYSTERESIS	24		// Amount of hysteresis to open /close in noisy mode
 #define ADCFS		1023	// ADC Full scale value
@@ -291,7 +290,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 				   squelch instantly. */
 				if(noise50msago < 64) {  // relativly strong signal 50ms ago?
 					if(noise >= sqposp){ // but carrier gone right now (due to unkey) (no averaging) then instantly close.
-						mavnoise32 = CALNOISE; // This resets the moving average noise buffer? Should we?
+						mavnoise32 = CALNOISE; // This resets the moving average noise buffer?
 						cor = 0;
 						sqled = 0;
 						sqstate = CLOSED;
