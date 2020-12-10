@@ -44,18 +44,18 @@ enum {COR_NOCHANGE=0, COR_OFF, COR_ON};
 
 // RAM variables
 
-static BYTE sqstate;				// Squelch state
-static BYTE calstate;				// Calibration state
+static BYTE sqstate;			// Squelch state
+static BYTE calstate;			// Calibration state
 
-static BYTE looptimer;				// GP loop timer for interrupt state machines
-static BYTE noisehead;				// Noise history buffer head
-static WORD mavnoise32;  			// Modified average noise over 32 samples
-static WORD noisehistory[NHBSIZE];		// Noise history buffer
-static WORD sqposm, sqposp;		// Squelch position without, with positive, and with negative hysteresis
+static BYTE looptimer;			// GP loop timer for interrupt state machines
+static BYTE noisehead;			// Noise history buffer head
+static WORD mavnoise32;  		// Modified average noise over 32 samples
+static WORD noisehistory[NHBSIZE];	// Noise history buffer
+static WORD sqposm, sqposp;		// Squelch position with negative (posm) and positive (posp) hysteresis
 
 // RAM variables intended to be read by other modules
-BOOL cor;					// COR output
-BOOL sqled;					// Squelch LED output
+BOOL cor;				// COR output
+BOOL sqled;				// Squelch LED output
 BOOL write_eeprom_cali;			// Flag to write calibration values back to EEPROM
 BYTE noise_gain;			// Noise gain sent to digital pot
 WORD caldiode;				// Diode voltage at calibration time (only to be written if 'wvf' is true
@@ -75,7 +75,7 @@ static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
 
 #define SPI_ON_BIT          (POT_SPISTATbits.SPIEN)
 
-BOOL set_atten(BYTE val)
+BOOL set_atten(BYTE val) // set the input attenuator softpot VOTER IC1 (MCP4131)
 {
 
     volatile BYTE vDummy;
@@ -119,6 +119,8 @@ void init_squelch(void)
 	mavnoise32 = CALNOISE;
 }
 
+
+// The main squelch routine, called from the secondary_processing_loop
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled)
 {
 
@@ -129,16 +131,18 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 
 	//output_toggle(DBG1);
 
-	if(looptimer)
+	if(looptimer) // looptimer is used in the various state machines it. It just burns cycles down to 0.
 		looptimer--;
 
 	if(sqpos < HYSTERESIS + 2 )
 		sqpos = HYSTERESIS + 2 ; // The tightest squelch setting has to be gte to hysteresis + 2;
 
+	// Ring buffer to hold noise measurements
 	noisehistory[noisehead] = noise;
 	noisehead++;
 	noisehead &= (NHBSIZE - 1);
 
+	// Temperature compensation. caldiode is the diode voltage stored in nvram during calibration
 	tcomp = caldiode - diode;	
 	sqposcomp = sqpos + tcomp;
 
@@ -168,18 +172,18 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 
 	// *** State machines ***
 
-	if(cal){ // Calibration mode?
+	if(cal){ // Calibration mode
 		cor = 0;
 		switch(calstate){
 			case START:
-				noise_gain = 0;
+				noise_gain = 0; // Start caibration with the wiper of the MCP4131 at ground (PDW=PDB)
 				looptimer = 100; // For debouncing
 				calstate = DEBOUNCE;
 				break;
 
 			case DEBOUNCE:
-				if(!looptimer){
-					if(cal){ // Double check
+				if(!looptimer){ // When the looptimer (started at 100) hits 0, move on to SQSET
+					if(cal){ // Double check we are still in calibration mode
 						sqled = 0;
 						calstate = SQSET;
 					}
@@ -188,19 +192,30 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 			
 	
 			case SQSET:
-				mavnoise32 = 0; // reset modified average
-				set_atten(noise_gain); // Set level
-				if((noise_gain & 0x07) == 0x07)
+				mavnoise32 = 0; // reset modified average to 0 before we start testing
+				set_atten(noise_gain); // Set MCP4131 soft pot level to current noise_gain setting
+				if((noise_gain & 0x07) == 0x07) // This just flashes the LED as it is calibrating
 					sqled = 1;
 				else
 					sqled = 0;
-				looptimer = 128; // wait
+				looptimer = 128; // Set our looptimer delay and move on to TEST
 				calstate = TEST;
 				break;
-					
 
+			/* Now we actually measure the discriminator noise level. 
+			   We start with the softpot (noise_gain) at 0, which grounds the wiper, and is max atten.
+			   Every time looptimer = 0 (decremented above), we sample the average noise, and compare it to CALNOISE.
+			   If we've hit the target (CALNOISE), check the softpot. If it is <8, then the discriminator 
+			   level is too hot to be effective, so bail out TOO_HIGH.
+			   If we've hit the target (CALNOISE), and our softpot is between 8-127, we're done! Write it!
+			   If we haven't reached CALNOISE yet, bump up the softpot by one (reduce attenuation one step) 
+			   and go back to SQSET to set the softpot, reset the noise measurement, reset the looptimer,
+			   and try again.
+			   If we've maxed out the softpot (noise_gain > 127), and we still haven't got noise above 
+			   CALNOISE, we don't have enough discriminator audio, so bail out TOO_LOW. */
+			   			
 			case TEST:
-				if(!looptimer){
+				if(!looptimer){ // Every 129th time we get here, check the noise level.
 					if(mavnoise32 > CALNOISE){
 						if(noise_gain < 8)
 							calstate = TOO_HIGH;
@@ -224,21 +239,21 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 
 	
 			case DONE:
-				sqled = 1; // Success
+				sqled = 1; // Success, turn on the Squelch LED solid
 				break;
 
 	
 			case TOO_LOW: // Level Too Low
 				if(!looptimer){
 					sqled ^= 1;
-					looptimer = 200;
+					looptimer = 200; // Flash the Squelch LED slow to indicate noise too low
 				}
 				break;
 
 			case TOO_HIGH: // Level Too High
 				if(!looptimer){
 					sqled ^= 1;
-					looptimer = 25;
+					looptimer = 25; // Flash the Squelch LED fast to indicate noise too high
 				}
 				break;
 
@@ -253,10 +268,12 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 		// State machine
 		switch(sqstate){
 
-			case CLOSED:
+			case CLOSED: // Always start with the squelch closed
 				sqled = 0;
 				cor = 0;
-				if(mavnoise32 < sqposm){
+				/* Check if signal (mavnoise32) is quieter (stronger) than lower hysteresis point,
+				   if it is, open the squelch. Otherwise, leave it closed. */
+				if(mavnoise32 < sqposm){ 
 					if (iscaled) cor = 1;
 					sqled = 1;
 					sqstate = OPEN;
@@ -266,14 +283,22 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 			case OPEN:
 				if (iscaled) cor = 1;
 				sqled = 1;
+				// If the squelch is open, now check and see if the signal is getting noisy (larger value)
+
+				/* This is the 2-stage squelch action.
+				   First, let's check and see if we had a strong signal, but now the current value (noise) 
+				   is larger than the positive hysteresis (squelch close threshold), and close the 
+				   squelch instantly. */
 				if(noise50msago < 64) {  // relativly strong signal 50ms ago?
 					if(noise >= sqposp){ // but carrier gone right now (due to unkey) (no averaging) then instantly close.
-						mavnoise32 = CALNOISE;
+						mavnoise32 = CALNOISE; // This resets the moving average noise buffer? Should we?
 						cor = 0;
 						sqled = 0;
 						sqstate = CLOSED;
 					}
 				}
+				/* This is the "normal" squelch action, just checking to see if the average signal level 
+				   is greater (noisier) than the closure threshold. */
 				if(mavnoise32 >= sqposp){ // Slowly degrading carrier over 120ms average?
 					cor = 0;
 					sqled = 0;
