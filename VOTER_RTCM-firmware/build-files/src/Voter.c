@@ -79,6 +79,22 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 */
 
+/* NOTE: By default, audio between the host and the client will be 
+   encoded in ulaw, UNLESS specifically set by the adpcm option 
+   in voter.conf on the host.
+*/
+
+/* VOTER (through-hole) runs on:	dsPIC33FJ128GP802
+   RTCM (aka SMT_BOARD) runs on:	dsPIC33FJ128GP804
+*/
+
+/* Fortunately now, the problem that we had with weak signals producing RSSI readings all over the place
+   (and was dealt with by using a longer-term, but less responsive average) is now fixed, thanks to Chuck,
+   WB9UUS for pointing out the 16 bit value overflow that was being caused! It works much more better-er now,
+   and produces rock-solid, stable results even on barely or non-readable signals. Old code has since been 
+   removed, "Chuck Squelch" is now the default.
+*/
+
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
 char	VERSION[] = "2.00 BEW 12/06/2020";
@@ -107,15 +123,15 @@ char	VERSION[] = "2.00 12/06/2020";
 
 #if defined(SMT_BOARD)
 
-	#define	CTCSSIN	_RA7
-	#define	JP8	_RA8
-	#define	JP9	_RA9
-	#define	JP10 _RA10
+	#define	CTCSSIN	_RA7	// Pin 13
+	#define	JP8	_RA8	// Pin 32 - Init EEPROM
+	#define	JP9	_RA9	// Pin 35 - Calibrate Squelch
+	#define	JP10 	_RA10	// Pin 12 - Calibrate Diode
 
-	#define	JP11 _RB9
+	#define	JP11 	_RB9	// Pin 1 - Set LED3/4 for RX Level Mode
 	
-	#define	INITIALIZE JP8 // Short JP8 on powerup to initialize EEPROM
-	#define	INITIALIZE_WVF JP10  // Short on powerup while JP8 is shorted to also initialize Diode VF
+	#define	INITIALIZE 	JP8 	// Short JP8 on powerup to initialize EEPROM
+	#define	INITIALIZE_WVF 	JP10  	// Short on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATB8
 
@@ -126,7 +142,7 @@ char	VERSION[] = "2.00 12/06/2020";
 #endif
 
 #else
-
+	// Register addresses in the MCP23S17 IO Expander
 	#define	IOEXP_IODIRA 0
 	#define	IOEXP_IODIRB 1
 	#define IOEXP_IOPOLA 2
@@ -149,113 +165,113 @@ char	VERSION[] = "2.00 12/06/2020";
 	#define	IOEXP_OLATA 20
 	#define	IOEXP_OLATB 21
 	
-	#define	CTCSSIN	(inputs1 & 0x10)
-	#define	JP8	(inputs1 & 0x40)
-	#define	JP9	(inputs1 & 0x80)
-	#define	JP10 (inputs2 & 1)
-	#define	JP11 (inputs2 & 2)
+	#define	CTCSSIN	(inputs1 & 0x10)	// Pin 25 - GPA4
+	#define	JP8	(inputs1 & 0x40)	// Pin 27 - GPA6 Initialise EEPROM
+	#define	JP9	(inputs1 & 0x80)	// Pin 28 - GPA7 Calibrate Squelch
+	#define	JP10 	(inputs2 & 1)		// Pin 1  - GPB0 Calibrate Diode
+	#define	JP11 	(inputs2 & 2)		// Pin 2  - GPB1 LED 3/4 RX Level Mode
 
 	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
-	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
+	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short JP10 on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATA1
 	#define	TESTBIT_TRIS TRISAbits.TRISA1
 
+// Disable DIAGMENU if we are building DSPBEW option firmware
 #ifndef	DSPBEW
 	#define	DIAGMENU
 #endif
 
 #endif
 
-#define WVF JP10				// Short on pwrup to initialize default values
-#define CAL JP9					// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
-						// this is shorted also calibrates the temp. conpensation diode (at room temp.)
-#define	LEVDISP JP11				// Short to change GPS/CONNECT LED's to be audio level display97:
+#define WVF 	JP10		// Short to calibrate diode voltage for temperature compensation
+#define CAL 	JP9		// Short to calibrate squelch noise. 
+				// Shorting the INITIALIZE jumper (JP8) while shorting JP10 also 
+				// calibrates the temp. conpensation diode (do at room temp.)
+#define	LEVDISP JP11		// Short to change GPS/CONNECT LED's to be audio level display97:
 
-#define SYSLED 0
-#define	SQLED 1
-#define	GPSLED 2
+#define SYSLED 	0
+#define	SQLED 	1
+#define	GPSLED 	2
 #define CONNLED 3
 
 #if defined (GGPS)
-#define	BAUD_RATE1 38400
-#define	BAUD_RATE2 38400
+#define	BAUD_RATE1 	38400
+#define	BAUD_RATE2 	38400
 #else
-#define	BAUD_RATE1 57600
-#define	BAUD_RATE2 4800
+#define	BAUD_RATE1 	57600
+#define	BAUD_RATE2 	4800
 #endif
 
-#define	FRAME_SIZE 160
-#define	ADPCM_FRAME_SIZE 320
+#define	FRAME_SIZE 		160
+#define	ADPCM_FRAME_SIZE 	320
 #ifdef	DSPBEW
-#define	MAX_BUFLEN 4800 // 0.6 seconds of buffer
+#define	MAX_BUFLEN 		4800 	// 0.6 seconds of buffer
 #else
-#define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
+#define	MAX_BUFLEN 		6400 	// 0.8 seconds of buffer
 #endif
-#define	DEFAULT_TX_BUFFER_LENGTH 3000 // approx 300ms of Buffer
-#define	VOTER_CHALLENGE_LEN 10
-#define	ADCOTHERS 3
-#define	ADCSQNOISE 0
-#define	ADCDIODE 2
-#define	ADCSQPOT 1
-#define NOISE_SLOW_THRESHOLD 500   // Figures seem to be stable >= 20db quieting or so
-#define DEFAULT_VOTER_PORT 667
-#define	PPS_WARN_TIME (1200 * 8) // 1200ms PPS Warning Time
-#define PPS_MAX_TIME (2400 * 8) // 2400 ms PPS Timeout
-#define	PPS_MUSTA_TIME (950 * 8)
-#define	GPS_NMEA_WARN_TIME (1200 * 8) // 1200 ms GPS Warning Time
-#define GPS_NMEA_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
-#define	GPS_TSIP_WARN_TIME (5000ul * 8ul) // 5000 ms GPS Warning Time
-#define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
+#define	DEFAULT_TX_BUFFER_LENGTH 3000 	// approx 300ms of Buffer
+#define	VOTER_CHALLENGE_LEN 	10
+#define	ADCOTHERS 		3	// How many "other" ADC channels do we use?
+#define	ADCSQNOISE 		0	// Index for squelch noise (RSSI) ADC channel
+#define	ADCDIODE 		2	// Index for diode voltage channel
+#define	ADCSQPOT 		1	// Index for squelch pot position channel
+#define DEFAULT_VOTER_PORT 	667		// Default UDP port to send on
+#define	PPS_WARN_TIME 		(1200 * 8) 	// 1200ms PPS Warning Time
+#define PPS_MAX_TIME 		(2400 * 8) 	// 2400 ms PPS Timeout
+#define	PPS_MUSTA_TIME 		(950 * 8)
+#define	GPS_NMEA_WARN_TIME 	(1200 * 8) 	// 1200 ms GPS Warning Time
+#define GPS_NMEA_MAX_TIME 	(2400 * 8) 	// 2400 ms GPS Timeout
+#define	GPS_TSIP_WARN_TIME 	(5000ul * 8ul) 	// 5000 ms GPS Warning Time
+#define GPS_TSIP_MAX_TIME 	(10000ul * 8ul) // 10000 ms GPS Timeout
 #ifdef	GGPS
-#define GPS_KICK_WAIT_TIME (240000ul * 8ul) // 240000 ms GPS Timeout
-#define GPS_KICK_TIME (1000ul * 8ul) // 1000 ms GPS Reset time
+#define GPS_KICK_WAIT_TIME 	(240000ul * 8ul) // 240000 ms GPS Timeout
+#define GPS_KICK_TIME 		(1000ul * 8ul) 	// 1000 ms GPS Reset time
 #endif
-#define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
-#define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
-#define LASTRX_TIME (6000ul * 8ul) // Timeout if nothing heard after 6 seconds
-#define TELNET_TIME (100 * 8) // Telnet output buffer timer (quasi-Nagle algorithm)
-#define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
-#define BEFORECW_TIME (700 * 8) // Delay to hold PTT before cw sent
-#define AFTERCW_TIME (350 * 8) // Delay to hold PTT after cw sent
-#define DSECOND_TIME (100 * 8) // Delay to hold PTT after cw sent
-#define	MAX_ALT_TIME (15 * 2) // Seconds to try alt host if not connected
-#define	MIN_PING_TIME (95 * 8) // Minimum ping time
-#define	MISS_REPORT_TIME 100 // Interval between "miss packet" reports (1/10 secs)
-#define	PKT_MISS_TIME (500 * 8)	// 500ms for display of miss packet (winky LED) 
-#define	SECOND_TIME (1000 * 8)	// 1000ms
-#define	NCOLS 75
-#define	LEVDISP_FACTOR 25
+#define GPS_FORCE_TIME 		(1500 * 8)  	// Force a GPS (Keepalive) every 1500ms regardless
+#define ATTEMPT_TIME 		(500 * 8) 	// Try connection every 500 ms
+#define LASTRX_TIME 		(6000ul * 8ul) 	// Timeout if nothing heard after 6 seconds
+#define TELNET_TIME 		(100 * 8) 	// Telnet output buffer timer (quasi-Nagle algorithm)
+#define	MASTER_TIMING_DELAY 	50 		// Delay to send packet if not master (in 125us increments)
+#define BEFORECW_TIME 		(700 * 8) 	// Delay to hold PTT before cw sent 700ms
+#define AFTERCW_TIME 		(350 * 8) 	// Delay to hold PTT after cw sent 350ms
+#define DSECOND_TIME 		(100 * 8) 	// Delay to hold PTT after cw sent 100ms
+#define	MAX_ALT_TIME 		(15 * 2) 	// Seconds to try alt host if not connected
+#define	MIN_PING_TIME 		(95 * 8) 	// Minimum ping time 95ms
+#define	MISS_REPORT_TIME 	100 		// Interval between "miss packet" reports (1/10 secs)
+#define	PKT_MISS_TIME 		(500 * 8)	// 500ms for display of miss packet (winky LED) 
+#define	SECOND_TIME 		(1000 * 8)	// 1000ms
+#define	NCOLS 			75
+#define	LEVDISP_FACTOR 		25
 #define	TSIP_FACTOR 57.295779513082320876798154814105 // radians to degrees, Trimble reports lat/long in rads
-#define ADD_1024_WEEKS 619315200 // 1024 weeks for Tbolt time fudge
-#define	ULAW_SILENCE 0xff
-#define	ADPCM_SILENCE 0
-#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))
-#define	DIAG_WAIT_UART (TICK_SECOND / 3ul)
-#define	DIAG_WAIT_MEAS (TICK_SECOND * 2)
-#define	DIAG_NOISE_GAIN 0x28
-#define	NAPEAKS 50
-#define	QUALCOUNT 4
+#define ADD_1024_WEEKS 		619315200 	// 1024 weeks for Tbolt time fudge
+#define	ULAW_SILENCE 		0xff		// Clamp audio for ulaw silence
+#define	ADPCM_SILENCE 		0		// Clamp audio for ADPCM silence
+#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))	// 1 if PPS is != ignore and not in diagnostic mode
+#define	DIAG_WAIT_UART 		(TICK_SECOND / 3ul)	
+#define	DIAG_WAIT_MEAS 		(TICK_SECOND * 2)
+#define	DIAG_NOISE_GAIN 	0x28
+#define	NAPEAKS 		50
+#define	QUALCOUNT 		4
 #ifdef	GGPS
-#define	GRESTARTTIME 604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
-#define	GSODMIN 10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
-#define	GSODMAX 14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
-#define	HWLOCK (inputs2 & 16)  // Has GPS H/W lock (for GGPS)
-#define HWLOCK_TIME (10000ul * 8) // 10000ms for lock settle
+#define	GRESTARTTIME 		604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
+#define	GSODMIN 		10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
+#define	GSODMAX 		14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
+#define	HWLOCK 			(inputs2 & 16)  // Has GPS H/W lock (for GGPS), IO Expander GPB4 - Pin 5
+#define HWLOCK_TIME 		(10000ul * 8) // 10000ms for lock settle
 #endif
 
-#define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
-#define CLIP 32635
+#define BIAS 			0x84   		// define the add-in bias for 16 bit ulaw samples
+#define CLIP 			32635
 
-#define	DUPLEX3 (AppConfig.Duplex3 != 0)
-#define	SIMULCAST_ENABLE (AppConfig.LaunchDelay > 0)
+#define	DUPLEX3 		(AppConfig.Duplex3 != 0)	// Not supported in voting or simulcast configurations 
+#define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	// If the launch delay is anything but 0, use simulcast mode
 
 #ifdef DSPBEW
-
-#define FFT_BLOCK_LENGTH 32
-#define LOG2_BLOCK_LENGTH 5
-#define	FFT_TOP_SAMPLE_BUCKET 16 // 3000 Hz
-#define	FFT_MAX_RESULT 10
+#define FFT_BLOCK_LENGTH 	32
+#define LOG2_BLOCK_LENGTH 	5
+#define	FFT_TOP_SAMPLE_BUCKET 	16 // 3000 Hz
+#define	FFT_MAX_RESULT 		10
 
 fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
 
@@ -273,7 +289,7 @@ __attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
 
 #define ROMNOBEW ROM
 
-#endif
+#endif // DSPBEW
 
 struct meas {
 	WORD freq;
@@ -282,23 +298,27 @@ struct meas {
 	BOOL issql;
 } ;
 
-// Fortunately now, the problem that we had with weak signals producing RSSI readings all over the place
-// (and was dealt with by using a longer-term, but less responsive average) is now fixed, thanks to Chuck,
-// WB9UUS for pointing out the 16 bit value overflow that was being caused! It works much more better-er now,
-// and produces rock-solid, stable results even on barely or non-readable signals.
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
 enum {CODEC_ULAW,CODEC_ADPCM} ;
 
-ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
-	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
-	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
-	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
-	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n";
+ROM char 	gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", 
+		gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
+		gpsmsg3[] = "  Time now syncronized to GPS\n", 
+		gpsmsg5[] = "  Lost GPS Time synchronization\n",
+		gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",
+		gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
+		gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",
+		gpsmsg9[] = "GPS signal acquired\n",
+		entnewval[] = "Enter New Value : ", 
+		newvalchanged[] = "Value Changed Successfully\n",
+		saved[] = "Configuration Settings Written to EEPROM\n";
  
-char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n";
+char 		newvalerror[] = "Invalid Entry, Value Not Changed\n", 
+		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
+		badmix[] = "  ERROR! Host rejecting connection\n",
+		hosttmomsg[] = "  ERROR! Host response timeout\n";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -312,41 +332,45 @@ typedef struct {
 	WORD payload_type;
 } VOTER_PACKET_HEADER;
 
-#define OPTION_FLAG_FLATAUDIO 1	// Send Flat Audio
-#define	OPTION_FLAG_SENDALWAYS 2	// Send Audio always
-#define OPTION_FLAG_NOCTCSSFILTER 4 // Do not filter CTCSS
-#define	OPTION_FLAG_MASTERTIMING 8  // Master Timing Source (do not delay sending audio packet)
-#define	OPTION_FLAG_ADPCM 16 // Use ADPCM rather then ULAW
-#define	OPTION_FLAG_MIX 32 // Request "Mix" option to host
-
-#ifdef DMWDIAG
-unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
-BYTE mwp;
-#endif
-
 VTIME system_time;
 VTIME last_rxpacket_time;
 VTIME last_rxpacket_sys_time;
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
 
+// Option flags sent by the host to the client, set in voter.conf for the client
+#define OPTION_FLAG_FLATAUDIO 		1	// Send Flat Audio (nodeemp or hostdeemp)
+#define	OPTION_FLAG_SENDALWAYS 		2	// Send Audio always (master)
+#define OPTION_FLAG_NOCTCSSFILTER 	4 	// Do not filter CTCSS (noplfilter)
+#define	OPTION_FLAG_MASTERTIMING 	8  	// Master Timing Source (do not delay sending audio packet) (master)
+#define	OPTION_FLAG_ADPCM 		16 	// Use ADPCM rather then ULAW (adpcm)
+#define	OPTION_FLAG_MIX 		32 	// Request "Mix" option to host (mixminux)
+
+#ifdef DMWDIAG
+unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
+BYTE mwp;
+#endif
+
 // Declare AppConfig structure and some other supporting stack variables
 APP_CONFIG AppConfig;
 BYTE AN0String[8];
 void SaveAppConfig(void);
 
-
-// Private helper functions.
+/*****************************************************************************/
+//									     //
+// 	Private helper functions					     //
+//									     //
+/*****************************************************************************/
 // These may or may not be present in all applications.
 static void InitAppConfig(void);
 static void InitializeBoard(void);
 
-// squelch RAM variables intended to be read by other modules
-extern BOOL cor;					// COR output
-extern BOOL sqled;					// Squelch LED output
-extern BOOL write_eeprom_cali;			// Flag to write calibration values back to EEPROM
-extern BYTE noise_gain;			// Noise gain sent to digital pot
-extern WORD caldiode;
+// Squelch RAM variables intended to be read by other modules
+extern BOOL cor;		// COR output
+extern BOOL sqled;		// Squelch LED output
+extern BOOL write_eeprom_cali;	// Flag to write calibration values back to EEPROM
+extern BYTE noise_gain;		// Noise gain sent to digital pot
+extern WORD caldiode;		// Diode voltage (used for temperature compensation)
 
 #ifdef DUMPENCREGS
 extern void DumpETHReg(void);
@@ -356,28 +380,31 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 void init_squelch(void);
 BOOL set_atten(BYTE val);
 
-/////////////////////////////////////////////////
-//Global variables 
-WORD portasave;
-BYTE inputs1;
-BYTE inputs2;
-BYTE aliveCntrMain; //Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
+/*****************************************************************************/
+//									     //
+//	Global Variable Definitions					     //
+//									     //
+/*****************************************************************************/
+WORD portasave;		// Get the PPS input from RA4(CN0) on interrupt
+BYTE inputs1;		// GPA I/O on IO Expander
+BYTE inputs2;		// GPB I/O on IO Expander
+BYTE aliveCntrMain; 	// Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
 BOOL aliveCntrDec;
 BYTE filling_buffer;
 WORD fillindex;
 BOOL filled;
-BYTE audio_buf[2][FRAME_SIZE + 3];
-BOOL connected;
-BYTE rssi;
-BYTE rssiheld;
-BYTE gps_buf[160];
-BYTE gps_bufindex;
+BYTE audio_buf[2][FRAME_SIZE + 3];	// Audio buffer array
+BOOL connected;		// Connected to host
+BYTE rssi;		
+BYTE rssiheld;		
+BYTE gps_buf[160];	// GPS receive buffer array
+BYTE gps_bufindex;	// GPS receive buffer array index pointer
 BYTE TSIPwasdle;
-BYTE gps_state;
-BYTE gps_nsat;
-BOOL gpssync;
-BOOL gotpps;
-DWORD gps_time;
+BYTE gps_state;		// Current GPS state (idle, receiving, valid, synched) 
+BYTE gps_nsat;		// Number of satellites in view (not necessarily locked)
+BOOL gpssync;		// Set only when GPS_STATE_VALID
+BOOL gotpps;		// Set only when GPS_STATE_VALID and PPS is valid
+DWORD gps_time;		
 WORD gpsweek;
 WORD gpsleap;
 BYTE ppscount;
@@ -1131,12 +1158,24 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 	IEC4bits.DAC1LIE = 1;
 }
 
-
+/*****************************************************************************/
+//									     //
+//		ADC ISR							     //
+//									     //
+/*****************************************************************************/
+/* Every time TMR3 expires (62.5uSec), we service the ADC.
+   On ODD calls of this ISR, we grab an RX Audio value and encode it, 
+   which means, every 125uSec we encode a packet, or 8000 samples/sec (8kHz) 
+   audio.
+   On EVEN calls of this ISR, we rotate between getting values for RXNoise 
+   (RSSI), Squelch Pot position, and Diode Voltage (temp comp).
+   EVERY time through, we bump some counters.
+*/ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
 
 
-WORD index;
+WORD index;		// Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff)
 
 #ifndef GGPS
 long accum;
@@ -1144,32 +1183,38 @@ short saccum;
 BYTE i;
 
 //Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
+int val;		/* Current input sample value */
+int sign;		/* Current adpcm sign bit */
+BYTE delta;		/* Current adpcm output value */
+int diff;		/* Difference between val and valprev */
+int step;		/* Stepsize */
+int vpdiff;		/* Current change to valpred */
 long valpred;		/* Predicted output value */
 int adpcm_index;
 BYTE *cp;
 #endif
 
-	CORCONbits.PSV = 1;
-	index = ADC1BUF0;
-	if (adcother)
+CORCONbits.PSV = 1;
+index = ADC1BUF0;	// Copy the current ADC buffer value
+	if (adcother) 	// True if this time we're processing other ADC channels (not RX Audio)
 	{
+		// Divide by 4, effectively scaling the ADC value to 0x000-0x3ff (0-1023)
+		// and increment the ADC channel index (used at the end to select the next channel)
 		adcothers[adcindex++] = index >> 2;
-		if(adcindex >= ADCOTHERS) adcindex = 0;
-		AD1CHS0 = 0;
+		if(adcindex >= ADCOTHERS) adcindex = 0; // Reset if we've already gone through all the channels
+		AD1CHS0 = 0; // Reset our ADC channel (0 is RX Audio)
+
+		// Bump some timers to make sure everything is okay
 		if (gotpps) ppstimer++;
 		if (gps_state != GPS_STATE_IDLE) gpstimer++;
+
 #ifdef	GGPS
 		if (((!gpskicking) && gotpps && (gps_state == GPS_STATE_VALID)) || (!USE_PPS))
 			gpskicktimer = 0;
 		else
 			gpskicktimer++;
 #endif
+
 		if (connected) 
 		{
 			gpsforcetimer++;
@@ -1178,9 +1223,12 @@ BYTE *cp;
 			if (pingtimer) pingtimer--;
 			if (misstimer1) misstimer1--;
 		}
+
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
+
 		termbuftimer++;
+
 		if (cwtimer1) cwtimer1--;
 		dsecondtimer++;
 		if (dsecondtimer >= DSECOND_TIME)
@@ -1191,6 +1239,7 @@ BYTE *cp;
 			uptimer++;
 			if (misstimer) misstimer--;
 		}
+
 		if (secondtimer++ >= SECOND_TIME)
 		{
 			secondtimer = 0;
@@ -1210,11 +1259,14 @@ BYTE *cp;
 		}
 #endif
 	}
-	else
+	else	// Not processing other ADC channels, we're doing RX Audio
 	{
-		last_index = last_index1;
-		last_index1 = index;
+		last_index = last_index1;	// Previous sample becomes last_index
+		last_index1 = index;		// Current sample becomes last_index1
 #ifndef GGPS
+		// If we're not simulcasting, or we are simulcasting and not using PPS, 
+		// we're going to encode an RX Audio sample. 
+		// Otherwise, we're just going to skip it.
 		if (!(SIMULCAST_ENABLE && USE_PPS))
 		{
 			if (gotpps || (!USE_PPS))
@@ -1224,32 +1276,37 @@ BYTE *cp;
 					next_index = samplecnt;
 					next_time = real_time;
 				}
-				last_adcsample = index;
+				
+				last_adcsample = index;	// index is the current ADC Buffer value
+				
 				// Make 16 bit number from 12 bit ADC sample
-				saccum = index;
+				saccum = index;	// index is the current ADC Buffer value
 				saccum -= 2048;
 				accum = saccum * 16;
-	            if (accum > amax)
-	            {
-	                amax = accum;
-	                discounteru = discfactor;
-	            }
-	            else if (--discounteru <= 0)
-	            {
-	                discounteru = discfactor;
-	                amax = (long)((amax * 32700) / 32768L);
-	            }
-	            if (accum < amin)
-	            {
-	                amin = accum;
-	                discounterl = discfactor;
-	            }
-	            else if (--discounterl <= 0)
-	            {
-	                discounterl = discfactor;
-	                amin = (long)((amin * 32700) / 32768L);
-	            }
+	            		if (accum > amax)
+	            		{
+	                		amax = accum;
+	                		discounteru = discfactor;
+	            		}
+	            		else if (--discounteru <= 0)
+	            		{
+	                		discounteru = discfactor;
+	                		amax = (long)((amax * 32700) / 32768L);
+	            		}
+				if (accum < amin)
+	            		{
+	                		amin = accum;
+	                		discounterl = discfactor;
+	            		}
+	            		else if (--discounterl <= 0)
+	            		{
+	                		discounterl = discfactor;
+	                		amin = (long)((amin * 32700) / 32768L);
+				}
+				
+				// Reset the sample counter when we hit 8000 samples
 				if ((!USE_PPS) && (samplecnt == 8000)) samplecnt = 0;
+	
 				if (samplecnt++ < 8000)
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
@@ -1257,16 +1314,16 @@ BYTE *cp;
 						val = index;
 						val -= 2048;
 						val *= 16;
-	
+					
 						adpcm_index = enc_index;
 						valpred = enc_valprev;
-					    step = stepsizeTable[adpcm_index];
-						
+						step = stepsizeTable[adpcm_index];
+							
 						/* Step 1 - compute difference with previous value */
 						diff = val - valpred;
 						sign = (diff < 0) ? 8 : 0;
 						if ( sign ) diff = (-diff);
-					
+						
 						/* Step 2 - Divide and clamp */
 						/* Note:
 						** This code *approximately* computes:
@@ -1279,41 +1336,46 @@ BYTE *cp;
 						delta = 0;
 						vpdiff = (step >> 3);
 						
-						if ( diff >= step ) {
-						    delta = 4;
-						    diff -= step;
-						    vpdiff += step;
+						if ( diff >= step ) 
+						{
+							delta = 4;
+							diff -= step;
+							vpdiff += step;
 						}
 						step >>= 1;
-						if ( diff >= step  ) {
-						    delta |= 2;
-						    diff -= step;
-						    vpdiff += step;
+						if ( diff >= step  ) 
+						{
+							delta |= 2;
+							diff -= step;
+							vpdiff += step;
 						}
 						step >>= 1;
-						if ( diff >= step ) {
-						    delta |= 1;
-						    vpdiff += step;
+						if ( diff >= step ) 
+						{
+							delta |= 1;
+							vpdiff += step;
 						}
-					
+						
 						/* Step 3 - Update previous value */
 						if ( sign )
-						  valpred -= vpdiff;
+							valpred -= vpdiff;
 						else
-						  valpred += vpdiff;
-					
+							valpred += vpdiff;
+						
 						/* Step 4 - Clamp previous value to 16 bits */
 						if ( valpred > 32767 )
-						  valpred = 32767;
+							valpred = 32767;
 						else if ( valpred < -32768 )
-						  valpred = -32768;
-					
+							valpred = -32768;
+						
 						/* Step 5 - Assemble value, update index and step values */
 						delta |= sign;
 						
 						adpcm_index += indexTable[delta];
-						if ( adpcm_index < 0 ) adpcm_index = 0;
-						if ( adpcm_index > 88 ) adpcm_index = 88;
+						if ( adpcm_index < 0 ) 
+							adpcm_index = 0;
+						if ( adpcm_index > 88 ) 
+							adpcm_index = 88;
 						enc_valprev = valpred;
 						enc_index = adpcm_index;
 						if (fillindex & 1)
@@ -1328,28 +1390,31 @@ BYTE *cp;
 					}
 					else  // is ULAW
 					{
-				        short sample,sign, exponent, mantissa;
-				        BYTE ulawbyte;
-				
+						short sample,sign, exponent, mantissa;
+						BYTE ulawbyte;
+					
 						sample = index;
 						sample -= 2048;
 						sample *= 16;
-				        /* Get the sample into sign-magnitude. */
-				        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-				        if (sign != 0)
-				                sample = -sample;              /* get magnitude */
-				        if (sample > CLIP)
-				                sample = CLIP;             /* clip the magnitude */
-				
-				        /* Convert from 16 bit linear to ulaw. */
-				        sample = sample + BIAS;
-				        exponent = exp_lut[(sample >> 7) & 0xFF];
-				        mantissa = (sample >> (exponent + 3)) & 0x0F;
-				        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-	
-						audio_buf[filling_buffer][fillindex++] = ulawbyte;
+					
+					        /* Get the sample into sign-magnitude. */
+					        sign = (sample >> 8) & 0x80;	/* set aside the sign */
+					        if (sign != 0)
+					                sample = -sample;	/* get magnitude */
+					        if (sample > CLIP)
+					                sample = CLIP;		/* clip the magnitude */
+					
+					        /* Convert from 16 bit linear to ulaw. */
+					        sample = sample + BIAS;
+					        exponent = exp_lut[(sample >> 7) & 0xFF];
+					        mantissa = (sample >> (exponent + 3)) & 0x0F;
+					        ulawbyte = ~(sign | (exponent << 4) | mantissa);
+					
+							audio_buf[filling_buffer][fillindex++] = ulawbyte;
 					}
+					
 					if (txseqno == 0) txseqno = 3;
+					
 					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 					{
 						if (option_flags & OPTION_FLAG_ADPCM)
@@ -1361,10 +1426,14 @@ BYTE *cp;
 							enc_prev_valprev = enc_valprev;
 							enc_prev_index = enc_index;
 							txseqno++;
+							
 							if (host_txseqno) host_txseqno++;
 						}
+						
 						txseqno++;
+							
 						if (host_txseqno) host_txseqno++;
+							
 						filled = 1;
 						fillindex = 0;
 						filling_buffer ^= 1;
@@ -1378,18 +1447,24 @@ BYTE *cp;
 				}
 			}
 		} 
-#endif
+#endif	// ggps
 #if defined(SMT_BOARD)
-		AD1CHS0 = adcindex + 1;
+		AD1CHS0 = adcindex + 1; // Select the next non-RX ADC channel for next time
 #else
-		AD1CHS0 = adcindex + 2;
+		AD1CHS0 = adcindex + 2; // Select the next non-RX ADC channel for next time
 #endif
 		sqlcount++;
 	}
-	adcother ^= 1;
-	IFS0bits.AD1IF = 0;
+	adcother ^= 1;	// Toggle adcother so we switch between doing an RX sample or other ADC sample
+	IFS0bits.AD1IF = 0; // Clear the interrupt flag, we're done!
 }
+/***************End of ADC ISR************************************************/
 
+/*****************************************************************************/
+//									     //
+//		DAC ISR							     //
+//									     //
+/*****************************************************************************/
 void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 {
 	BYTE c;
@@ -1706,6 +1781,11 @@ BYTE *cp;
 	}
 }
 
+/******************************************************************************
+//									     //
+//	These ISR's are not used					     //
+//									     //
+******************************************************************************/
 
 void __attribute__((interrupt, auto_psv)) _DefaultInterrupt(void)
 {
@@ -1733,6 +1813,9 @@ void __attribute__((interrupt, auto_psv)) _MathError(void)
    Nop();
    Nop();
 }
+
+/*****************************************************************************/
+
 
 int myfgets(char *buffer, unsigned int len);
 
@@ -2272,6 +2355,11 @@ DWORD rv;
 	return(rv);
 }
 
+/*****************************************************************************/
+//									     //
+//		Logtime Subroutine					     //
+//									     //
+/*****************************************************************************/
 #define	logtime() logtime_p(&system_time)
 
 static char *logtime_p(VTIME *p)
@@ -2288,6 +2376,11 @@ static ROM char notime[] = "<System Time Not Set>",
 	return(str);
 }
 
+/*****************************************************************************/
+//									     //
+//		Process GPS Subroutine					     //
+//									     //
+/*****************************************************************************/
 void process_gps(void)
 {
 int n;
@@ -2611,6 +2704,11 @@ extern float doubleify(BYTE *p);
 	return;
 }
 
+/*****************************************************************************/
+//									     //
+//		ADPCM Decoder Subroutine				     //
+//									     //
+/*****************************************************************************/
 void adpcm_decoder(BYTE *indata)
 {
     BYTE *inp;		/* Input buffer pointer */
@@ -2704,7 +2802,11 @@ void adpcm_decoder(BYTE *indata)
     dec_index = index;
 }
 
-
+/*****************************************************************************/
+//									     //
+//		Process UDP Packet Subroutine				     //
+//									     //
+/*****************************************************************************/
 void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
 
@@ -3062,6 +3164,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	}
 }
 
+/*****************************************************************************/
+//									     //
+//		Main Processing Loop					     //
+//									     //
+/*****************************************************************************/
 void main_processing_loop(void)
 {
 
@@ -3261,7 +3368,13 @@ void main_processing_loop(void)
 
  	if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
 }
+/***************End of Main Processing Loop***********************************/
 
+/*****************************************************************************/
+//									     //
+//		Secondary Processing Loop				     //
+//									     //
+/*****************************************************************************/
 void secondary_processing_loop(void)
 {
 
@@ -4041,6 +4154,8 @@ void secondary_processing_loop(void)
 	altchange = 0;
 	altchange1 = 0;
 }
+/***************End of Secondary Processing Loop*******************************/
+
 
 int write(int handle, void *buffer, unsigned int len)
 {
@@ -4182,6 +4297,11 @@ int count,x;
 	return(count);
 }
 
+/*****************************************************************************/
+//									     //
+//		DynDNS Subroutine					     //
+//									     //
+/*****************************************************************************/
 static void SetDynDNS(void)
 {
 	static ROM BYTE checkip[] = "checkip.dyndns.com", update[] = "members.dyndns.org";
@@ -4200,9 +4320,12 @@ static void SetDynDNS(void)
 	}
 }
 
-
+/*****************************************************************************/
+//									     //
+//		Diagnostic Menu (not included if BEW is enabled)	     //
+//									     //
+/*****************************************************************************/
 #ifdef	DIAGMENU
-
 static void DiagMenu()
 {
 
@@ -4381,6 +4504,11 @@ static void DiagMenu()
 
 #endif
 
+/*****************************************************************************/
+//									     //
+//		IP Menu							     //
+//									     //
+/*****************************************************************************/
 static void IPMenu()
 {
 
@@ -4647,6 +4775,11 @@ static void IPMenu()
 	}
 }
 
+/*****************************************************************************/
+//									     //
+//		Offline Menu						     //
+//									     //
+/*****************************************************************************/
 static void OffLineMenu()
 {
 
@@ -4823,6 +4956,12 @@ static void OffLineMenu()
 		}
 	}
 }
+
+/*****************************************************************************/
+//									     //
+//	MAIN Subroutine							     //
+//									     //
+/*****************************************************************************/
 
 int main(void)
 {
@@ -5636,34 +5775,106 @@ __builtin_nop();
 static void InitializeBoard(void)
 {	
 
-	// Crank up the core frequency Fosc = 76.8MHz, Fcy = 38.4MHz
-	PLLFBD = 30;				// Multiply by 32 for 153.6MHz VCO output (9.6MHz XT oscillator)
-	CLKDIV = 0x0000;			// FRC: divide by 2, PLLPOST: divide by 2, PLLPRE: divide by 2
+/*Setup the system clock. We are going to use the PLL in the PIC.
+Fin is input frequency (from crystal)
+Fosc is output frequency of PLL (System Clock)
+Fcy is Fosc/2 (Instruction Clock)
+
+Fosc = Fin ( M/(N1 * N2) )
+
+M is PLLFBD, but PLLFBD is offset by 2, so 30 is actually 32
+N1 is PLLPRE
+N2 is PLLPOST
+N1 and N2 are configured with CLKDIV
+In this case, N1 = N2 =2
+
+Therefore, with a 9.6MHz crystal (Fin), Fosc = 9.6 ( 32 / 4 ) = 76.8MHz and 
+Fcy is then 38.4MHz. Fvco is before PLLPOST, so Fvco = 153.6MHz.
+
+For the DAC, it uses 256x oversampling, and it's clock will be Fosc. It is 
+configured (below) for divide by 75. So, our sample rate becomes 
+(153.6MHz / 256) / 75 = 8000 samples/sec, aka 8kHz sampling. ***This is 
+critical for the ADPCM/uLAW encode/decode.*** This limits the available 
+oscillators we can use, since we need to be able to configure the PLL to 
+give us Fosc of 153.6MHz. Note, 9.8304MHz SHOULD also work, with the correct 
+PLL settings... this is aka CDMA 8x Chip in ex-CDMA GPSDO's... just 'sayin. */
+
+	// Multiplier (M) factor for the PLL ***offset by 2*** so it is really 32
+	PLLFBD = 30;
+	// N1=Fxtal/2, N2=Fvco/2
+	CLKDIV = 0x0000;
+	// Primary OSC is Clock Source, Divide by 1, AOSC disabled, 
+	// PLL output (Fvco) provides source for Aux Clock Divider
 	ACLKCON = 0x780;
 
 
 //_________________________________________________________________
+/* Timer 3 is used for it's special feature to be able to trigger 
+an ADC conversion. TMR3 always generates the ADC interrupt, the 
+ADC must be configured to use it.
+
+The divide by 8 prescaler makes each timer tick:
+1/(Fcy/8) = 1/(38.4MHz/8) = 0.208uSec
+
+So, every 300*0.208uSec = 62.5uSec, which is the sample time for 
+the ADC, after which we will trigger an ADC conversion.
+
+ADC conversion time is calculated as:
+Tcy = 1/Fcy = 1/38.4MHz = 0.026042uS
+Tad = 4*Tcy (configured below) = 0.1042uS
+Tconv = 14*Tad = 1.458uS for 12-bit mode
+*/
+	// Turn off interrupts while we configure them.
 	DISABLE_INTERRUPTS();
 
-	T3CON = 0x10;			//TMR3 divide Fosc by 8
-	PR3 = 299;				//Set to period of 300
-	T3CONbits.TON = 1;		//Turn it on
+	// Timer 3, continue in idle mode, gating disabled, 
+	// divide Fcy by 8
+	T3CON = 0x10;
+	// Set to period to 299 + 1 (total 62.5uSec)
+	PR3 = 299;
+	// Turn it on
+	T3CONbits.TON = 1;
 
+// Configure our ADC pins
 #if defined(SMT_BOARD)
-	AD1PCFGL = 0xFFF0;				// Enable AN0-AN3 as analog 
+	// Enable AN0-AN3 as analog
+	AD1PCFGL = 0xFFF0; 
 #else
-	AD1PCFGL = 0xFFE2;				// Enable AN0, AN2-AN4 as analog 
+	// Enable AN0, AN2-AN4 as analog
+	// AN0 RX Audio, AN2 Noise Voltage (RSSI)
+	// AN3 SQ Ctrl Pos, AN4 Diode (Temp Comp) Votlage
+	AD1PCFGL = 0xFFE2; 
 #endif
+	
+	// ADC is operating, continue operation in idle mode
+	// DMA written in scatter/gather mode
+	// 12-bit mode, Unsigned Int output (0x0000-0x0FFF)
+	// Use TMR3 to end sampling and start conversion
+	// Sample multiple channels individually in sequence
+	// Sampling begins again immediately after last conversion
+	AD1CON1 = 0x8444;
+	// ADREF+ is AVdd and ADREF- is AVss
+	// Do not scan inputs
+	// Conversion CH0, since we are in 12-bit mode
+	// Start buffer fill at address 0x0, use channel input selects for Sample A
+	AD1CON2 = 0x0;
+	// ADC Clock from system clock (Fosc/2 = Fcy)
+	// (Clock calculations above)
+	// Auto Sample Time is 16*Tad... but this isn't used since TMR3 
+	// is controlling sample time
+	// ADC Conversion Clock Select (multiplier) = (3 + 1) Tcy = Tad
+	AD1CON3 = 0x1003;
+	// Turn on the ADC module (already turned on)
+	AD1CON1bits.ADON = 1;
 
-	AD1CON1 = 0x8444;			// TMR Sample Start, 12 bit mode (on parts with a 12bit A/D)
-	AD1CON2 = 0x0;			// AVdd, AVss, int every conversion, MUXA only, no scan
-	AD1CON3 = 0x1003;			// 16 Tad auto-sample, Tad = 3*Tcy
-	AD1CON1bits.ADON = 1;		// Turn On
-
+	// Clear the AD1 flag
 	IFS0bits.AD1IF = 0;
+	// Enable AD1 interrupts
 	IEC0bits.AD1IE = 1;
+	// Set the interrupt priority to 6
 	IPC3bits.AD1IP = 6;
 
+// Configure the DAC (TX audio output)
 	DAC1DFLT = 0;
 	DAC1STAT = 0x8000;
 	DAC1STATbits.LITYPE = 0;
@@ -5677,45 +5888,53 @@ static void InitializeBoard(void)
 	PORTA=0;	
 	PORTB=0x3c00;
 	PORTC=7;	
-	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers */
+	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers
 	TRISA = 0xFFFF;	 
-	//RB0-1 are Analog, RB2-3 are audio select, RB4 is PTT, RB5-6 are Programming Pins, RB7 is INT0 (Ethenet INT)
-	//RB8 is Test Pin, RB9 is JP11, RB10-13 are LEDs, RB14-15 are DAC outputs
+	// RB0-1 are Analog, 
+	// RB2-3 are audio select, 
+	// RB4 is PTT, RB5-6 are Programming Pins, 
+	// RB7 is INT0 (Ethenet INT)
+	// RB8 is Test Pin, RB9 is JP11, 
+	// RB10-13 are LEDs, RB14-15 are DAC outputs
 	TRISB = 0x0283;// 0x02E3;	
-	//RC0-RC2 are CS pins, RC4 is RP20/SDO, RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
+	// RC0-RC2 are CS pins, RC4 is RP20/SDO, 
+	// RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
 	TRISC = 0xFD48;
 
 	__builtin_write_OSCCONL(OSCCON & ~0x40); //clear the bit 6 of OSCCONL to unlock pin re-map
 	_U1RXR = 22;	// RP22 is UART1 RX
-	_RP23R = 3;		// RP23 is UART1 TX (U1TX) 3
+	_RP23R = 3;	// RP23 is UART1 TX (U1TX) 3
 	_U2RXR = 24;	// RP24 is UART2 RX
-	_RP25R = 5;		// RP25 is UART2 TX (U2TX) 5 
+	_RP25R = 5;	// RP25 is UART2 TX (U2TX) 5 
 	_SDI1R = 19;	// RP19 is SPI1 MISO
-	_RP21R = 8;		// RP21 is SPI1 CLK (SCK1OUT) 8
-	_RP20R = 7;		// RP20 is SPI1 MOSI (SDO1) 7
+	_RP21R = 8;	// RP21 is SPI1 CLK (SCK1OUT) 8
+	_RP20R = 7;	// RP20 is SPI1 MOSI (SDO1) 7
 	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to lock pin re-map
 
 #else
 
-	PORTA=0;	//Initialize LED pin data to off state
-	PORTB=0;	//Initialize LED pin data to off state
+	PORTA=0;	// Initialize LED pin data to off state
+	PORTB=0;	// Initialize LED pin data to off state
 	// RA4 is CN0/PPS Pulse
 #if defined (GGPS)
-	TRISA = 0xFFFF;	 //RA1 is Test Bit, tristate in this case
+	TRISA = 0xFFFF;	// RA1 is Test Bit, tristate in this case
 #else
-	TRISA = 0xFFFD;	 //RA1 is Test Bit -- Set to 0xFFF5 for RA1/RA3 Test Bits
+	TRISA = 0xFFFD;	// RA1 is Test Bit -- Set to 0xFFF5 for RA1/RA3 Test Bits
 #endif
-	//RB0-2 are Analog, RB3-4 are SPI select, RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), RB8 is RP8/SCK,
-	//RB9 is RP9/SDO, RB10 is RP10/SDI, RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, RB14-15 are DAC outputs
+	// RB0-2 are Analog, RB3-4 are SPI select, 
+	// RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), 
+	// RB8 is RP8/SCK, RB9 is RP9/SDO, RB10 is RP10/SDI, 
+	// RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, 
+	// RB14-15 are DAC outputs
 	TRISB = 0x3487;	
 
 	__builtin_write_OSCCONL(OSCCON & ~0x40); //clear the bit 6 of OSCCONL to unlock pin re-map
 	_U1RXR = 12;	// RP12 is UART1 RX
-	_RP11R = 3;		// RP11 is UART1 TX (U1TX)
+	_RP11R = 3;	// RP11 is UART1 TX (U1TX)
 	_U2RXR = 13;	// RP13 is UART2 RX
 	_SDI1R = 10;	// RP10 is SPI1 MISO
-	_RP8R = 8;		// RP8 is SPI1 CLK (SCK1OUT) 8
-	_RP9R = 7;		// RP9 is SPI1 MOSI (SDO1) 7
+	_RP8R = 8;	// RP8 is SPI1 CLK (SCK1OUT) 8
+	_RP9R = 7;	// RP9 is SPI1 MOSI (SDO1) 7
 	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to lock pin re-map
 
 	IOExpInit();

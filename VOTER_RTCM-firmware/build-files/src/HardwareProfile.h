@@ -66,11 +66,32 @@ extern char dummy_loc;
 #if defined(THIS_IS_STACK_APPLICATION)
 
 // Set Configuration Registers
+// Code Protect off, Code Protect disabled, Write Protect disabled
 _FGS( GSS_OFF & GCP_OFF & GWRP_OFF )
+
+// Primary (XT, HS, EC) oscillator with PLL
+// Start-up device with user-selected oscillator source
 _FOSCSEL( FNOSC_PRIPLL & IESO_OFF )
+
+// Clock switching and clock monitor both disabled
+// Single configuration for remappable I/O OFF
+// OSC2 is clock O/P
+// XT oscillator (3-10MHz)
 _FOSC( FCKSM_CSDCMD & IOL1WAY_OFF & OSCIOFNC_OFF & POSCMD_XT )
+
+// Watchdog Timer disabled (enabled/disabled by user software)
+// Windowed Watchdog Timer disabled (non-window mode)
+// Watchdog Timer Prescaler 1:32
+// Watchdog Timer Postscaler 1:4096
 _FWDT( FWDTEN_OFF & WINDIS_OFF & WDTPRE_PR32 & WDTPOST_PS4096)
+
+
+// I2C mapped to SDA1/SCL1
+// Power-on Reset Value disabled
 _FPOR(ALTI2C_OFF & FPWRT_PWR1 )	
+
+// JTAG disabled
+// ICD communication channel communicate on PGC3/EMUC3 and PGD3/EMUD3
 _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 #endif // Prevent more than one set of config fuse definitions
@@ -80,8 +101,8 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 
 // dsPIC33F processor
-#define GetSystemClock()		(76800000ul)      // Hz
-#define GetInstructionClock()	(GetSystemClock()/2)
+#define GetSystemClock()		(76800000ul)    // Fosc (Hz), see voter.c for how the clock is set
+#define GetInstructionClock()	(GetSystemClock()/2)	// Fcy = 38.4MHz
 #define GetPeripheralClock()	GetInstructionClock()
 
 // #define DUMPENCREGS
@@ -107,24 +128,24 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 
 #endif
 	
-#define UARTTX_TRIS			dummy_loc
-#define UARTTX_IO			dummy_loc
-#define UARTRX_TRIS			dummy_loc
-#define UARTRX_IO			dummy_loc
+#define UARTTX_TRIS		dummy_loc
+#define UARTTX_IO		dummy_loc
+#define UARTRX_TRIS		dummy_loc
+#define UARTRX_IO		dummy_loc
 
 // ENC28J60 I/O pins
-#define ENC_CS_TRIS			(TRISBbits.TRISB11)	// Comment this line out if you are using the ENC424J600/624J600, ZeroG ZG2100, or other network controller.
-#define ENC_CS_IO			dummy_loc
+#define ENC_CS_TRIS		(TRISBbits.TRISB11)	// Comment this line out if you are using the ENC424J600/624J600, ZeroG ZG2100, or other network controller.
+#define ENC_CS_IO		dummy_loc
 //#define ENC_RST_TRIS		(TRISBbits.TRISB10)	
-//#define ENC_RST_IO			(PORTBbits.RB10)
+//#define ENC_RST_IO		(PORTBbits.RB10)
 
-#define ENC_SPI_IF			(IFS0bits.SPI1IF)
-#define ENC_SSPBUF			(SPI1BUF)
-#define ENC_SPISTAT			(SPI1STAT)
+#define ENC_SPI_IF		(IFS0bits.SPI1IF)
+#define ENC_SSPBUF		(SPI1BUF)
+#define ENC_SPISTAT		(SPI1STAT)
 #define ENC_SPISTATbits		(SPI1STATbits)
-#define ENC_SPICON1			(SPI1CON1)
+#define ENC_SPICON1		(SPI1CON1)
 #define ENC_SPICON1bits		(SPI1CON1bits)
-#define ENC_SPICON2			(SPI1CON2)
+#define ENC_SPICON2		(SPI1CON2)
 
 // 25LC256 I/O pins
 #define EEPROM_CS_TRIS		dummy_loc
@@ -143,10 +164,10 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 #define POT_SPI_IF		(IFS0bits.SPI1IF)
 #define POT_SSPBUF		(SPI1BUF)
 #define POT_SPICON1		(SPI1CON1)
-#define POT_SPICON1bits	(SPI1CON1bits)
+#define POT_SPICON1bits		(SPI1CON1bits)
 #define POT_SPICON2		(SPI1CON2)
 #define POT_SPISTAT		(SPI1STAT)
-#define POT_SPISTATbits	(SPI1STATbits)
+#define POT_SPISTATbits		(SPI1STATbits)
 
 #define IOEXP_SPI_IF		(IFS0bits.SPI1IF)
 #define IOEXP_SSPBUF		(SPI1BUF)
@@ -157,7 +178,7 @@ _FICD(JTAGEN_OFF & ICS_PGD3 )
 #define IOEXP_SPISTATbits	(SPI1STATbits)
 
 
-#define	DISABLE_INTERRUPTS() __builtin_disi(0x3FFF)
-#define	ENABLE_INTERRUPTS() __builtin_disi(0)
+#define	DISABLE_INTERRUPTS() 	__builtin_disi(0x3FFF)
+#define	ENABLE_INTERRUPTS() 	__builtin_disi(0)
 
 #endif
