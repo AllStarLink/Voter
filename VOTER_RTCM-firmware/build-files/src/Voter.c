@@ -66,6 +66,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #include <math.h>
 #include <dsp.h>
 
+// Include all headers for any enabled TCPIP Stack functions
+#include "TCPIP Stack/TCPIP.h"
+
 /* Debug values:
 
 1 - Alt/Main Host change notifications
@@ -97,9 +100,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-char	VERSION[] = "2.00 BEW 12/06/2020";
+	char	VERSION[] = "2.00 BEW 12/06/2020";
 #else
-char	VERSION[] = "2.00 12/06/2020";
+	char	VERSION[] = "2.00 12/06/2020";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -108,9 +111,6 @@ char	VERSION[] = "2.00 12/06/2020";
 
 /* Un-comment this to generate digital milliwatt level on output */
 /* #define DMWDIAG */
-
-// Include all headers for any enabled TCPIP Stack functions
-#include "TCPIP Stack/TCPIP.h"
 
 #if defined (GGPS)
 	#if defined(SMT_BOARD)
@@ -139,7 +139,7 @@ char	VERSION[] = "2.00 12/06/2020";
 
 #ifndef	DSPBEW
 	#define	DIAGMENU
-#endif
+#endif // dspbew
 
 #else
 	// Register addresses in the MCP23S17 IO Expander
@@ -171,8 +171,8 @@ char	VERSION[] = "2.00 12/06/2020";
 	#define	JP10 	(inputs2 & 1)		// Pin 1  - GPB0 Calibrate Diode
 	#define	JP11 	(inputs2 & 2)		// Pin 2  - GPB1 LED 3/4 RX Level Mode
 
-	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
-	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short JP10 on powerup while JP8 is shorted to also initialize Diode VF
+	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) 	// Short JP8 on powerup to initialize EEPROM
+	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  	// Short JP10 on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATA1
 	#define	TESTBIT_TRIS TRISAbits.TRISA1
@@ -180,9 +180,9 @@ char	VERSION[] = "2.00 12/06/2020";
 // Disable DIAGMENU if we are building DSPBEW option firmware
 #ifndef	DSPBEW
 	#define	DIAGMENU
-#endif
+#endif // dspbew
 
-#endif
+#endif // smt
 
 #define WVF 	JP10		// Short to calibrate diode voltage for temperature compensation
 #define CAL 	JP9		// Short to calibrate squelch noise. 
@@ -196,20 +196,22 @@ char	VERSION[] = "2.00 12/06/2020";
 #define CONNLED 3
 
 #if defined (GGPS)
-#define	BAUD_RATE1 	38400
-#define	BAUD_RATE2 	38400
+	#define	BAUD_RATE1 	38400
+	#define	BAUD_RATE2 	38400
 #else
-#define	BAUD_RATE1 	57600
-#define	BAUD_RATE2 	4800
+	#define	BAUD_RATE1 	57600	// Default serial console speed
+	#define	BAUD_RATE2 	4800	// Default GPS speed
 #endif
 
 #define	FRAME_SIZE 		160
 #define	ADPCM_FRAME_SIZE 	320
+
 #ifdef	DSPBEW
-#define	MAX_BUFLEN 		4800 	// 0.6 seconds of buffer
+	#define	MAX_BUFLEN 		4800 	// 0.6 seconds of buffer
 #else
-#define	MAX_BUFLEN 		6400 	// 0.8 seconds of buffer
+	#define	MAX_BUFLEN 		6400 	// 0.8 seconds of buffer
 #endif
+
 #define	DEFAULT_TX_BUFFER_LENGTH 3000 	// approx 300ms of Buffer
 #define	VOTER_CHALLENGE_LEN 	10
 #define	ADCOTHERS 		3	// How many "other" ADC channels do we use?
@@ -224,10 +226,12 @@ char	VERSION[] = "2.00 12/06/2020";
 #define GPS_NMEA_MAX_TIME 	(2400 * 8) 	// 2400 ms GPS Timeout
 #define	GPS_TSIP_WARN_TIME 	(5000ul * 8ul) 	// 5000 ms GPS Warning Time
 #define GPS_TSIP_MAX_TIME 	(10000ul * 8ul) // 10000 ms GPS Timeout
+
 #ifdef	GGPS
-#define GPS_KICK_WAIT_TIME 	(240000ul * 8ul) // 240000 ms GPS Timeout
-#define GPS_KICK_TIME 		(1000ul * 8ul) 	// 1000 ms GPS Reset time
+	#define GPS_KICK_WAIT_TIME 	(240000ul * 8ul) // 240000 ms GPS Timeout
+	#define GPS_KICK_TIME 		(1000ul * 8ul) 	// 1000 ms GPS Reset time
 #endif
+
 #define GPS_FORCE_TIME 		(1500 * 8)  	// Force a GPS (Keepalive) every 1500ms regardless
 #define ATTEMPT_TIME 		(500 * 8) 	// Try connection every 500 ms
 #define LASTRX_TIME 		(6000ul * 8ul) 	// Timeout if nothing heard after 6 seconds
@@ -253,12 +257,13 @@ char	VERSION[] = "2.00 12/06/2020";
 #define	DIAG_NOISE_GAIN 	0x28
 #define	NAPEAKS 		50
 #define	QUALCOUNT 		4
+
 #ifdef	GGPS
-#define	GRESTARTTIME 		604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
-#define	GSODMIN 		10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
-#define	GSODMAX 		14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
-#define	HWLOCK 			(inputs2 & 16)  // Has GPS H/W lock (for GGPS), IO Expander GPB4 - Pin 5
-#define HWLOCK_TIME 		(10000ul * 8) // 10000ms for lock settle
+	#define	GRESTARTTIME 		604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
+	#define	GSODMIN 		10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
+	#define	GSODMAX 		14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
+	#define	HWLOCK 			(inputs2 & 16)  // Has GPS H/W lock (for GGPS), IO Expander GPB4 - Pin 5
+	#define HWLOCK_TIME 		(10000ul * 8) // 10000ms for lock settle
 #endif
 
 #define BIAS 			0x84   		// define the add-in bias for 16 bit ulaw samples
@@ -268,20 +273,20 @@ char	VERSION[] = "2.00 12/06/2020";
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	// If the launch delay is anything but 0, use simulcast mode
 
 #ifdef DSPBEW
-#define FFT_BLOCK_LENGTH 	32
-#define LOG2_BLOCK_LENGTH 	5
-#define	FFT_TOP_SAMPLE_BUCKET 	16 // 3000 Hz
-#define	FFT_MAX_RESULT 		10
+	#define FFT_BLOCK_LENGTH 	32
+	#define LOG2_BLOCK_LENGTH 	5
+	#define	FFT_TOP_SAMPLE_BUCKET 	16 // 3000 Hz
+	#define	FFT_MAX_RESULT 		10
 
-fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
+	fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
 
 #ifndef FFTTWIDCOEFFS_IN_PROGMEM
-fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] 	/* Declare Twiddle Factor array in X-space*/
-__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
+	fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] 	/* Declare Twiddle Factor array in X-space*/
+	__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
 #else
-extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2]	/* Twiddle Factor array in Program memory */
-__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
-#endif
+	extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2]	/* Twiddle Factor array in Program memory */
+	__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
+#endif // fft
 
 #define ROMNOBEW
 
@@ -297,7 +302,6 @@ struct meas {
 	WORD max;
 	BOOL issql;
 } ;
-
 
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
@@ -347,8 +351,8 @@ char last_rxpacket_inbounds;
 #define	OPTION_FLAG_MIX 		32 	// Request "Mix" option to host (mixminux)
 
 #ifdef DMWDIAG
-unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
-BYTE mwp;
+	unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
+	BYTE mwp;
 #endif
 
 // Declare AppConfig structure and some other supporting stack variables
@@ -373,7 +377,7 @@ extern BYTE noise_gain;		// Noise gain sent to digital pot
 extern WORD caldiode;		// Diode voltage (used for temperature compensation)
 
 #ifdef DUMPENCREGS
-extern void DumpETHReg(void);
+	extern void DumpETHReg(void);
 #endif
 
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
@@ -404,22 +408,22 @@ BYTE gps_state;		// Current GPS state (idle, receiving, valid, synched)
 BYTE gps_nsat;		// Number of satellites in view (not necessarily locked)
 BOOL gpssync;		// Set only when GPS_STATE_VALID
 BOOL gotpps;		// Set only when GPS_STATE_VALID and PPS is valid
-DWORD gps_time;		
-WORD gpsweek;
-WORD gpsleap;
+DWORD gps_time;		// GPS time in seconds
+WORD gpsweek;		// GPS week reported by TSIP devices
+WORD gpsleap;		// GPS leap seconds reported by TSIP devices for correcting to UTC time
 BYTE ppscount;
 DWORD last_interval;
 BYTE lockcnt;
-BOOL adcother;
-WORD adcothers[ADCOTHERS];
-BYTE adcindex;
-BYTE sqlcount;
+BOOL adcother;		// Flag for whether to encode an RX packet, or measure other ADC channels
+WORD adcothers[ADCOTHERS];	// Array for holding the "other" ADC values (RX Noise, Sq Pot, Diode V)
+BYTE adcindex;		// Counter for measuring the "other" ADC channels
+BYTE sqlcount;		// Counter for how often we service squelch and RSSI (set to 33 below, so every 33 ADC sample periods)
 BOOL sql2;
 DWORD vnoise32;
 DWORD lastvnoise32[3];
 BOOL wascor;
 BOOL lastcor;
-BYTE option_flags;
+BYTE option_flags;	// Holds the option flags we get from the host
 static struct {
 	VOTER_PACKET_HEADER vph;
 	BYTE rssi;
@@ -440,10 +444,12 @@ DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
 WORD attempttimer;
+
 #ifdef	GGPS
-DWORD gpskicktimer;
-BOOL gpskicking;
+	DWORD gpskicktimer;
+	BOOL gpskicking;
 #endif
+
 DWORD lastrxtimer;
 WORD cwtimer;
 BYTE gpswarn;
@@ -549,25 +555,29 @@ WORD glasertimer;
 DWORD uptimer;
 WORD pingtimer;
 WORD secondtimer;
+
 #ifdef GGPS
-WORD gppstimer;
-DWORD grestarttimer;
-DWORD hwlocktimer;
-BOOL gps_unhappy;
-BOOL ggps_unavail;
-BOOL hwlock;
-BYTE oldhwlock;
-BYTE oldok;
+	WORD gppstimer;
+	DWORD grestarttimer;
+	DWORD hwlocktimer;
+	BOOL gps_unhappy;
+	BOOL ggps_unavail;
+	BOOL hwlock;
+	BYTE oldhwlock;
+	BYTE oldok;
 #endif
+
 long missed;
 WORD misstimer;
 WORD misstimer1;
+
 #ifdef DSPBEW
-DWORD fftresult;
+	DWORD fftresult;
 #endif
+
 #ifdef SILLY
-BYTE silly = 0;
-DWORD sillyval;
+	BYTE silly = 0;
+	DWORD sillyval;
 #endif
 
 BYTE myDHCPBindCount;
@@ -715,7 +725,6 @@ static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
                 oldcrc32 = crc_32_tab[(oldcrc32 ^ *buf1++) & 0xff] ^ ((unsigned long)oldcrc32 >> 8);
         }
         return ~oldcrc32;
-
 }
 
 ROM BYTE exp_lut[256] = {
@@ -802,7 +811,7 @@ struct morse_bits
 {
     BYTE len;
     BYTE dat;
-} ;
+};
 
 static ROM struct morse_bits mbits[] = {
     {0, 0}, /* SPACE */
@@ -867,8 +876,8 @@ static ROM struct morse_bits mbits[] = {
 };
 
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
-	invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n",
-	booting[] = "System Re-Booting...\n";
+		invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n",
+		booting[] = "System Re-Booting...\n";
 
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB,IODirB;
@@ -877,40 +886,46 @@ void main_processing_loop(void);
 
 static WORD log2fix (WORD x)
 {
-    short b = 127;
-    short y = 0;
-    BYTE i;
+	short b = 127;
+	short y = 0;
+	BYTE i;
 
-    while (x < 256) {
-        x <<= 1;
-        y -= 256;
-    }
+	while (x < 256) 
+	{
+		x <<= 1;
+		y -= 256;
+	}
 
-    while (x >= 512) {
-        x >>= 1;
-        y += 256;
-    }
+	while (x >= 512) 
+	{
+		x >>= 1;
+		y += 256;
+	}
 
-    DWORD z = x;
+	DWORD z = x;
 
-    for (i = 0; i < 8; i++) {
-        z = z * z >> 8;
-        if (z >= 512) {
-            z >>= 1;
-            y += b;
-        }
-        b >>= 1;
-    }
+	for (i = 0; i < 8; i++) 
+	{
+		z = z * z >> 8;
+		if (z >= 512) 
+		{
+			z >>= 1;
+			y += b;
+		}
+		b >>= 1;
+	}
 
-    return y;
+	return y;
 }
 
+// Integer square root. Approximates the square root of a number, integer part 
+// only, no rounding. ie 12.96 will return 12
 static DWORD isqrt(DWORD number)
 {
         if(number <= 3) { return number > 0; }
 
         DWORD oldAns = number >> 1,                     // initial guess
-            newAns = (oldAns + number / oldAns) >> 1; // first iteration
+            newAns = (oldAns + number / oldAns) >> 1; 	// first iteration
 
         // main iterative method
         while(newAns < oldAns)
@@ -941,21 +956,20 @@ short i,x;
 	return(x);
 }
 
-/* This ISR uses Change Notification, and runs when PPS changes. PPS is connected to RA4 (CN0).
+/* This ISR uses Change Notification, and runs when PPS changes (each PPS tick). PPS is connected to RA4 (CN0).
    Every time we get a PPS signal, we mask off RA4 (0x10) and read it. If it is valid, we clear ppsx and continue. */ 
 void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
-
-//Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
+	//Stuff for ADPCM encode
+	int val;			/* Current input sample value */
+	int sign;			/* Current adpcm sign bit */
+	BYTE delta;			/* Current adpcm output value */
+	int diff;			/* Difference between val and valprev */
+	int step;			/* Stepsize */
+	int vpdiff;			/* Current change to valpred */
+	long valpred;		/* Predicted output value */
+	int adpcm_index;
+	BYTE *cp;
 
 	CORCONbits.PSV = 1;
 	// If PPS signal is asserted
@@ -971,6 +985,7 @@ BYTE *cp;
 		IFS1bits.CNIF = 0;
 		return;
 	}
+
 	if (hwlocktimer < HWLOCK_TIME)
 	{
 		gpssync = 0;
@@ -984,10 +999,11 @@ BYTE *cp;
 		{
 			ppstimer = 0;
 			ppswarn = 0;
+			// If GPS is now VALID, but we haven't qualified pps yet, do it
 			if ((gps_state == GPS_STATE_VALID) && (!gotpps))
 			{
-				TMR3 = 0;
-				gotpps = 1;
+				TMR3 = 0;	// Reset the Timer 3 register
+				gotpps = 1;	// GPS is good, so PPS must be good
 				lockcnt = 0;
 				samplecnt = 0;
 				fillindex = 0;
@@ -995,23 +1011,28 @@ BYTE *cp;
 				gppstimer = 0;
 #endif
 			}
-			else if (gotpps) 
+			else if (gotpps) 	// PPS is already qualified
 			{
 				if (ppscount >= 3)
-				{
-					T4CON = 0x10;			//TMR4 divide Fosc by 8
+				{	// Setup Timer 4 for Internal Clock (Fosc/2 aka Fcy)
+					// Divide/8 prescaler
+					// Therefore, each tick is 1/(38.4MHz/8) = 0.2083uS
+					// When this timer expires (after launch delay), it will call the 
+					// T4 interrupt ISR, turning on the DAC for TX
+					T4CON = 0x10;
 					PR4 = AppConfig.LaunchDelay + 5; // Give 1us to let it get outa the CN interrupt!!!! :-)		
-					TMR4 = 0;
-					IFS1bits.T4IF = 0;
-					IEC1bits.T4IE = 1;
-					IPC6bits.T4IP = 6;
-					T4CONbits.TON = 1;
+					TMR4 = 0;		// Reset the timer register
+					IFS1bits.T4IF = 0;	// Clear the timer flag
+					IEC1bits.T4IE = 1;	// Enable interrupts
+					IPC6bits.T4IP = 6;	// Set interrupt priority 6
+					T4CONbits.TON = 1;	// Turn timer on
 	
 					if ((samplecnt >= 7999) && (samplecnt <= 8001))
 					{
 						last_samplecnt = samplecnt;
 						sendgps = 1;
 						real_time++;
+
 						if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) // If we are short one, insert another
 						{
 							if (option_flags & OPTION_FLAG_ADPCM)
@@ -1021,12 +1042,14 @@ BYTE *cp;
 								val *= 16;
 								adpcm_index = enc_index;
 								valpred = enc_valprev;
-							    step = stepsizeTable[adpcm_index];
+								step = stepsizeTable[adpcm_index];
 								
 								/* Step 1 - compute difference with previous value */
 								diff = val - valpred;
 								sign = (diff < 0) ? 8 : 0;
-								if ( sign ) diff = (-diff);
+
+								if ( sign ) 
+									diff = (-diff);
 							
 								/* Step 2 - Divide and clamp */
 								/* Note:
@@ -1040,46 +1063,58 @@ BYTE *cp;
 								delta = 0;
 								vpdiff = (step >> 3);
 								
-								if ( diff >= step ) {
-								    delta = 4;
-								    diff -= step;
-								    vpdiff += step;
+								if ( diff >= step ) 
+								{
+									delta = 4;
+									diff -= step;
+									vpdiff += step;
 								}
+								
 								step >>= 1;
-								if ( diff >= step  ) {
-								    delta |= 2;
-								    diff -= step;
-								    vpdiff += step;
+								
+								if ( diff >= step  ) 
+								{
+									delta |= 2;
+									diff -= step;
+									vpdiff += step;
 								}
+								
 								step >>= 1;
-								if ( diff >= step ) {
-								    delta |= 1;
-								    vpdiff += step;
+								
+								if ( diff >= step ) 
+								{
+									delta |= 1;
+									vpdiff += step;
 								}
 							
 								/* Step 3 - Update previous value */
 								if ( sign )
-								  valpred -= vpdiff;
+									valpred -= vpdiff;
 								else
-								  valpred += vpdiff;
+									valpred += vpdiff;
 							
 								/* Step 4 - Clamp previous value to 16 bits */
 								if ( valpred > 32767 )
-								  valpred = 32767;
+									valpred = 32767;
 								else if ( valpred < -32768 )
-								  valpred = -32768;
+									valpred = -32768;
 							
 								/* Step 5 - Assemble value, update index and step values */
 								delta |= sign;
 								
 								adpcm_index += indexTable[delta];
-								if ( adpcm_index < 0 ) adpcm_index = 0;
-								if ( adpcm_index > 88 ) adpcm_index = 88;
+								
+								if ( adpcm_index < 0 ) 
+									adpcm_index = 0;
+								
+								if ( adpcm_index > 88 ) 
+									adpcm_index = 88;
 								enc_valprev = valpred;
 								enc_index = adpcm_index;
+								
 								if (fillindex & 1)
 								{
-									audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
+									audio_buf[filling_buffer][fillindex++ >> 1] = (enc_lastdelta << 4) | delta;
 								}
 								else
 								{
@@ -1088,28 +1123,30 @@ BYTE *cp;
 							}
 							else  // is ULAW
 							{
-						        short sample,sign, exponent, mantissa;
-						        BYTE ulawbyte;
-						
+						        	short sample,sign, exponent, mantissa;
+						        	BYTE ulawbyte;
+								
 								sample = last_adcsample;
 								sample -= 2048;
 								sample *= 16;
-						        /* Get the sample into sign-magnitude. */
-						        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-						        if (sign != 0)
-						                sample = -sample;              /* get magnitude */
-						        if (sample > CLIP)
-						                sample = CLIP;             /* clip the magnitude */
+
+						        	/* Get the sample into sign-magnitude. */
+								sign = (sample >> 8) & 0x80;	/* set aside the sign */
+								
+								if (sign != 0)
+									sample = -sample;	/* get magnitude */
+								
+							        if (sample > CLIP)
+									sample = CLIP;		/* clip the magnitude */
 						
-						        /* Convert from 16 bit linear to ulaw. */
-						        sample = sample + BIAS;
-						        exponent = exp_lut[(sample >> 7) & 0xFF];
-						        mantissa = (sample >> (exponent + 3)) & 0x0F;
-						        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-
-
+								/* Convert from 16 bit linear to ulaw. */
+								sample = sample + BIAS;
+								exponent = exp_lut[(sample >> 7) & 0xFF];
+								mantissa = (sample >> (exponent + 3)) & 0x0F;
+								ulawbyte = ~(sign | (exponent << 4) | mantissa);
 								audio_buf[filling_buffer][fillindex++] = ulawbyte;
 							}
+
 							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 							{
 								if (option_flags & OPTION_FLAG_ADPCM)
@@ -1121,6 +1158,7 @@ BYTE *cp;
 									enc_prev_valprev = enc_valprev;
 									enc_prev_index = enc_index;
 								}
+
 								filled = 1;
 								fillindex = 0;
 								filling_buffer ^= 1;
@@ -1129,6 +1167,7 @@ BYTE *cp;
 								timing_time = next_time;
 							}
 						}
+
 						if ((!gpssync) && (gps_state == GPS_STATE_VALID))
 						{
 							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
@@ -1140,22 +1179,31 @@ BYTE *cp;
 						gpssync = 0;
 						ppscount = 0;
 					}
-			    } else ppscount++;
+				} 
+				else ppscount++;
 			}
 			samplecnt = 0;
 		}
 	}
-	IFS1bits.CNIF = 0;
+	IFS1bits.CNIF = 0;	// Clear the CN interript flag, we're done!
 }
 
+/*****************************************************************************/
+//                                                                           //
+//              T4 Interrupt ISR                                             //
+//                                                                           //
+/*****************************************************************************/
+/* This ISR is called when the Launch Delay (+1uS) expires.
+   It turns on the DAC for TX output, after the launch delay
+*/
 void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 {
 	CORCONbits.PSV = 1;
-	IFS1bits.T4IF = 0;
-	IEC1bits.T4IE = 0;
-	T4CONbits.TON = 0;		//Turn it off
-	DAC1CONbits.DACEN = 1;
-	IEC4bits.DAC1LIE = 1;
+	IFS1bits.T4IF = 0;	// Clear the T4 interrupt flag
+	IEC1bits.T4IE = 0;	// Disable the T4 interrupts
+	T4CONbits.TON = 0;	// Turn off the T4 timer
+	DAC1CONbits.DACEN = 1;	// Enable DAC1
+	IEC4bits.DAC1LIE = 1;	// Enable DAC1 Left interrupt
 }
 
 /*****************************************************************************/
@@ -1173,29 +1221,28 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 */ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
-
-
-WORD index;		// Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff)
+	WORD index;		// Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff)
 
 #ifndef GGPS
-long accum;
-short saccum;
-BYTE i;
+	long accum;
+	short saccum;
+	BYTE i;
 
-//Stuff for ADPCM encode
-int val;		/* Current input sample value */
-int sign;		/* Current adpcm sign bit */
-BYTE delta;		/* Current adpcm output value */
-int diff;		/* Difference between val and valprev */
-int step;		/* Stepsize */
-int vpdiff;		/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
-#endif
+	//Stuff for ADPCM encode
+	int val;		/* Current input sample value */
+	int sign;		/* Current adpcm sign bit */
+	BYTE delta;		/* Current adpcm output value */
+	int diff;		/* Difference between val and valprev */
+	int step;		/* Stepsize */
+	int vpdiff;		/* Current change to valpred */
+	long valpred;		/* Predicted output value */
+	int adpcm_index;
+	BYTE *cp;
+#endif // ggps
 
-CORCONbits.PSV = 1;
-index = ADC1BUF0;	// Copy the current ADC buffer value
+	CORCONbits.PSV = 1;
+	index = ADC1BUF0;	// Copy the current ADC buffer value
+
 	if (adcother) 	// True if this time we're processing other ADC channels (not RX Audio)
 	{
 		// Divide by 4, effectively scaling the ADC value to 0x000-0x3ff (0-1023)
@@ -1215,7 +1262,7 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 			gpskicktimer++;
 #endif
 
-		if (connected) 
+		if (connected) 	// If we're connected to the host, update some timers
 		{
 			gpsforcetimer++;
 			elketimer++;
@@ -1230,7 +1277,8 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 		termbuftimer++;
 
 		if (cwtimer1) cwtimer1--;
-		dsecondtimer++;
+			dsecondtimer++;
+
 		if (dsecondtimer >= DSECOND_TIME)
 		{
 			dsecondtimer = 0;
@@ -1283,6 +1331,7 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 				saccum = index;	// index is the current ADC Buffer value
 				saccum -= 2048;
 				accum = saccum * 16;
+
 	            		if (accum > amax)
 	            		{
 	                		amax = accum;
@@ -1293,6 +1342,7 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 	                		discounteru = discfactor;
 	                		amax = (long)((amax * 32700) / 32768L);
 	            		}
+
 				if (accum < amin)
 	            		{
 	                		amin = accum;
@@ -1322,6 +1372,7 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 						/* Step 1 - compute difference with previous value */
 						diff = val - valpred;
 						sign = (diff < 0) ? 8 : 0;
+
 						if ( sign ) diff = (-diff);
 						
 						/* Step 2 - Divide and clamp */
@@ -1342,14 +1393,18 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 							diff -= step;
 							vpdiff += step;
 						}
+
 						step >>= 1;
+
 						if ( diff >= step  ) 
 						{
 							delta |= 2;
 							diff -= step;
 							vpdiff += step;
 						}
+
 						step >>= 1;
+
 						if ( diff >= step ) 
 						{
 							delta |= 1;
@@ -1372,12 +1427,15 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 						delta |= sign;
 						
 						adpcm_index += indexTable[delta];
+
 						if ( adpcm_index < 0 ) 
 							adpcm_index = 0;
+
 						if ( adpcm_index > 88 ) 
 							adpcm_index = 88;
 						enc_valprev = valpred;
 						enc_index = adpcm_index;
+
 						if (fillindex & 1)
 						{
 							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
@@ -1399,8 +1457,10 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 					
 					        /* Get the sample into sign-magnitude. */
 					        sign = (sample >> 8) & 0x80;	/* set aside the sign */
+
 					        if (sign != 0)
 					                sample = -sample;	/* get magnitude */
+
 					        if (sample > CLIP)
 					                sample = CLIP;		/* clip the magnitude */
 					
@@ -1455,8 +1515,8 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 #endif
 		sqlcount++;
 	}
-	adcother ^= 1;	// Toggle adcother so we switch between doing an RX sample or other ADC sample
-	IFS0bits.AD1IF = 0; // Clear the interrupt flag, we're done!
+	adcother ^= 1;		// Toggle adcother so we switch between doing an RX sample or other ADC sample
+	IFS0bits.AD1IF = 0; 	// Clear the interrupt flag, we're done!
 }
 /***************End of ADC ISR************************************************/
 
@@ -1465,29 +1525,32 @@ index = ADC1BUF0;	// Copy the current ADC buffer value
 //		DAC ISR							     //
 //									     //
 /*****************************************************************************/
+/* In order for this ISR to run, the Launch Delay timer must expire, 
+   so that the interrupt gets enabled.
+*/
 void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 {
 	BYTE c;
 	short s;
 
-WORD index;
-long accum;
-short saccum;
-BYTE i;
+	WORD index;
+	long accum;
+	short saccum;
+	BYTE i;
 
-//Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
+	//Stuff for ADPCM encode
+	int val;		// Current input sample value 
+	int sign;		// Current adpcm sign bit 
+	BYTE delta;		// Current adpcm output value 
+	int diff;		// Difference between val and valprev 
+	int step;		// Stepsize 
+	int vpdiff;		// Current change to valpred
+	long valpred;		// Predicted output value 
+	int adpcm_index;
+	BYTE *cp;
 
 	CORCONbits.PSV = 1;
-	IFS4bits.DAC1LIF = 0;
+	IFS4bits.DAC1LIF = 0;	// Clear the DAC1Left Interrupt Flag
 #ifdef	GGPS
 	if (++gppstimer >= 8000)
 	{
@@ -1567,6 +1630,7 @@ BYTE *cp;
 				}
 			}
 		}
+
 		if (repeatit)
 		{
 			short s1;
@@ -1574,13 +1638,15 @@ BYTE *cp;
 			s1 = last_index << 4;
 			s += s1 - 32768;
 		}
+
 		if (ptt && (!host_ptt) && tone_fac)
 		{  
-	      	tone_v1 = tone_v2;
-	        tone_v2 = tone_v3;
-	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
+		      	tone_v1 = tone_v2;
+		        tone_v2 = tone_v3;
+	        	tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
 			s += tone_v3;
 		}
+
 		if (ptt)
 		{
 #ifdef	DMWDIAG
@@ -1588,11 +1654,12 @@ BYTE *cp;
 			if (mwp > 7) mwp = 0;
 #else
 			c = txaudio[txdrainindex];
+
 			if (connected && (!IS_POGSAG_TX(c)))
 				DAC1LDAT = ulawtabletx[c] + s;
 			else
 				DAC1LDAT = s;
-	#if defined (GGPS)
+#if defined (GGPS)
 			if (IS_POGSAG_TX(c))
 			{
 				TESTBIT_TRIS = 0;
@@ -1603,13 +1670,17 @@ BYTE *cp;
 				TESTBIT = 0;
 				TESTBIT_TRIS = 1;
 			}
-	#endif
-#endif
-		} else DAC1LDAT = 0;
+#endif // ggps
+#endif // dmwdiag
+		} 
+		else DAC1LDAT = 0;
+
 		txaudio[txdrainindex++] = ULAW_SILENCE;
+
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
 	}
+
 #ifdef	GGPS
 	if (1)
 #else
@@ -1625,32 +1696,38 @@ BYTE *cp;
 				next_index = samplecnt;
 				next_time = real_time;
 			}
+
 			last_adcsample = index;
+	
 			// Make 16 bit number from 12 bit ADC sample
 			saccum = index;
 			saccum -= 2048;
 			accum = saccum * 16;
-            if (accum > amax)
-            {
-                amax = accum;
-                discounteru = discfactor;
-            }
-            else if (--discounteru <= 0)
-            {
-                discounteru = discfactor;
-                amax = (long)((amax * 32700) / 32768L);
-            }
-            if (accum < amin)
-            {
-                amin = accum;
-                discounterl = discfactor;
-            }
-            else if (--discounterl <= 0)
-            {
-                discounterl = discfactor;
-                amin = (long)((amin * 32700) / 32768L);
-            }
+			
+			if (accum > amax)
+			{
+				amax = accum;
+				discounteru = discfactor;
+			}
+			else if (--discounteru <= 0)
+			{
+				discounteru = discfactor;
+				amax = (long)((amax * 32700) / 32768L);
+			}
+			
+			if (accum < amin)
+			{
+				amin = accum;
+				discounterl = discfactor;
+			}
+			else if (--discounterl <= 0)
+			{
+				discounterl = discfactor;
+				amin = (long)((amin * 32700) / 32768L);
+			}
+
 			if ((!USE_PPS) && (samplecnt == 8000)) samplecnt = 0;
+		
 			if (samplecnt++ < 8000)
 			{
 				if (option_flags & OPTION_FLAG_ADPCM)
@@ -1658,14 +1735,15 @@ BYTE *cp;
 					val = index;
 					val -= 2048;
 					val *= 16;
-
+					
 					adpcm_index = enc_index;
 					valpred = enc_valprev;
-				    step = stepsizeTable[adpcm_index];
+					step = stepsizeTable[adpcm_index];
 					
 					/* Step 1 - compute difference with previous value */
 					diff = val - valpred;
 					sign = (diff < 0) ? 8 : 0;
+				
 					if ( sign ) diff = (-diff);
 				
 					/* Step 2 - Divide and clamp */
@@ -1679,44 +1757,56 @@ BYTE *cp;
 					*/
 					delta = 0;
 					vpdiff = (step >> 3);
+						
+					if ( diff >= step ) 
+					{
+						delta = 4;
+						diff -= step;
+						vpdiff += step;
+					}
 					
-					if ( diff >= step ) {
-					    delta = 4;
-					    diff -= step;
-					    vpdiff += step;
-					}
 					step >>= 1;
-					if ( diff >= step  ) {
-					    delta |= 2;
-					    diff -= step;
-					    vpdiff += step;
+					
+					if ( diff >= step  ) 
+					{
+						delta |= 2;
+						diff -= step;
+						vpdiff += step;
 					}
+					
 					step >>= 1;
-					if ( diff >= step ) {
-					    delta |= 1;
-					    vpdiff += step;
+					
+					if ( diff >= step ) 
+					{
+						delta |= 1;
+						vpdiff += step;
 					}
-				
+					
 					/* Step 3 - Update previous value */
 					if ( sign )
-					  valpred -= vpdiff;
+						valpred -= vpdiff;
 					else
-					  valpred += vpdiff;
-				
+						valpred += vpdiff;
+					
 					/* Step 4 - Clamp previous value to 16 bits */
 					if ( valpred > 32767 )
-					  valpred = 32767;
+						valpred = 32767;
 					else if ( valpred < -32768 )
-					  valpred = -32768;
+						valpred = -32768;
 				
 					/* Step 5 - Assemble value, update index and step values */
 					delta |= sign;
-					
 					adpcm_index += indexTable[delta];
-					if ( adpcm_index < 0 ) adpcm_index = 0;
-					if ( adpcm_index > 88 ) adpcm_index = 88;
+					
+					if ( adpcm_index < 0 ) 
+						adpcm_index = 0;
+						
+					if ( adpcm_index > 88 ) 
+						adpcm_index = 88;
+				
 					enc_valprev = valpred;
 					enc_index = adpcm_index;
+						
 					if (fillindex & 1)
 					{
 						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
@@ -1725,32 +1815,36 @@ BYTE *cp;
 					{
 						enc_lastdelta = delta;
 					}
+
 					fillindex++;
 				}
 				else  // is ULAW
 				{
-			        short sample,sign, exponent, mantissa;
-			        BYTE ulawbyte;
-			
+					short sample,sign, exponent, mantissa;
+					BYTE ulawbyte;
+				
 					sample = index;
 					sample -= 2048;
 					sample *= 16;
-			        /* Get the sample into sign-magnitude. */
-			        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-			        if (sign != 0)
-			                sample = -sample;              /* get magnitude */
-			        if (sample > CLIP)
-			                sample = CLIP;             /* clip the magnitude */
+	
+				        /* Get the sample into sign-magnitude. */
+				        sign = (sample >> 8) & 0x80;	/* set aside the sign */
+				        if (sign != 0)
+			        	        sample = -sample;	/* get magnitude */
+					
+					if (sample > CLIP)
+						sample = CLIP;		/* clip the magnitude */
 			
-			        /* Convert from 16 bit linear to ulaw. */
-			        sample = sample + BIAS;
-			        exponent = exp_lut[(sample >> 7) & 0xFF];
-			        mantissa = (sample >> (exponent + 3)) & 0x0F;
-			        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-
+					/* Convert from 16 bit linear to ulaw. */
+					sample = sample + BIAS;
+					exponent = exp_lut[(sample >> 7) & 0xFF];
+					mantissa = (sample >> (exponent + 3)) & 0x0F;
+					ulawbyte = ~(sign | (exponent << 4) | mantissa);
 					audio_buf[filling_buffer][fillindex++] = ulawbyte;
 				}
+				
 				if (txseqno == 0) txseqno = 3;
+
 				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
@@ -1762,10 +1856,15 @@ BYTE *cp;
 						enc_prev_valprev = enc_valprev;
 						enc_prev_index = enc_index;
 						txseqno++;
+						
 						if (host_txseqno) host_txseqno++;
+
 					}
+
 					txseqno++;
+	
 					if (host_txseqno) host_txseqno++;
+	
 					filled = 1;
 					fillindex = 0;
 					filling_buffer ^= 1;
@@ -1798,22 +1897,24 @@ void __attribute__((interrupt, auto_psv)) _OscillatorFail(void)
    Nop();
    Nop();
 }
+
 void _ISR __attribute__((__no_auto_psv__)) _AddressError(void)
 {
    Nop();
    Nop();
 }
+
 void _ISR __attribute__((__no_auto_psv__)) _StackError(void)
 {
    Nop();
    Nop();
 }
+
 void __attribute__((interrupt, auto_psv)) _MathError(void)
 {
    Nop();
    Nop();
 }
-
 /*****************************************************************************/
 
 
@@ -1823,136 +1924,141 @@ int myfgets(char *buffer, unsigned int len);
 
 ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
-	void SetLED(BYTE led,BOOL val)
-	{
-		LATB &= ~ledmask[led];
-		if (!val) LATB |= ledmask[led];
-	}
+void SetLED(BYTE led,BOOL val)
+{
+	LATB &= ~ledmask[led];
 	
-	void ToggleLED(BYTE led)
-	{
-		LATB ^= ledmask[led];
-	}
+	if (!val) LATB |= ledmask[led];
+}
 	
-	void SetPTT(BOOL val)
-	{
-		_LATB4 = val;	
-	}
+void ToggleLED(BYTE led)
+{
+	LATB ^= ledmask[led];
+}
 	
-	void SetAudioSrc(void)
-	{
-		BYTE myflags;
+void SetPTT(BOOL val)
+{
+	_LATB4 = val;	
+}
+	
+void SetAudioSrc(void)
+{
+	BYTE myflags;
 
-		if (indiag) myflags = diag_option_flags;
-		else if (!connected) 
-		{
-			myflags = 0;
-			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
-			if (AppConfig.Sawyer == 1) myflags |= 4;
-		}
-		else myflags = option_flags;
-		if (myflags & 1)_LATB3 = 1;
-		else _LATB3 = 0;
-		if (!(myflags & 4)) _LATB2 = 1;
-		else _LATB2 = 0;
+	if (indiag) myflags = diag_option_flags;
+	else if (!connected) 
+	{
+		myflags = 0;
+
+		if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
+
+		if (AppConfig.Sawyer == 1) myflags |= 4;
 	}
+	else myflags = option_flags;
+
+	if (myflags & 1)_LATB3 = 1;
+	else _LATB3 = 0;
+
+	if (!(myflags & 4)) _LATB2 = 1;
+	else _LATB2 = 0;
+}
 
 #else
 
-	#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+#define ClearSPIDoneFlag()
 	
-	#define ClearSPIDoneFlag()
-	static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
-	{
-	    while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
-	}
+static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
+{
+	while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
+}
 	
-	#define SPI_ON_BIT          (IOEXP_SPISTATbits.SPIEN)
+#define SPI_ON_BIT (IOEXP_SPISTATbits.SPIEN)
 	
-	void IOExp_Write(BYTE reg,BYTE val)
-	{
+void IOExp_Write(BYTE reg,BYTE val)
+{
+	volatile BYTE vDummy;
+	BYTE vSPIONSave;
+	WORD SPICON1Save;
 	
-	    volatile BYTE vDummy;
-	    BYTE vSPIONSave;
-	    WORD SPICON1Save;
+	// Save SPI state
+	SPICON1Save = IOEXP_SPICON1;
+	vSPIONSave = SPI_ON_BIT;
 	
-	    // Save SPI state
-	    SPICON1Save = IOEXP_SPICON1;
-	    vSPIONSave = SPI_ON_BIT;
+	// Configure SPI
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = PROPER_SPICON1;
+	SPI_ON_BIT = 1;
 	
-	    // Configure SPI
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = PROPER_SPICON1;
-	    SPI_ON_BIT = 1;
+	SPISel(SPICS_IOEXP);
+	IOEXP_SSPBUF = 0x40;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = reg;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
 	
-	    SPISel(SPICS_IOEXP);
-	    IOEXP_SSPBUF = 0x40;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-	    IOEXP_SSPBUF = reg;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = val;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	SPISel(SPICS_IDLE);
+	    
+	// Restore SPI State
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = SPICON1Save;
+	SPI_ON_BIT = vSPIONSave;
 	
-	    IOEXP_SSPBUF = val;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-	    SPISel(SPICS_IDLE);
-	    // Restore SPI State
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = SPICON1Save;
-	    SPI_ON_BIT = vSPIONSave;
+	ClearSPIDoneFlag();
+}
 	
-		ClearSPIDoneFlag();
-	}
+BYTE IOExp_Read(BYTE reg)
+{	
+	volatile BYTE vDummy,retv;
+	BYTE vSPIONSave;
+	WORD SPICON1Save;
 	
-	BYTE IOExp_Read(BYTE reg)
-	{
+	// Save SPI state
+	SPICON1Save = IOEXP_SPICON1;
+	vSPIONSave = SPI_ON_BIT;
 	
-	    volatile BYTE vDummy,retv;
-	    BYTE vSPIONSave;
-	    WORD SPICON1Save;
+	// Configure SPI
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = PROPER_SPICON1;
+	SPI_ON_BIT = 1;
 	
-	    // Save SPI state
-	    SPICON1Save = IOEXP_SPICON1;
-	    vSPIONSave = SPI_ON_BIT;
+	SPISel(SPICS_IOEXP);
+	IOEXP_SSPBUF = 0x41;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = reg;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = 0;
+	WaitForDataByte();
+	retv = IOEXP_SSPBUF;
 	
-	    // Configure SPI
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = PROPER_SPICON1;
-	    SPI_ON_BIT = 1;
+	SPISel(SPICS_IDLE);
+	// Restore SPI State
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = SPICON1Save;
+	SPI_ON_BIT = vSPIONSave;
 	
-	    SPISel(SPICS_IOEXP);
-	    IOEXP_SSPBUF = 0x41;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-	    IOEXP_SSPBUF = reg;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-		IOEXP_SSPBUF = 0;
-	    WaitForDataByte();
-	    retv = IOEXP_SSPBUF;
-	
-	    SPISel(SPICS_IDLE);
-	    // Restore SPI State
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = SPICON1Save;
-	    SPI_ON_BIT = vSPIONSave;
-	
-		ClearSPIDoneFlag();
-		return retv;
-	}
-	
-	void IOExpInit(void)
-	{
-		IOExp_Write(IOEXP_IOCON,0x20);
-		IOExp_Write(IOEXP_IODIRA,0xD0);
-		IODirB = 0xf3;
-		IOExp_Write(IOEXP_IODIRB,IODirB);
-		IOExpOutA = 0xDF;
-		IOExp_Write(IOEXP_OLATA,IOExpOutA);
-		IOExpOutB = 0x53;
-		IOExp_Write(IOEXP_OLATB,IOExpOutB);
-	}
+	ClearSPIDoneFlag();
+	return retv;
+}
+
+// Initialize the IO Expander	
+void IOExpInit(void)
+{
+	IOExp_Write(IOEXP_IOCON,0x20);
+	IOExp_Write(IOEXP_IODIRA,0xD0);
+	IODirB = 0xf3;
+	IOExp_Write(IOEXP_IODIRB,IODirB);
+	IOExpOutA = 0xDF;
+	IOExp_Write(IOEXP_OLATA,IOExpOutA);
+	IOExpOutB = 0x53;
+	IOExp_Write(IOEXP_OLATB,IOExpOutB);
+}
 
 #ifdef	GGPS
 	void KickGPS(BOOL val)
@@ -1963,38 +2069,41 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	}
 #endif
 	
-	void SetLED(BYTE led,BOOL val)
-	{
+void SetLED(BYTE led,BOOL val)
+{
 	BYTE mask,oldout;
+	oldout = IOExpOutA;
+	mask = 1 << led;
+	IOExpOutA &= ~mask;
 	
-		oldout = IOExpOutA;
-		mask = 1 << led;
-		IOExpOutA &= ~mask;
-		if (!val) IOExpOutA |= mask;
-		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	}
+	if (!val) IOExpOutA |= mask;
 	
-	void ToggleLED(BYTE led)
-	{
+	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
+	
+void ToggleLED(BYTE led)
+{
 	BYTE mask,oldout;
+	oldout = IOExpOutA;
+	mask = 1 << led;
+	IOExpOutA ^= mask;
+		
+	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
 	
-		oldout = IOExpOutA;
-		mask = 1 << led;
-		IOExpOutA ^= mask;
-		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	}
-	
-	void SetPTT(BOOL val)
-	{
+void SetPTT(BOOL val)
+{
 	BYTE oldout;
-	
-		oldout = IOExpOutA;
-		IOExpOutA &= ~0x20;
-		if (val) IOExpOutA |= 0x20;
-		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	}
-	
-	void SetAudioSrc(void)
+	oldout = IOExpOutA;
+	IOExpOutA &= ~0x20;
+
+	if (val) IOExpOutA |= 0x20;
+		
+	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
+
+void SetAudioSrc(void)
+{
 	/* Determine the filtering for the receive audio.
 	   ASEL1 = IOExpOutB mask Bit 4 = SPB2, setting to 1 is PL Filter IN, setting to 0 is PL Filter OUT
 	   ASEL2 = IOExpOutB mask Bit 8 = SPB3, Setting to 1 is NO de-emphasis, setting to 0 is de-emphazised
@@ -2007,23 +2116,29 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
 	   "Sawyer Mode" (Sawyer=1) forces the PL Filter OFF in Offline mode
 	*/
-	{
+
 	BYTE oldout,myflags;
 
-		if (indiag) myflags = diag_option_flags;
-		else if (!connected) 
-		{
-			myflags = 0;
-			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
-			if (AppConfig.Sawyer == 1) myflags |= 4;
-		}
-		else myflags = option_flags;
-		oldout = IOExpOutB;
-		IOExpOutB &= ~0x0c;
-		if (myflags & 1) IOExpOutB |= 8;
-		if (!(myflags & 4)) IOExpOutB |= 4;
-		if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
+	if (indiag) myflags = diag_option_flags;
+	else if (!connected) 
+	{
+		myflags = 0;
+
+		if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
+			
+		if (AppConfig.Sawyer == 1) myflags |= 4;
 	}
+	else myflags = option_flags;
+	
+	oldout = IOExpOutB;
+	IOExpOutB &= ~0x0c;
+	
+	if (myflags & 1) IOExpOutB |= 8;
+	
+	if (!(myflags & 4)) IOExpOutB |= 4;
+
+	if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
+}
 
 #ifdef	GGPS
 	void TickleDog(void)
@@ -2039,7 +2154,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 void RTCM_Reset(void)
 {
 #ifdef	GGPS
-volatile DWORD i;
+	volatile DWORD i;
 #endif
 
 	SetPTT(0);
@@ -2071,7 +2186,6 @@ BOOL HasCTCSS(void)
 
 void SetCTCSSTone(float freq, WORD gain)
 {
-
 	if ((freq <= 0.0) || (gain < 1))
 	{
 		tone_fac = 0;
@@ -2092,17 +2206,16 @@ void SetCTCSSTone(float freq, WORD gain)
 
 void SetTxTone(int freq)
 {
-
 	DISABLE_INTERRUPTS();
 	if (freq == 0)
 	{
-		DAC1CONbits.DACFDIV = 74;		// Divide by 75 for 8K Samples/sec
+		DAC1CONbits.DACFDIV = 74;	// Divide by 75 for 8K Samples/sec
 		testp = 0;
 		testidx = 0;
 	}
 	else
 	{
-		DAC1CONbits.DACFDIV = 36;		// Divide by 37 for approx 16216.216 Samples/sec
+		DAC1CONbits.DACFDIV = 36;	// Divide by 37 for approx 16216.216 Samples/sec
 		switch(freq)
 		{
 		    case 100:
@@ -2139,15 +2252,18 @@ void SetTxTone(int freq)
 
 static void domorse(char *str)
 {
-BYTE c;
+	BYTE c;
 
 	if (!cwptr)
 	{
 		while((c = *str++))
 		{
 			if (c < ' ') continue;
+	
 			if (c > 'Z') continue;
+	
 			c -= ' ';
+	
 			if (mbits[c].len)
 			{
 				cwlen = mbits[c].len * 2;
@@ -2164,6 +2280,7 @@ BYTE c;
 			}
 			break;
 		}
+
 		cwtimer1 = AppConfig.CWBeforeTime;
 		cwptr = str;
 	}
@@ -2171,7 +2288,7 @@ BYTE c;
 
 BYTE GetBootCS(void)
 {
-BYTE x = 0x69,i;
+	BYTE x = 0x69,i;
 
 	for(i = 0; i < 4; i++) x += AppConfig.BootIPAddr.v[i];
 	return(x);
@@ -2194,48 +2311,52 @@ BYTE x = 0x69,i;
 
 static int explode_string(char *str, char *strp[], int limit, char delim, char quote)
 {
-int     i,l,inquo;
+	int i,l,inquo;
 
         inquo = 0;
         i = 0;
         strp[i++] = str;
-        if (!*str)
-           {
-                strp[0] = 0;
-                return(0);
-           }
-        for(l = 0; *str && (l < limit) ; str++)
-        {
-                if(quote)
-                {
-                        if (*str == quote)
-                        {
-                                if (inquo)
-                                {
-                                        *str = 0;
-                                        inquo = 0;
-                                }
-                                else
-                                {
-                                        strp[i - 1] = str + 1;
-                                        inquo = 1;
-                                }
-                        }
-                }
-                if ((*str == delim) && (!inquo))
-                {
-                        *str = 0;
-                        l++;
-                        strp[i++] = str + 1;
-                }
-        }
-        strp[i] = 0;
-        return(i);
 
+	if (!*str)
+	{
+		strp[0] = 0;
+		return(0);
+	}
+
+	for(l = 0; *str && (l < limit) ; str++)
+	{
+		if (quote)
+		{
+			if (*str == quote)
+			{
+				if (inquo)
+				{
+					*str = 0;
+					inquo = 0;
+				}
+				else
+				{
+					strp[i - 1] = str + 1;
+					inquo = 1;
+				}
+			}
+		}
+
+		if ((*str == delim) && (!inquo))
+		{
+			*str = 0;
+			l++;
+			strp[i++] = str + 1;
+		}
+	}
+
+	strp[i] = 0;
+	return(i);
 }
 
-#define	memclr(x,y) memset(x,0,y)
-#define ARPIsTxReady()      MACIsTxReady() 
+#define	memclr(x,y) 	memset(x,0,y)
+#define ARPIsTxReady()	MACIsTxReady() 
+
 WORD htons(WORD x)
 {
 	WORD y;
@@ -2284,21 +2405,26 @@ DWORD ntohl(DWORD x)
 	return(y);
 }
 
+// Read an NMEA string from the GPS on UART2
 BOOL getGPSStr(void)
 {
-BYTE	c;
+	BYTE	c;
 
 	while (DataRdyUART2())
 	{
 		c = ReadUART2();
+	
 		if (c == '\n')
 		{
 			gps_buf[gps_bufindex]= 0;
 			gps_bufindex = 0;
 			return 1; 
 		}
+	
 		if (c < ' ') continue;
+	
 		gps_buf[gps_bufindex++] = c;
+	
 		if (gps_bufindex >= (sizeof(gps_buf) - 1))
 		{
 			gps_buf[gps_bufindex]= 0;
@@ -2309,27 +2435,33 @@ BYTE	c;
 	return 0;
 }
 
+// Read a TSIP GPS packet on UART2
 BOOL getTSIPPacket(void)
 {
-BYTE     c;
+	BYTE     c;
 
-		if (!DataRdyUART2()) return 0;
-		c = ReadUART2();
-        if (gps_bufindex == 0)
+	if (!DataRdyUART2()) return 0;
+		
+	c = ReadUART2();
+        
+	if (gps_bufindex == 0)
         {
                 TSIPwasdle = 0;
-                if (c == 16)
+        
+	        if (c == 16)
                 {
                         TSIPwasdle = 1;
                         gps_bufindex++;
                 }
                 return 0;
         }
+
         if (gps_bufindex > sizeof(gps_buf))
         {
                 gps_bufindex = 0;
                 return 0;
         }
+
         if ((c == 16) && (!TSIPwasdle))
         {
                 TSIPwasdle = 1;
@@ -2340,15 +2472,16 @@ BYTE     c;
                 gps_bufindex = 0;
                 return 1;
         }
+
         TSIPwasdle = 0;
         gps_buf[gps_bufindex - 1] = c;
-		gps_bufindex++;
+	gps_bufindex++;
         return 0;
 }
 
 static DWORD twoascii(char *s)
 {
-DWORD rv;
+	DWORD rv;
 
 	rv = s[1] - '0';
 	rv += 10 * (s[0] - '0');
@@ -2364,13 +2497,15 @@ DWORD rv;
 
 static char *logtime_p(VTIME *p)
 {
-time_t	t;
-static char str[50];
-static ROM char notime[] = "<System Time Not Set>",
+	time_t	t;
+	static char str[50];
+	static ROM char notime[] = "<System Time Not Set>",
 	logtemplate[] = "%m/%d/%Y %H:%M:%S";
 
 	t = p->vtime_sec;
+	
 	if (t == 0) return((char *)notime);
+	
 	strftime(str,sizeof(str) - 1,(char *)logtemplate,gmtime(&t));
 	sprintf(str + strlen(str),".%03lu",p->vtime_nsec / 1000000L);
 	return(str);
@@ -2383,15 +2518,17 @@ static ROM char notime[] = "<System Time Not Set>",
 /*****************************************************************************/
 void process_gps(void)
 {
-int n;
-char *strs[30];
-static ROM char gpgga[] = "$GPGGA",
-	gpgsv[] = "$GPGSV", gprmc[] = "$GPRMC";
+	int n;
+	char *strs[30];
+	static ROM char 	gpgga[] = "$GPGGA",
+				gpgsv[] = "$GPGSV", 
+				gprmc[] = "$GPRMC";
 
-// Please see doubleify.c for explanation of this poo-poo
-extern float doubleify(BYTE *p);
+	// Please see doubleify.c for explanation of this poo-poo
+	extern float doubleify(BYTE *p);
 	
 	if (indiag) return;
+
 #ifdef	GGPS
 	if (gps_state == GPS_STATE_SYNCED)
 	{
@@ -2402,9 +2539,12 @@ extern float doubleify(BYTE *p);
 		}
 		gps_unhappy = 0;
 	}
+
 	if (AppConfig.DebugLevel & 4) return;
 #endif
+
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
+
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
 		gps_state = GPS_STATE_SYNCED;
@@ -2412,11 +2552,13 @@ extern float doubleify(BYTE *p);
 		printf(gpsmsg3);
 		main_processing_loop();
 	}
+
 	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED))
 	{
 		gps_state = GPS_STATE_VALID;
 		printf(logtime());
 		printf(gpsmsg5);
+
 		if (USE_PPS)
 		{
 			connected = 0;
@@ -2429,26 +2571,33 @@ extern float doubleify(BYTE *p);
 			SetAudioSrc();
 		}
 	}
+
 	if (AppConfig.GPSProto == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
+
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
+
 #ifdef GGPS
 			printf("%d GPS-DEBUG: %s\n",ggps_unavail,gps_buf);
 #else
-			{
-				printf("GPS-DEBUG: %s\n",gps_buf);
-				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
-			}
+		{
+			printf("GPS-DEBUG: %s\n",gps_buf);
+		
+			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+		}
 #endif
 
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
+	
 		if (n < 1) return;
+	
 		if (!strcmp(strs[0],gpgsv))
 		{
 			if (n >= 4) gps_nsat = atoi(strs[3]);
 			return;
 		}
+	
 		if (!strcmp(strs[0],gprmc))
 		{
 			struct tm tm;
@@ -2475,25 +2624,32 @@ extern float doubleify(BYTE *p);
 			tm.tm_min = twoascii(strs[1] + 2);
 			tm.tm_hour = twoascii(strs[1]);
 			tm.tm_mday = twoascii(strs[9]);
+	
 			if (AppConfig.DebugLevel & 128)
 				tm.tm_mon = twoascii(strs[9] + 2);
 			else
 				tm.tm_mon = twoascii(strs[9] + 2) - 1;
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
+	
 			if (AppConfig.DebugLevel & 64)
 				gps_time = (DWORD) mktime(&tm) + 1;
 			else
 				gps_time = (DWORD) mktime(&tm);
+	
 			if (AppConfig.DebugLevel & 32)
 				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+	
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
 	
 		if (n < 7) return;
+	
 		if (strcmp(strs[0],gpgga)) return;
+	
 		gpswarn = 0;
 		gpstimer = 0;
+	
 		if (gps_state == GPS_STATE_IDLE)
 		{
 			gps_state = GPS_STATE_RECEIVED;
@@ -2503,12 +2659,15 @@ extern float doubleify(BYTE *p);
 		}
 #ifndef	GGPS
 		n = atoi(strs[6]);
+	
 		if ((n < 1) || (n > 2)) 
 		{
 			if (gps_state == GPS_STATE_RECEIVED) return;
+	
 			gps_state = GPS_STATE_IDLE;
 			printf(logtime());
 			printf(gpsmsg6);
+	
 			if (USE_PPS)
 			{
 				connected = 0;
@@ -2531,6 +2690,7 @@ extern float doubleify(BYTE *p);
 			printf(gpsmsg2);
 			printf("%d\n",gps_nsat);
 		}
+	
 		memclr(&gps_packet,sizeof(gps_packet));
 		strncpy(gps_packet.lat,strs[2],7);
 		gps_packet.lat[7] = *strs[3];
@@ -2541,15 +2701,17 @@ extern float doubleify(BYTE *p);
 	else /* is a Trimble TSIP Device */
 	{
 /* We are looking for two types of packets from TSIP devices:
-	The 0x8f-ab Primary Timing Packet
-	The 0x8f-ac Supplementary Timing Packet
+   The 0x8f-ab Primary Timing Packet
+   The 0x8f-ac Supplementary Timing Packet
 
    Both packets are read in to the gps_buf array. NOTE, our array count is off by one, if you 
    are looking at the TSIP reference, since gps_buf[0] contains the Header Byte, instead of the 
    Subcode byte.
 */
 		if (!getTSIPPacket()) return;
+
 		if (gps_buf[0] != 0x8f) return; // "Superpacket" Header
+
 		if (gps_buf[1] == 0xab) // AB is the Primary Timing Packet
 		{
 			struct tm tm;
@@ -2559,17 +2721,18 @@ extern float doubleify(BYTE *p);
 			tm.tm_sec = gps_buf[11]; // seconds 0-59
 			tm.tm_min = gps_buf[12]; // minutes 0-59
 			tm.tm_hour = gps_buf[13]; // hours 0-23
-			tm.tm_mday = gps_buf[14]; // day of month 1-21
+			tm.tm_mday = gps_buf[14]; // day of month 1-31
+
 			/* gps_buf[15] is Month of Year, 1-12, HOWEVER, tm_mon counts 0-11!! */
 			if (AppConfig.DebugLevel & 128)
 				tm.tm_mon = gps_buf[15]; // add 1 month, some GPS are broken?
 			else
 				tm.tm_mon = gps_buf[15] - 1; // tm_mon counts 0-11, so -1 to get correct month
+
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8); // 4-digit year (two bytes)
 			tm.tm_year = w - 1900; // tm_year is relative to years since 1900
 
 			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8); // gps week number (two bytes)
-
 
 			if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
 			{
@@ -2583,10 +2746,12 @@ extern float doubleify(BYTE *p);
 				{
 					gps_time = (DWORD) mktime(&tm) + (DWORD) ADD_1024_WEEKS;
 				}
+
 				if ((gpsweek >= 936) && (gpsweek <= 1023)) // for weeks 936-1023, add 2048 weeks
 				{
 					gps_time = (DWORD) mktime(&tm) + (2 * (DWORD) ADD_1024_WEEKS);
 				}
+
 				if (gpsweek >= 1024) // this isn't a Tbolt, so don't fudge the time
 				{
 					gps_time = (DWORD) mktime(&tm);
@@ -2605,7 +2770,6 @@ extern float doubleify(BYTE *p);
 			{
 				gps_time = gps_time - gpsleap;
 			}
-
 			
 			if (AppConfig.DebugLevel & 32)
 			{
@@ -2616,6 +2780,7 @@ extern float doubleify(BYTE *p);
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 		 	return;
 		}
+
 		if (gps_buf[1] == 0xac) // AC is the Supplemental Timing Packet
 		{
 			BOOL happy;
@@ -2623,20 +2788,27 @@ extern float doubleify(BYTE *p);
 			float f;
 
 			happy = 1;
+
 			if (gps_buf[13]) happy = 0; // GPS Decoding Status - 0=doing fixes
+
 			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) happy = 0; // Discipline Activity, Phase Locked and Recovery Mode?
+
 			if (gps_buf[9] || gps_buf[10]) happy = 0; // 0=No Critical Alarms
+
 			if ((gps_buf[11] & 0x1f) | gps_buf[12]) happy = 0; // 0=No Minor Alarms
 			/* Minor alarms are tricky! gps_buf[11] is Bits 8-12, gps_buf[12] is Bits 0-7
 			ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
 			   gps_buf[11]=0x08 -> Almanac not complete */
+
 			if (AppConfig.DebugLevel & 32)
 			{
 				printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
 					happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
 			}
+
 			gpswarn = 0;
 			gpstimer = 0;
+
 			if (gps_state == GPS_STATE_IDLE)
 			{
 				gps_state = GPS_STATE_RECEIVED;
@@ -2644,12 +2816,15 @@ extern float doubleify(BYTE *p);
 				gpswarn = 0;
 				printf(gpsmsg1);
 			}
+
 			if (!happy)
 			{
 				if (gps_state == GPS_STATE_RECEIVED) return;
+
 				gps_state = GPS_STATE_IDLE;
 				printf(logtime());
 				printf(gpsmsg6);
+
 				if (USE_PPS)
 				{
 					connected = 0;
@@ -2661,42 +2836,55 @@ extern float doubleify(BYTE *p);
 					lastrxtimer = 0;
 					SetAudioSrc();
 				}
+
 				gpssync = 0;
 				gotpps = 0;
 			}
+
 			gps_nsat = 3; // Hah, we're faking the number of received sats.
+
 			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 			{
 				gps_state = GPS_STATE_VALID;
-		
 				printf(gpsmsg9);
 
 			}
+
 			memclr(&gps_packet,sizeof(gps_packet));
 			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
 			x = (int) f;
 			f -= (float) x;
+
 			if (f < 0.0) f = -f;
+
 			f *= 60.0;
 			y = (int) f;
 			f -= (float) y;
+
 			if (f < 0.0) f = -f;
+
 			if (x < 0)
 				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
 			else
 				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
+
 			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
 			x = (int) f;
 			f -= (float) x;
+
 			if (f < 0.0) f = -f;
+
 			f *= 60.0;
 			y = (int) f;
 			f -= (float) y;
+
 			if (f < 0.0) f = -f;
+
 			if (x < 0)
 				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
 			else
 				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
+
 			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
 			return;
 		}
@@ -2711,43 +2899,48 @@ extern float doubleify(BYTE *p);
 /*****************************************************************************/
 void adpcm_decoder(BYTE *indata)
 {
-    BYTE *inp;		/* Input buffer pointer */
-    int sign;			/* Current adpcm sign bit */
-    BYTE delta;			/* Current adpcm output value */
-    int step;			/* Stepsize */
-    long valpred;		/* Predicted value */
-    int vpdiff;			/* Current change to valpred */
-    int index;			/* Current step change index */
-    BYTE inputbuffer;		/* place to keep next 4-bit value */
-    BOOL bufferstep;		/* toggle between inputbuffer/input */
+	BYTE *inp;		// Input buffer pointer 
+	int sign;		// Current adpcm sign bit 
+	BYTE delta;		// Current adpcm output value 
+	int step;		// Stepsize 
+	long valpred;	// Predicted value 
+	int vpdiff;		// Current change to valpred 
+	int index;		// Current step change index 
+	BYTE inputbuffer;	// place to keep next 4-bit value 
+	BOOL bufferstep;	// toggle between inputbuffer/input 
 	WORD i;
-    short sample, musign, exponent, mantissa;
-    BYTE ulawbyte;
+	short sample, musign, exponent, mantissa;
+	BYTE ulawbyte;
 
-    inp = indata;
+	inp = indata;
 
-    valpred = dec_valprev;
-    index = dec_index;
-    step = stepsizeTable[index];
+	valpred = dec_valprev;
+	index = dec_index;
+	step = stepsizeTable[index];
+	bufferstep = 0;
+	inputbuffer = 0;
 
-    bufferstep = 0;
-    inputbuffer = 0;
 
-   
-    for ( i = 0; i < FRAME_SIZE * 2; i++) {
-	
+	for ( i = 0; i < FRAME_SIZE * 2; i++) 
+	{
 		/* Step 1 - get the delta value */
-		if ( bufferstep ) {
-		    delta = inputbuffer & 0xf;
-		} else {
-		    inputbuffer = *inp++;
-		    delta = (inputbuffer >> 4) & 0xf;
+		if ( bufferstep ) 
+		{
+			delta = inputbuffer & 0xf;
+		} 
+		else 
+		{
+			inputbuffer = *inp++;
+			delta = (inputbuffer >> 4) & 0xf;
 		}
+
 		bufferstep = !bufferstep;
 	
 		/* Step 2 - Find new index value (for later) */
 		index += indexTable[delta];
+		
 		if ( index < 0 ) index = 0;
+		
 		if ( index > 88 ) index = 88;
 	
 		/* Step 3 - Separate sign and magnitude */
@@ -2760,20 +2953,23 @@ void adpcm_decoder(BYTE *indata)
 		** in adpcm_coder.
 		*/
 		vpdiff = step >> 3;
+	
 		if ( delta & 4 ) vpdiff += step;
+	
 		if ( delta & 2 ) vpdiff += step >> 1;
+	
 		if ( delta & 1 ) vpdiff += step >> 2;
 	
 		if ( sign )
-		  valpred -= vpdiff;
+			valpred -= vpdiff;
 		else
-		  valpred += vpdiff;
+			valpred += vpdiff;
 	
 		/* Step 5 - clamp output value */
 		if ( valpred > 32767 )
-		  valpred = 32767;
+			valpred = 32767;
 		else if ( valpred < -32768 )
-		  valpred = -32768;
+			valpred = -32768;
 	
 		/* Step 6 - Update step value */
 		step = stepsizeTable[index];
@@ -2782,18 +2978,21 @@ void adpcm_decoder(BYTE *indata)
 //		vout = valpred + 32768;
 			
 		sample = valpred;
-        /* Get the sample into sign-magnitude. */
-        musign = (sample >> 8) & 0x80;          /* set aside the sign */
-        if (musign != 0)
-                sample = -sample;              /* get magnitude */
-        if (sample > CLIP)
-                sample = CLIP;             /* clip the magnitude */
+        
+		/* Get the sample into sign-magnitude. */
+		musign = (sample >> 8) & 0x80;	/* set aside the sign */
+        
+		if (musign != 0)
+			sample = -sample;	/* get magnitude */
+        
+		if (sample > CLIP)
+			sample = CLIP;		/* clip the magnitude */
 
-        /* Convert from 16 bit linear to ulaw. */
-        sample = sample + BIAS;
-        exponent = exp_lut[(sample >> 7) & 0xFF];
-        mantissa = (sample >> (exponent + 3)) & 0x0F;
-        ulawbyte = ~(musign | (exponent << 4) | mantissa);
+		/* Convert from 16 bit linear to ulaw. */
+		sample = sample + BIAS;
+		exponent = exp_lut[(sample >> 7) & 0xFF];
+		mantissa = (sample >> (exponent + 3)) & 0x0F;
+		ulawbyte = ~(musign | (exponent << 4) | mantissa);
 
 		dec_buffer[i] = ulawbyte;
     }
@@ -2809,7 +3008,6 @@ void adpcm_decoder(BYTE *indata)
 /*****************************************************************************/
 void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
-
 	BYTE n,c,i,j,*cp;
 #ifdef	DSPBEW
 	short x;
@@ -2827,6 +3025,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	myhost_txseqno = host_txseqno;
 
 	if (indiag) return;
+
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
 		system_time.vtime_sec = timing_time;
@@ -2841,6 +3040,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		for(i = 0; i < FFT_BLOCK_LENGTH; i++)
 		{
 			x = ulawtabletx[audio_buf[filling_buffer ^ 1][i]];
+
 			if (AppConfig.BEWMode > 1)
 			{
 				if (x > 16383) x = 16383;
@@ -2851,14 +3051,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			{
 				sigCmpx[i].real = x / 2;
 			}
+
 			sigCmpx[i].imag = 0x0000;
 		}
 	
-	#ifndef FFTTWIDCOEFFS_IN_PROGMEM
+#ifndef FFTTWIDCOEFFS_IN_PROGMEM
 		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
-	#else
+#else
 		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]), (int) __builtin_psvpage(&twiddleFactors[0]));
-	#endif
+#endif
 	
 		/* Store output samples in bit-reversed order of their addresses */
 		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
@@ -2868,13 +3069,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	
 		wp = (unsigned int *)&sigCmpx[0];
 		fftresult = 0;
+
 		// Get the total energy above CTCSS and below 2000 Hz
 		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++)
 		{
 			if (i >= 2) fftresult += *wp;
+
 			wp++;
 		}
+
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
+
 		if (!AppConfig.BEWMode) qualnoise = 1;
 	
 		if (!qualnoise)
@@ -2887,13 +3092,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		{
 //TESTBIT ^= 1;
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
+
 			if (AppConfig.CORType == 1) rssiheld = rssi = 255;
 #ifdef	DSPBEW
 			if (qualnoise || (!HasCOR())) rssiheld = rssi;
 #else
 			rssiheld = rssi;
 #endif
-			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
+			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) 
+			{
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
@@ -2901,16 +3108,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					(!USE_PPS) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
+				
 				if (tosend) audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? 3 : 1);
+				
 				i = 0;
 				cp = (BYTE *) &audio_packet;
 				for(i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) UDPPut(*cp++);
 				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 
-	            if (tosend)
-				{
-					
+	            		if (tosend)
+				{	
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS())
 					{
 						UDPPut(rssiheld);
@@ -2924,9 +3132,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					}
 				}
 				else if (!USE_PPS) UDPPut(OPTION_FLAG_MIX);
-	             //Send contents of transmit buffer, and free buffer
-	            UDPFlush();
-				attempttimer = 0;
+
+			//Send contents of transmit buffer, and free buffer
+			UDPFlush();
+			attempttimer = 0;
 			}
 		}
 #ifdef	DSPBEW
@@ -2940,42 +3149,51 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		filled = 0;
 		time_filled = 0;
 	}
+	
 	if (connected && (sendgps || (!USE_PPS)) && (gps_packet.lat[0] || (gpsforcetimer >= GPS_FORCE_TIME)))
 	{
-	        if (UDPIsPutReady(*udpSocketUser)) {
-				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-				gps_packet.vph.curtime.vtime_sec = htonl(real_time);
-				gps_packet.vph.curtime.vtime_nsec = htonl(0);
-				strcpy((char *)gps_packet.vph.challenge,challenge);
-				gps_packet.vph.digest = htonl(resp_digest);
-				gps_packet.vph.payload_type = htons(2);
-				// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
-				cp = (BYTE *) &gps_packet.vph;
-				for(i = 0; i < sizeof(gps_packet.vph); i++) UDPPut(*cp++);
-				if (gps_packet.lat[0])
-				{
-					cp = (BYTE *) gps_packet.lat;
-					for(i = 0; i < sizeof(gps_packet.lat); i++) UDPPut(*cp++);
-					cp = (BYTE *) gps_packet.lon;
-					for(i = 0; i < sizeof(gps_packet.lon); i++) UDPPut(*cp++);
-					cp = (BYTE *) gps_packet.elev;
-					for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
-				}
-	            UDPFlush();
-				sendgps = 0;
-				gpsforcetimer = 0;
-	         }
-			memclr(&gps_packet,sizeof(gps_packet));
+	        if (UDPIsPutReady(*udpSocketUser)) 
+		{
+			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
+			gps_packet.vph.curtime.vtime_nsec = htonl(0);
+			strcpy((char *)gps_packet.vph.challenge,challenge);
+			gps_packet.vph.digest = htonl(resp_digest);
+			gps_packet.vph.payload_type = htons(2);
+			
+			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+			cp = (BYTE *) &gps_packet.vph;
+			for(i = 0; i < sizeof(gps_packet.vph); i++) UDPPut(*cp++);
+			if (gps_packet.lat[0])
+			{
+				cp = (BYTE *) gps_packet.lat;
+				for(i = 0; i < sizeof(gps_packet.lat); i++) UDPPut(*cp++);
+				cp = (BYTE *) gps_packet.lon;
+				for(i = 0; i < sizeof(gps_packet.lon); i++) UDPPut(*cp++);
+				cp = (BYTE *) gps_packet.elev;
+				for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
+			}
+		
+		UDPFlush();
+		sendgps = 0;
+		gpsforcetimer = 0;
+		}
+
+		memclr(&gps_packet,sizeof(gps_packet));
 	}
 
-	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
+	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) 
+	{
 		n = 0;
 		cp = (BYTE *) &audio_packet;
+		
 		while(UDPGet(&c))
 		{
 			if (n++ < sizeof(audio_packet)) *cp++ = c;	
 		}
-		if (n >= sizeof(VOTER_PACKET_HEADER)) {
+		
+		if (n >= sizeof(VOTER_PACKET_HEADER)) 
+		{
 			/* if this is a new session */
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 			{
@@ -2993,17 +3211,23 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					(ntohs(audio_packet.vph.payload_type) == 0))
 				{
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
+				
 					if (mydigest == ntohl(audio_packet.vph.digest))
 					{
 						digest = mydigest;
+				
 						if (!connected) gpsforcetimer = 0;
+				
 						connected = 1;
 						lastrxtimer = 0;
+				
 						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
 						else option_flags = 0;
+				
 						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
 						{
 							if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
+
 							connected = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
@@ -3028,50 +3252,64 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					BYTE wconnected;
 				
 					wconnected = connected;
+
 					if (!connected) gpsforcetimer = 0;
+
 					connected = 1;
 					lastrxtimer = 0;
+
 					if (!wconnected) SetAudioSrc();
+
 					lastrxtimer = 0;
+
 					if (ntohs(audio_packet.vph.payload_type) == 5) // PING
 					{
 						if (!pingtimer) // If okay to respond to a ping 
 						{
-					        if (UDPIsPutReady(*udpSocketUser)) {
+					        	if (UDPIsPutReady(*udpSocketUser)) 
+							{
 								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
 								audio_packet.vph.curtime.vtime_nsec = htonl(0);
 								strcpy((char *)audio_packet.vph.challenge,challenge);
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(5);
+
 								// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
 								cp = (BYTE *) &audio_packet.vph;
 								for(i = 0; i < n; i++) UDPPut(*cp++);
-					            UDPFlush();
+
+					            		UDPFlush();
 								pingtimer = MIN_PING_TIME;
 							}
 						}
 					}
+
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
 						short mydiff;
-
-
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
 						last_rxpacket_inbounds = 0;
+
 						if (!USE_PPS)
 						{
 							mytxseqno = txseqno;
-							if (mytxseqno > (txseqno_ptt + 2))
-									host_txseqno = 0;
+
+							if (mytxseqno > (txseqno_ptt + 2)) 
+								host_txseqno = 0;
+
 							txseqno_ptt = mytxseqno;
-							if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+
+							if (!host_txseqno) 
+								myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+
 							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
 							index *= FRAME_SIZE;
-							if (AppConfig.TxBufferLength >= 1440)
+
+							if (AppConfig.TxBufferLength >= 1440) 
 								index -= (FRAME_SIZE * 4);
 							else if (AppConfig.TxBufferLength >= 1120)
 								index -= (FRAME_SIZE * 3);
@@ -3087,13 +3325,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 							index += (ndiff / 125000);
 						}
+
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
 //printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
 						last_rxpacket_index = index;
-                        /* if in bounds */
-                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
-                        {
+			
+			                        /* if in bounds */
+                        			if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
+                        			{	
 							last_rxpacket_inbounds = 1;
+						
 							if (!USE_PPS)
 							{
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
@@ -3109,8 +3350,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 									lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 								}
 							}
-                            index += mytxindex;
-					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
+
+                            				index += mytxindex;
+
+					   		if (index > AppConfig.TxBufferLength) 
+								index -= AppConfig.TxBufferLength;
+							
 							mydiff = AppConfig.TxBufferLength;
 
 							if (ntohs(audio_packet.vph.payload_type) == 3)
@@ -3119,31 +3364,32 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
 								dec_index = audio_packet.audio[162];
 								adpcm_decoder(audio_packet.audio);
-	                            if (mydiff >= 0)
-	                            {
-	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
-	                             }
-	                            else
-	                            {
-	                                    memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
-	                                    memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
-	                            }
 
+								if (mydiff >= 0)
+								{
+									memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
+								}
+								else
+								{
+									memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
+									memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
+								}
 							}
 							else
 							{
 					  			mydiff -= ((short)index + FRAME_SIZE);
-	                            if (mydiff >= 0)
-	                            {
-	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
-	                             }
-	                            else
-	                            {
-	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
-	                                    memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
-	                            }
+	                            				
+								if (mydiff >= 0)
+								{	
+									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
+								}
+								else
+								{
+									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
+									memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
+								}
 							}
-                        }
+                        			}
 						else /* not in bounds */
 						{
 							if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))
@@ -3151,6 +3397,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							else
 								missed = index;
 							misstimer1 = PKT_MISS_TIME;
+
 							if (!USE_PPS)
 							{
 								host_txseqno = 0;
@@ -3160,6 +3407,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				}
 			}
 		}
+
 		UDPDiscard();
 	}
 }
