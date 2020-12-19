@@ -6056,7 +6056,7 @@ int main(void)
 			case 82: // GPS Time Offset (seconds)
 				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l <= 788400000UL))
 				{
-					AppConfig.GPSOffset = 1;
+					AppConfig.GPSOffset = l;
 					ok = 1;
 				}
 				break;
