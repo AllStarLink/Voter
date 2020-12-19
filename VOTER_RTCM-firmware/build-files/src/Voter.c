@@ -100,9 +100,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "2.00 BEW 12/06/2020";
+	char	VERSION[] = "2.00rc1 BEW 12/19/2020";
 #else
-	char	VERSION[] = "2.00 12/06/2020";
+	char	VERSION[] = "2.00rc1 12/19/2020";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -2632,9 +2632,9 @@ void process_gps(void)
 			tm.tm_year = twoascii(strs[9] + 4) + 100;
 	
 			if (AppConfig.DebugLevel & 64)
-				gps_time = (DWORD) mktime(&tm) + 1;
+				gps_time = (DWORD) mktime(&tm) + 1 + (DWORD) AppConfig.GPSOffset;
 			else
-				gps_time = (DWORD) mktime(&tm);
+				gps_time = (DWORD) mktime(&tm) + (DWORD) AppConfig.GPSOffset;
 	
 			if (AppConfig.DebugLevel & 32)
 				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
@@ -2736,7 +2736,7 @@ void process_gps(void)
 
 			if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
 			{
-				gps_time = (DWORD) mktime(&tm);
+				gps_time = (DWORD) mktime(&tm) + (DWORD) AppConfig.GPSOffset;
 			}
 			else
 			{
@@ -2744,17 +2744,17 @@ void process_gps(void)
 			it thinks it is, and correct it.*/
 				if ((gpsweek >= 0) && (gpsweek <= 935)) // for weeks 0-935, add 1024 weeks
 				{
-					gps_time = (DWORD) mktime(&tm) + (DWORD) ADD_1024_WEEKS;
+					gps_time = (DWORD) mktime(&tm) + (DWORD) ADD_1024_WEEKS + (DWORD) AppConfig.GPSOffset;
 				}
 
 				if ((gpsweek >= 936) && (gpsweek <= 1023)) // for weeks 936-1023, add 2048 weeks
 				{
-					gps_time = (DWORD) mktime(&tm) + (2 * (DWORD) ADD_1024_WEEKS);
+					gps_time = (DWORD) mktime(&tm) + (2 * (DWORD) ADD_1024_WEEKS) + (DWORD) AppConfig.GPSOffset;
 				}
 
 				if (gpsweek >= 1024) // this isn't a Tbolt, so don't fudge the time
 				{
-					gps_time = (DWORD) mktime(&tm);
+					gps_time = (DWORD) mktime(&tm) + (DWORD) AppConfig.GPSOffset;
 				}
 			}
 
@@ -5472,6 +5472,7 @@ int main(void)
 		"7  - Tx Buffer Length (%d)\n"
 		"8  - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"81 - GPS Type (0=Normal TSIP, 1=Trimble Thunderbolt) (%d)\n"
+		"82 - GPS Time Offset (seconds to add for correction) (%lu)\n"
 		"9  - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n",
 		menu4[] = 
@@ -5864,7 +5865,7 @@ int main(void)
 			AppConfig.HostPassword);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
+		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSOffset,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel1);
@@ -5949,9 +5950,9 @@ int main(void)
 		
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 19)) || ( sel == 81) || (sel == 11780) || (sel == 1103) || (sel == 1170))
+		if (((sel >= 1) && (sel <= 19)) || (sel == 81) || (sel == 82) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 19)) || ( sel == 81) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 19)) || (sel == 81) || (sel == 82) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
@@ -6048,6 +6049,14 @@ int main(void)
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
 					AppConfig.GPSTbolt = i1;
+					ok = 1;
+				}
+				break;
+
+			case 82: // GPS Time Offset (seconds)
+				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l <= 788400000UL))
+				{
+					AppConfig.GPSOffset = 1;
 					ok = 1;
 				}
 				break;
@@ -6569,6 +6578,7 @@ static void InitAppConfig(void)
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
 	AppConfig.GPSTbolt = 0;
+	AppConfig.GPSOffset = 0;
 
 	#if defined(EEPROM_CS_TRIS)
 	{

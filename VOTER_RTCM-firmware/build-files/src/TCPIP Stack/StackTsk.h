@@ -55,6 +55,7 @@
  * Howard Schlunder		8/09/06	Removed MCHP_MAC, added STACK_USE_NBNS, 
  *								STACK_USE_DNS, and STACK_USE_GENERIC_TCP_EXAMPLE
  * VE7FET		12/05/20 Add GPSTBolt
+ * VE7FET		12/13/20 Add GPSOffset
  ********************************************************************/
 #ifndef __STACK_TSK_H
 #define __STACK_TSK_H
@@ -164,7 +165,8 @@ typedef struct __attribute__((__packed__))
 	WORD LaunchDelay;
 	WORD CTCSSThreshold;
 	BYTE GPSTbolt;
-	BYTE Zeros[563];
+	DWORD GPSOffset;
+	BYTE Zeros[559];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION

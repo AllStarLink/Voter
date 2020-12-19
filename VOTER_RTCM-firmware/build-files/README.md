@@ -26,7 +26,7 @@ Added additional bytes (gps_buf[2] and [3]) to the TSIP debug to see Receiver mo
 
 Fixed the check of Supplemental Timing Packet 0xAC Minor Alarms, gps_buf bytes were swapped. Not critical, as we are checking for everything to be 0 (no alarms) anyways, but debugging makes more sense when we are looking at the right bits. gps_buf[12] is the low byte (Bits 0-7), and gps_buf[11] is the high byte (Bits 8-12).
 
-2.00 12/09/2020
+2.00 12/19/2020
 This version drops the original squelch code (which actually had a bug in it), and makes "Chuck Squelch" the default squelch. As such, all binaries will have Chuck Squelch, there will be no binaries compiled with the original squelch (that code has been removed).
 
 Add some comments to the source, trying to figure out what some parts do. Looks like the un-documented "Saywer" mode forces the PL filter OUT of the receive audio path, when in OFFLINE mode, if enabled (Sawyer=1).
@@ -37,3 +37,4 @@ This version reverses the logic for ToS/DSCP marking of packets. Now, by default
 
 Add another GPS debug feature to help determine PPS polarity. GPS debug will now report if you have PPS configured (set to 0 or 1), but it doesn't see detect a PPS pulse. This is likely because you are using the wrong polarity. Also added entry to 98-status menu to show if the PPS is bad (and suggest checking polarity). If PPS is set to ignore, the status menu will show 0 anyways, since it is not used.
 
+Add another menu config option (82) to allow you to add an arbitrary number of seconds to this device's GPS time, in order to synchronize with the master. Different brands have different firmware bugs, and may not always come up with the right rime. This makes it easier to line those times up, as long as it is a consistent offset. ie. if you need to add 19.4 years, that would be 19.4 * 365 * 24 * 60 * 60 = 611798400 seconds. This is similar to the change proposed by Chuck Henderson (WB9UUS), except that it adds it to the main menu, and allows for an arbitrary amount of time, up to 25 years.
