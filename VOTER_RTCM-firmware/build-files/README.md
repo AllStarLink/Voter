@@ -26,15 +26,15 @@ Added additional bytes (gps_buf[2] and [3]) to the TSIP debug to see Receiver mo
 
 Fixed the check of Supplemental Timing Packet 0xAC Minor Alarms, gps_buf bytes were swapped. Not critical, as we are checking for everything to be 0 (no alarms) anyways, but debugging makes more sense when we are looking at the right bits. gps_buf[12] is the low byte (Bits 0-7), and gps_buf[11] is the high byte (Bits 8-12).
 
-2.00 12/19/2020
-This version drops the original squelch code (which actually had a bug in it), and makes "Chuck Squelch" the default squelch. As such, all binaries will have Chuck Squelch, there will be no binaries compiled with the original squelch (that code has been removed).
 
-Add some comments to the source, trying to figure out what some parts do. Looks like the un-documented "Saywer" mode forces the PL filter OUT of the receive audio path, when in OFFLINE mode, if enabled (Sawyer=1).
+1.61 1/11/2021
+The mktime() sub-routine in MPLAB C30 has a bug, see https://www.microchip.com/forums/m653169.aspx
 
-Remove the "autoconfiguration" of the baud rate, and resetting PPS/GPS polarity to 0 when changing to/from NMEA/TSIP. This just adds confusion when trying to set up a GPS. Leave the baud and polarity settings alone.
+After 12/31/2020 23:59:59, mktime() now returns -1, instead of epoch time. That BREAKS the firmware, as on boot, the 
+date/time starts counting from epoch, and nothing will syncrohize anymore, since all VOTER/RTCM's will have different 
+times once restarted. The main receiver will still receive, you just lose all voting.
 
-This version reverses the logic for ToS/DSCP marking of packets. Now, by default, we will mark all packets outbound from the VOTER/RTCM with DSCP 48 (802.1p Class 6 aka Network Control ToS). Debug Level 16 now DISABLES ToS, changing the packets to Routine. Don't forget, you still need utos=y in your voter.conf to mark packets from the server TO the VOTER/RTCM.
+David Maciorowski, WA1JHK, wrote a patch to replace using mktime(). It takes the known value of epoch seconds up until 
+01/01/2021 00:00:00, and then uses the time/date from the GPS to add the offset to current time/date. Crude, but effective, 
+since we don't care about time in the past, only need to know the time now.
 
-Add another GPS debug feature to help determine PPS polarity. GPS debug will now report if you have PPS configured (set to 0 or 1), but it doesn't see detect a PPS pulse. This is likely because you are using the wrong polarity. Also added entry to 98-status menu to show if the PPS is bad (and suggest checking polarity). If PPS is set to ignore, the status menu will show 0 anyways, since it is not used.
-
-Add another menu config option (82) to allow you to add an arbitrary number of seconds to this device's GPS time, in order to synchronize with the master. Different brands have different firmware bugs, and may not always come up with the right rime. This makes it easier to line those times up, as long as it is a consistent offset. ie. if you need to add 19.4 years, that would be 19.4 * 365 * 24 * 60 * 60 = 611798400 seconds. This is similar to the change proposed by Chuck Henderson (WB9UUS), except that it adds it to the main menu, and allows for an arbitrary amount of time, up to 25 years.
