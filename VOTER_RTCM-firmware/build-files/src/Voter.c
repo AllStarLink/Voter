@@ -72,24 +72,43 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 #include <math.h>
 #include <dsp.h>
 
+// Include all headers for any enabled TCPIP Stack functions
+#include "TCPIP Stack/TCPIP.h"
+
 /* Debug values:
 
 1 - Alt/Main Host change notifications
 2 - Ignore HWlock (GGPS only)
 4 - GPS/PPS Failure simulation (GGPS only)
 8 - POCSAG H/W output disable (GGPS only)
-16 - IP TOS Class for Ubiquiti
+16 - Disable IP TOS Class for Ubiquiti
 32 - GPS Debug
 64 - Fix GPS 1 second off
 128 - Fix GPS 1 month off (subtracts one month)
 
 */
 
+/* NOTE: By default, audio between the host and the client will be 
+   encoded in ulaw, UNLESS specifically set by the adpcm option 
+   in voter.conf on the host.
+*/
+
+/* VOTER (through-hole) runs on:	dsPIC33FJ128GP802
+   RTCM (aka SMT_BOARD) runs on:	dsPIC33FJ128GP804
+*/
+
+/* Fortunately now, the problem that we had with weak signals producing RSSI readings all over the place
+   (and was dealt with by using a longer-term, but less responsive average) is now fixed, thanks to Chuck,
+   WB9UUS for pointing out the 16 bit value overflow that was being caused! It works much more better-er now,
+   and produces rock-solid, stable results even on barely or non-readable signals. Old code has since been 
+   removed, "Chuck Squelch" is now the default.
+*/
+
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-char	VERSION[] = "1.61 BEW 1/11/2021";
+	char	VERSION[] = "2.00rc1 BEW 12/19/2020";
 #else
-char	VERSION[] = "1.61 1/11/2021";
+	char	VERSION[] = "2.00rc1 12/19/2020";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -98,9 +117,6 @@ char	VERSION[] = "1.61 1/11/2021";
 
 /* Un-comment this to generate digital milliwatt level on output */
 /* #define DMWDIAG */
-
-// Include all headers for any enabled TCPIP Stack functions
-#include "TCPIP Stack/TCPIP.h"
 
 #if defined (GGPS)
 	#if defined(SMT_BOARD)
@@ -113,15 +129,15 @@ char	VERSION[] = "1.61 1/11/2021";
 
 #if defined(SMT_BOARD)
 
-	#define	CTCSSIN	_RA7
-	#define	JP8	_RA8
-	#define	JP9	_RA9
-	#define	JP10 _RA10
+	#define	CTCSSIN	_RA7	// Pin 13
+	#define	JP8	_RA8	// Pin 32 - Init EEPROM
+	#define	JP9	_RA9	// Pin 35 - Calibrate Squelch
+	#define	JP10 	_RA10	// Pin 12 - Calibrate Diode
 
-	#define	JP11 _RB9
+	#define	JP11 	_RB9	// Pin 1 - Set LED3/4 for RX Level Mode
 	
-	#define	INITIALIZE JP8 // Short JP8 on powerup to initialize EEPROM
-	#define	INITIALIZE_WVF JP10  // Short on powerup while JP8 is shorted to also initialize Diode VF
+	#define	INITIALIZE 	JP8 	// Short JP8 on powerup to initialize EEPROM
+	#define	INITIALIZE_WVF 	JP10  	// Short on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATB8
 
@@ -129,10 +145,10 @@ char	VERSION[] = "1.61 1/11/2021";
 
 #ifndef	DSPBEW
 	#define	DIAGMENU
-#endif
+#endif // dspbew
 
 #else
-
+	// Register addresses in the MCP23S17 IO Expander
 	#define	IOEXP_IODIRA 0
 	#define	IOEXP_IODIRB 1
 	#define IOEXP_IOPOLA 2
@@ -155,123 +171,128 @@ char	VERSION[] = "1.61 1/11/2021";
 	#define	IOEXP_OLATA 20
 	#define	IOEXP_OLATB 21
 	
-	#define	CTCSSIN	(inputs1 & 0x10)
-	#define	JP8	(inputs1 & 0x40)
-	#define	JP9	(inputs1 & 0x80)
-	#define	JP10 (inputs2 & 1)
-	#define	JP11 (inputs2 & 2)
+	#define	CTCSSIN	(inputs1 & 0x10)	// Pin 25 - GPA4
+	#define	JP8	(inputs1 & 0x40)	// Pin 27 - GPA6 Initialise EEPROM
+	#define	JP9	(inputs1 & 0x80)	// Pin 28 - GPA7 Calibrate Squelch
+	#define	JP10 	(inputs2 & 1)		// Pin 1  - GPB0 Calibrate Diode
+	#define	JP11 	(inputs2 & 2)		// Pin 2  - GPB1 LED 3/4 RX Level Mode
 
-	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) // Short JP8 on powerup to initialize EEPROM
-	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  // Short on powerup while JP8 is shorted to also initialize Diode VF
+	#define	INITIALIZE (IOExp_Read(IOEXP_GPIOA) & 0x40) 	// Short JP8 on powerup to initialize EEPROM
+	#define	INITIALIZE_WVF (IOExp_Read(IOEXP_GPIOB) & 1)  	// Short JP10 on powerup while JP8 is shorted to also initialize Diode VF
 	
 	#define TESTBIT _LATA1
 	#define	TESTBIT_TRIS TRISAbits.TRISA1
 
+// Disable DIAGMENU if we are building DSPBEW option firmware
 #ifndef	DSPBEW
 	#define	DIAGMENU
-#endif
+#endif // dspbew
 
-#endif
+#endif // smt
 
-#define WVF JP10				// Short on pwrup to initialize default values
-#define CAL JP9						// Short to calibrate squelch noise. Shorting the INITIALIZE jumper while
-									// this is shorted also calibrates the temp. conpensation diode (at room temp.)
-#define	LEVDISP JP11			// Short to change GPS/CONNECT LED's to be audio level display97:
+#define WVF 	JP10		// Short to calibrate diode voltage for temperature compensation
+#define CAL 	JP9		// Short to calibrate squelch noise. 
+				// Shorting the INITIALIZE jumper (JP8) while shorting JP10 also 
+				// calibrates the temp. conpensation diode (do at room temp.)
+#define	LEVDISP JP11		// Short to change GPS/CONNECT LED's to be audio level display97:
 
-#define SYSLED 0
-#define	SQLED 1
-#define	GPSLED 2
+#define SYSLED 	0
+#define	SQLED 	1
+#define	GPSLED 	2
 #define CONNLED 3
 
 #if defined (GGPS)
-#define	BAUD_RATE1 38400
-#define	BAUD_RATE2 38400
+	#define	BAUD_RATE1 	38400
+	#define	BAUD_RATE2 	38400
 #else
-#define	BAUD_RATE1 57600
-#define	BAUD_RATE2 4800
+	#define	BAUD_RATE1 	57600	// Default serial console speed
+	#define	BAUD_RATE2 	4800	// Default GPS speed
 #endif
 
-#define	FRAME_SIZE 160
-#define	ADPCM_FRAME_SIZE 320
+#define	FRAME_SIZE 		160
+#define	ADPCM_FRAME_SIZE 	320
+
 #ifdef	DSPBEW
-#define	MAX_BUFLEN 4800 // 0.6 seconds of buffer
+	#define	MAX_BUFLEN 		4800 	// 0.6 seconds of buffer
 #else
-#define	MAX_BUFLEN 6400 // 0.8 seconds of buffer
+	#define	MAX_BUFLEN 		6400 	// 0.8 seconds of buffer
 #endif
-#define	DEFAULT_TX_BUFFER_LENGTH 3000 // approx 300ms of Buffer
-#define	VOTER_CHALLENGE_LEN 10
-#define	ADCOTHERS 3
-#define	ADCSQNOISE 0
-#define	ADCDIODE 2
-#define	ADCSQPOT 1
-#define NOISE_SLOW_THRESHOLD 500   // Figures seem to be stable >= 20db quieting or so
-#define DEFAULT_VOTER_PORT 667
-#define	PPS_WARN_TIME (1200 * 8) // 1200ms PPS Warning Time
-#define PPS_MAX_TIME (2400 * 8) // 2400 ms PPS Timeout
-#define	PPS_MUSTA_TIME (950 * 8)
-#define	GPS_NMEA_WARN_TIME (1200 * 8) // 1200 ms GPS Warning Time
-#define GPS_NMEA_MAX_TIME (2400 * 8) // 2400 ms GPS Timeout
-#define	GPS_TSIP_WARN_TIME (5000ul * 8ul) // 5000 ms GPS Warning Time
-#define GPS_TSIP_MAX_TIME (10000ul * 8ul) // 10000 ms GPS Timeout
+
+#define	DEFAULT_TX_BUFFER_LENGTH 3000 	// approx 300ms of Buffer
+#define	VOTER_CHALLENGE_LEN 	10
+#define	ADCOTHERS 		3	// How many "other" ADC channels do we use?
+#define	ADCSQNOISE 		0	// Index for squelch noise (RSSI) ADC channel
+#define	ADCDIODE 		2	// Index for diode voltage channel
+#define	ADCSQPOT 		1	// Index for squelch pot position channel
+#define DEFAULT_VOTER_PORT 	667		// Default UDP port to send on
+#define	PPS_WARN_TIME 		(1200 * 8) 	// 1200ms PPS Warning Time
+#define PPS_MAX_TIME 		(2400 * 8) 	// 2400 ms PPS Timeout
+#define	PPS_MUSTA_TIME 		(950 * 8)
+#define	GPS_NMEA_WARN_TIME 	(1200 * 8) 	// 1200 ms GPS Warning Time
+#define GPS_NMEA_MAX_TIME 	(2400 * 8) 	// 2400 ms GPS Timeout
+#define	GPS_TSIP_WARN_TIME 	(5000ul * 8ul) 	// 5000 ms GPS Warning Time
+#define GPS_TSIP_MAX_TIME 	(10000ul * 8ul) // 10000 ms GPS Timeout
+
 #ifdef	GGPS
-#define GPS_KICK_WAIT_TIME (240000ul * 8ul) // 240000 ms GPS Timeout
-#define GPS_KICK_TIME (1000ul * 8ul) // 1000 ms GPS Reset time
+	#define GPS_KICK_WAIT_TIME 	(240000ul * 8ul) // 240000 ms GPS Timeout
+	#define GPS_KICK_TIME 		(1000ul * 8ul) 	// 1000 ms GPS Reset time
 #endif
-#define GPS_FORCE_TIME (1500 * 8)  // Force a GPS (Keepalive) every 1500ms regardless
-#define ATTEMPT_TIME (500 * 8) // Try connection every 500 ms
-#define LASTRX_TIME (6000ul * 8ul) // Timeout if nothing heard after 6 seconds
-#define TELNET_TIME (100 * 8) // Telnet output buffer timer (quasi-Nagle algorithm)
-#define	MASTER_TIMING_DELAY 50 // Delay to send packet if not master (in 125us increments)
-#define BEFORECW_TIME (700 * 8) // Delay to hold PTT before cw sent
-#define AFTERCW_TIME (350 * 8) // Delay to hold PTT after cw sent
-#define DSECOND_TIME (100 * 8) // Delay to hold PTT after cw sent
-#define	MAX_ALT_TIME (15 * 2) // Seconds to try alt host if not connected
-#define	MIN_PING_TIME (95 * 8) // Minimum ping time
-#define	MISS_REPORT_TIME 100 // Interval between "miss packet" reports (1/10 secs)
-#define	PKT_MISS_TIME (500 * 8)	// 500ms for display of miss packet (winky LED) 
-#define	SECOND_TIME (1000 * 8)	// 1000ms
-#define	NCOLS 75
-#define	LEVDISP_FACTOR 25
+
+#define GPS_FORCE_TIME 		(1500 * 8)  	// Force a GPS (Keepalive) every 1500ms regardless
+#define ATTEMPT_TIME 		(500 * 8) 	// Try connection every 500 ms
+#define LASTRX_TIME 		(6000ul * 8ul) 	// Timeout if nothing heard after 6 seconds
+#define TELNET_TIME 		(100 * 8) 	// Telnet output buffer timer (quasi-Nagle algorithm)
+#define	MASTER_TIMING_DELAY 	50 		// Delay to send packet if not master (in 125us increments)
+#define BEFORECW_TIME 		(700 * 8) 	// Delay to hold PTT before cw sent 700ms
+#define AFTERCW_TIME 		(350 * 8) 	// Delay to hold PTT after cw sent 350ms
+#define DSECOND_TIME 		(100 * 8) 	// Delay to hold PTT after cw sent 100ms
+#define	MAX_ALT_TIME 		(15 * 2) 	// Seconds to try alt host if not connected
+#define	MIN_PING_TIME 		(95 * 8) 	// Minimum ping time 95ms
+#define	MISS_REPORT_TIME 	100 		// Interval between "miss packet" reports (1/10 secs)
+#define	PKT_MISS_TIME 		(500 * 8)	// 500ms for display of miss packet (winky LED) 
+#define	SECOND_TIME 		(1000 * 8)	// 1000ms
+#define	NCOLS 			75
+#define	LEVDISP_FACTOR 		25
 #define	TSIP_FACTOR 57.295779513082320876798154814105 // radians to degrees, Trimble reports lat/long in rads
-#define ADD_1024_WEEKS 619315200 // 1024 weeks for Tbolt time fudge
-#define	ULAW_SILENCE 0xff
-#define	ADPCM_SILENCE 0
-#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))
-#define	DIAG_WAIT_UART (TICK_SECOND / 3ul)
-#define	DIAG_WAIT_MEAS (TICK_SECOND * 2)
-#define	DIAG_NOISE_GAIN 0x28
-#define	NAPEAKS 50
-#define	QUALCOUNT 4
+#define ADD_1024_WEEKS 		619315200 	// 1024 weeks for Tbolt time fudge
+#define	ULAW_SILENCE 		0xff		// Clamp audio for ulaw silence
+#define	ADPCM_SILENCE 		0		// Clamp audio for ADPCM silence
+#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))	// 1 if PPS is != ignore and not in diagnostic mode
+#define	DIAG_WAIT_UART 		(TICK_SECOND / 3ul)	
+#define	DIAG_WAIT_MEAS 		(TICK_SECOND * 2)
+#define	DIAG_NOISE_GAIN 	0x28
+#define	NAPEAKS 		50
+#define	QUALCOUNT 		4
+
 #ifdef	GGPS
-#define	GRESTARTTIME 604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
-#define	GSODMIN 10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
-#define	GSODMAX 14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
-#define	HWLOCK (inputs2 & 16)  // Has GPS H/W lock (for GGPS)
-#define HWLOCK_TIME (10000ul * 8) // 10000ms for lock settle
+	#define	GRESTARTTIME 		604800UL//(7UL * 86400UL) // # of seconds to restart after boot (7 days)
+	#define	GSODMIN 		10800UL//(3UL * 3600UL) // Beg. of restart window in "Seconds Of Day" (Must be >0 and <86400) (>= 3am)
+	#define	GSODMAX 		14400UL//(4UL * 3600UL) // End of restart window in "Seconds Of Day" (Must be >0 and <86400)
+	#define	HWLOCK 			(inputs2 & 16)  // Has GPS H/W lock (for GGPS), IO Expander GPB4 - Pin 5
+	#define HWLOCK_TIME 		(10000ul * 8) // 10000ms for lock settle
 #endif
 
-#define BIAS 0x84   /*!< define the add-in bias for 16 bit samples */
-#define CLIP 32635
+#define BIAS 			0x84   		// define the add-in bias for 16 bit ulaw samples
+#define CLIP 			32635
 
-#define	DUPLEX3 (AppConfig.Duplex3 != 0)
-#define	SIMULCAST_ENABLE (AppConfig.LaunchDelay > 0)
+#define	DUPLEX3 		(AppConfig.Duplex3 != 0)	// Not supported in voting or simulcast configurations 
+#define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	// If the launch delay is anything but 0, use simulcast mode
 
 #ifdef DSPBEW
+	#define FFT_BLOCK_LENGTH 	32
+	#define LOG2_BLOCK_LENGTH 	5
+	#define	FFT_TOP_SAMPLE_BUCKET 	16 // 3000 Hz
+	#define	FFT_MAX_RESULT 		10
 
-#define FFT_BLOCK_LENGTH 32
-#define LOG2_BLOCK_LENGTH 5
-#define	FFT_TOP_SAMPLE_BUCKET 16 // 3000 Hz
-#define	FFT_MAX_RESULT 10
-
-fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
+	fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
 
 #ifndef FFTTWIDCOEFFS_IN_PROGMEM
-fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] 	/* Declare Twiddle Factor array in X-space*/
-__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
+	fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] 	/* Declare Twiddle Factor array in X-space*/
+	__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
 #else
-extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2]	/* Twiddle Factor array in Program memory */
-__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
-#endif
+	extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2]	/* Twiddle Factor array in Program memory */
+	__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
+#endif // fft
 
 #define ROMNOBEW
 
@@ -279,7 +300,7 @@ __attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
 
 #define ROMNOBEW ROM
 
-#endif
+#endif // DSPBEW
 
 struct meas {
 	WORD freq;
@@ -288,23 +309,26 @@ struct meas {
 	BOOL issql;
 } ;
 
-// Fortunately now, the problem that we had with weak signals producing RSSI readings all over the place
-// (and was dealt with by using a longer-term, but less responsive average) is now fixed, thanks to Chuck,
-// WB9UUS for pointing out the 16 bit value overflow that was being caused! It works much more better-er now,
-// and produces rock-solid, stable results even on barely or non-readable signals.
-
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ;
 enum {GPS_NMEA,GPS_TSIP} ;
 enum {CODEC_ULAW,CODEC_ADPCM} ;
 
-ROM char gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
-	gpsmsg3[] = "  Time now syncronized to GPS\n", gpsmsg5[] = "  Lost GPS Time synchronization\n",
-	gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
-	gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",gpsmsg9[] = "GPS signal acquired\n",
-	entnewval[] = "Enter New Value : ", newvalchanged[] = "Value Changed Successfully\n",saved[] = "Configuration Settings Written to EEPROM\n";
+ROM char 	gpsmsg1[] = "GPS Receiver Active, waiting for aquisition\n", 
+		gpsmsg2[] = "GPS signal acquired, number of satellites in view = ",
+		gpsmsg3[] = "  Time now syncronized to GPS\n", 
+		gpsmsg5[] = "  Lost GPS Time synchronization\n",
+		gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",
+		gpsmsg7[] = "  Warning: GPS Data time period elapsed\n",
+		gpsmsg8[] = "  Warning: GPS PPS Signal time period elapsed\n",
+		gpsmsg9[] = "GPS signal acquired\n",
+		entnewval[] = "Enter New Value : ", 
+		newvalchanged[] = "Value Changed Successfully\n",
+		saved[] = "Configuration Settings Written to EEPROM\n";
  
-char newvalerror[] = "Invalid Entry, Value Not Changed\n", newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-	badmix[] = "  ERROR! Host rejecting connection\n",hosttmomsg[] = "  ERROR! Host response timeout\n";
+char 		newvalerror[] = "Invalid Entry, Value Not Changed\n", 
+		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
+		badmix[] = "  ERROR! Host rejecting connection\n",
+		hosttmomsg[] = "  ERROR! Host response timeout\n";
 
 typedef struct {
 	DWORD vtime_sec;
@@ -318,87 +342,94 @@ typedef struct {
 	WORD payload_type;
 } VOTER_PACKET_HEADER;
 
-#define OPTION_FLAG_FLATAUDIO 1	// Send Flat Audio
-#define	OPTION_FLAG_SENDALWAYS 2	// Send Audio always
-#define OPTION_FLAG_NOCTCSSFILTER 4 // Do not filter CTCSS
-#define	OPTION_FLAG_MASTERTIMING 8  // Master Timing Source (do not delay sending audio packet)
-#define	OPTION_FLAG_ADPCM 16 // Use ADPCM rather then ULAW
-#define	OPTION_FLAG_MIX 32 // Request "Mix" option to host
-
-#ifdef DMWDIAG
-unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
-BYTE mwp;
-#endif
-
 VTIME system_time;
 VTIME last_rxpacket_time;
 VTIME last_rxpacket_sys_time;
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
 
+// Option flags sent by the host to the client, set in voter.conf for the client
+#define OPTION_FLAG_FLATAUDIO 		1	// Send Flat Audio (nodeemp or hostdeemp)
+#define	OPTION_FLAG_SENDALWAYS 		2	// Send Audio always (master)
+#define OPTION_FLAG_NOCTCSSFILTER 	4 	// Do not filter CTCSS (noplfilter)
+#define	OPTION_FLAG_MASTERTIMING 	8  	// Master Timing Source (do not delay sending audio packet) (master)
+#define	OPTION_FLAG_ADPCM 		16 	// Use ADPCM rather then ULAW (adpcm)
+#define	OPTION_FLAG_MIX 		32 	// Request "Mix" option to host (mixminux)
+
+#ifdef DMWDIAG
+	unsigned char ulaw_digital_milliwatt[8] = { 0x1e, 0x0b, 0x0b, 0x1e, 0x9e, 0x8b, 0x8b, 0x9e };
+	BYTE mwp;
+#endif
+
 // Declare AppConfig structure and some other supporting stack variables
 APP_CONFIG AppConfig;
 BYTE AN0String[8];
 void SaveAppConfig(void);
 
-
-// Private helper functions.
+/*****************************************************************************/
+//									     //
+// 	Private helper functions					     //
+//									     //
+/*****************************************************************************/
 // These may or may not be present in all applications.
 static void InitAppConfig(void);
 static void InitializeBoard(void);
 
-// squelch RAM variables intended to be read by other modules
-extern BOOL cor;					// COR output
-extern BOOL sqled;					// Squelch LED output
-extern BOOL write_eeprom_cali;			// Flag to write calibration values back to EEPROM
-extern BYTE noise_gain;			// Noise gain sent to digital pot
-extern WORD caldiode;
+// Squelch RAM variables intended to be read by other modules
+extern BOOL cor;		// COR output
+extern BOOL sqled;		// Squelch LED output
+extern BOOL write_eeprom_cali;	// Flag to write calibration values back to EEPROM
+extern BYTE noise_gain;		// Noise gain sent to digital pot
+extern WORD caldiode;		// Diode voltage (used for temperature compensation)
 
 #ifdef DUMPENCREGS
-extern void DumpETHReg(void);
+	extern void DumpETHReg(void);
 #endif
 
 void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
 void init_squelch(void);
 BOOL set_atten(BYTE val);
 
-/////////////////////////////////////////////////
-//Global variables 
-WORD portasave;
-BYTE inputs1;
-BYTE inputs2;
-BYTE aliveCntrMain; //Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
+/*****************************************************************************/
+//									     //
+//	Global Variable Definitions					     //
+//									     //
+/*****************************************************************************/
+WORD portasave;		// Get the PPS input from RA4(CN0) on interrupt
+BYTE inputs1;		// GPA I/O on IO Expander
+BYTE inputs2;		// GPB I/O on IO Expander
+BYTE aliveCntrMain; 	// Alive counter must be reset each couple of ms to prevent board reset. Set to 0xff to disable.
 BOOL aliveCntrDec;
 BYTE filling_buffer;
 WORD fillindex;
 BOOL filled;
-BYTE audio_buf[2][FRAME_SIZE + 3];
-BOOL connected;
-BYTE rssi;
-BYTE rssiheld;
-BYTE gps_buf[160];
-BYTE gps_bufindex;
+BYTE audio_buf[2][FRAME_SIZE + 3];	// Audio buffer array
+BOOL connected;		// Connected to host
+BYTE rssi;		
+BYTE rssiheld;		
+BYTE gps_buf[160];	// GPS receive buffer array
+BYTE gps_bufindex;	// GPS receive buffer array index pointer
 BYTE TSIPwasdle;
-BYTE gps_state;
-BYTE gps_nsat;
-BOOL gpssync;
-BOOL gotpps;
-DWORD gps_time;
-WORD gpsweek;
-WORD gpsleap;
+BYTE gps_state;		// Current GPS state (idle, receiving, valid, synched) 
+BYTE gps_nsat;		// Number of satellites in view (not necessarily locked)
+BOOL gpssync;		// Set only when GPS_STATE_VALID
+BOOL gotpps;		// Set only when GPS_STATE_VALID and PPS is valid
+DWORD gps_time;		// GPS time in seconds
+WORD gpsweek;		// GPS week reported by TSIP devices
+WORD gpsleap;		// GPS leap seconds reported by TSIP devices for correcting to UTC time
 BYTE ppscount;
 DWORD last_interval;
 BYTE lockcnt;
-BOOL adcother;
-WORD adcothers[ADCOTHERS];
-BYTE adcindex;
-BYTE sqlcount;
+BOOL adcother;		// Flag for whether to encode an RX packet, or measure other ADC channels
+WORD adcothers[ADCOTHERS];	// Array for holding the "other" ADC values (RX Noise, Sq Pot, Diode V)
+BYTE adcindex;		// Counter for measuring the "other" ADC channels
+BYTE sqlcount;		// Counter for how often we service squelch and RSSI (set to 33 below, so every 33 ADC sample periods)
 BOOL sql2;
 DWORD vnoise32;
 DWORD lastvnoise32[3];
 BOOL wascor;
 BOOL lastcor;
-BYTE option_flags;
+BYTE option_flags;	// Holds the option flags we get from the host
 static struct {
 	VOTER_PACKET_HEADER vph;
 	BYTE rssi;
@@ -419,14 +450,17 @@ DWORD gpstimer;
 WORD ppstimer;
 WORD gpsforcetimer;
 WORD attempttimer;
+
 #ifdef	GGPS
-DWORD gpskicktimer;
-BOOL gpskicking;
+	DWORD gpskicktimer;
+	BOOL gpskicking;
 #endif
+
 DWORD lastrxtimer;
 WORD cwtimer;
 BYTE gpswarn;
 BOOL ppswarn;
+BOOL ppsx;
 UDP_SOCKET udpSocketUser;
 NODE_INFO udpServerNode;
 DWORD dwLastIP;
@@ -527,25 +561,29 @@ WORD glasertimer;
 DWORD uptimer;
 WORD pingtimer;
 WORD secondtimer;
+
 #ifdef GGPS
-WORD gppstimer;
-DWORD grestarttimer;
-DWORD hwlocktimer;
-BOOL gps_unhappy;
-BOOL ggps_unavail;
-BOOL hwlock;
-BYTE oldhwlock;
-BYTE oldok;
+	WORD gppstimer;
+	DWORD grestarttimer;
+	DWORD hwlocktimer;
+	BOOL gps_unhappy;
+	BOOL ggps_unavail;
+	BOOL hwlock;
+	BYTE oldhwlock;
+	BYTE oldok;
 #endif
+
 long missed;
 WORD misstimer;
 WORD misstimer1;
+
 #ifdef DSPBEW
-DWORD fftresult;
+	DWORD fftresult;
 #endif
+
 #ifdef SILLY
-BYTE silly = 0;
-DWORD sillyval;
+	BYTE silly = 0;
+	DWORD sillyval;
 #endif
 
 BYTE myDHCPBindCount;
@@ -693,7 +731,6 @@ static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
                 oldcrc32 = crc_32_tab[(oldcrc32 ^ *buf1++) & 0xff] ^ ((unsigned long)oldcrc32 >> 8);
         }
         return ~oldcrc32;
-
 }
 
 ROM BYTE exp_lut[256] = {
@@ -780,7 +817,7 @@ struct morse_bits
 {
     BYTE len;
     BYTE dat;
-} ;
+};
 
 static ROM struct morse_bits mbits[] = {
     {0, 0}, /* SPACE */
@@ -845,8 +882,8 @@ static ROM struct morse_bits mbits[] = {
 };
 
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
-	invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n",
-	booting[] = "System Re-Booting...\n";
+		invalselection[] = "Invalid Selection\n", paktc[] = "\nPress The Any Key (Enter) To Continue\n",
+		booting[] = "System Re-Booting...\n";
 
 char dummy_loc;
 BYTE IOExpOutA,IOExpOutB,IODirB;
@@ -855,40 +892,46 @@ void main_processing_loop(void);
 
 static WORD log2fix (WORD x)
 {
-    short b = 127;
-    short y = 0;
-    BYTE i;
+	short b = 127;
+	short y = 0;
+	BYTE i;
 
-    while (x < 256) {
-        x <<= 1;
-        y -= 256;
-    }
+	while (x < 256) 
+	{
+		x <<= 1;
+		y -= 256;
+	}
 
-    while (x >= 512) {
-        x >>= 1;
-        y += 256;
-    }
+	while (x >= 512) 
+	{
+		x >>= 1;
+		y += 256;
+	}
 
-    DWORD z = x;
+	DWORD z = x;
 
-    for (i = 0; i < 8; i++) {
-        z = z * z >> 8;
-        if (z >= 512) {
-            z >>= 1;
-            y += b;
-        }
-        b >>= 1;
-    }
+	for (i = 0; i < 8; i++) 
+	{
+		z = z * z >> 8;
+		if (z >= 512) 
+		{
+			z >>= 1;
+			y += b;
+		}
+		b >>= 1;
+	}
 
-    return y;
+	return y;
 }
 
+// Integer square root. Approximates the square root of a number, integer part 
+// only, no rounding. ie 12.96 will return 12
 static DWORD isqrt(DWORD number)
 {
         if(number <= 3) { return number > 0; }
 
         DWORD oldAns = number >> 1,                     // initial guess
-            newAns = (oldAns + number / oldAns) >> 1; // first iteration
+            newAns = (oldAns + number / oldAns) >> 1; 	// first iteration
 
         // main iterative method
         while(newAns < oldAns)
@@ -905,15 +948,12 @@ static BYTE calcrssi(WORD val)
 DWORD d;
 short i,x;
 
-#ifdef	CHUCK_RSSI
-
-	if (val < 200)
+	if (val < 200) // The first part of this IF is "Chuck RSSI"
 	{
 	        x = 255 - val;
 	}
 	else
-#endif
-	{
+	{ // This is the original RSSI calculation
 	        d = (((DWORD)val + 1) << 8);
 	        i = log2fix(isqrt(d) << 4);
 	        x = 255 - ((i << 3) / 39);
@@ -922,32 +962,36 @@ short i,x;
 	return(x);
 }
 
+/* This ISR uses Change Notification, and runs when PPS changes (each PPS tick). PPS is connected to RA4 (CN0).
+   Every time we get a PPS signal, we mask off RA4 (0x10) and read it. If it is valid, we clear ppsx and continue. */ 
 void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
-
-//Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
-BOOL ppsx;
+	//Stuff for ADPCM encode
+	int val;			/* Current input sample value */
+	int sign;			/* Current adpcm sign bit */
+	BYTE delta;			/* Current adpcm output value */
+	int diff;			/* Difference between val and valprev */
+	int step;			/* Stepsize */
+	int vpdiff;			/* Current change to valpred */
+	long valpred;		/* Predicted output value */
+	int adpcm_index;
+	BYTE *cp;
 
 	CORCONbits.PSV = 1;
 	// If PPS signal is asserted
 	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) ||
-		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) ppsx = 1;
-	else ppsx = 0;
+		((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) 
+		ppsx = 1; // PPS not good
+	else
+		ppsx = 0; // PPS is good
+
 #ifdef	GGPS
 	if (gotpps && (ppscount >= 3) && (AppConfig.DebugLevel & 4)) 
 	{
 		IFS1bits.CNIF = 0;
 		return;
 	}
+
 	if (hwlocktimer < HWLOCK_TIME)
 	{
 		gpssync = 0;
@@ -961,10 +1005,11 @@ BOOL ppsx;
 		{
 			ppstimer = 0;
 			ppswarn = 0;
+			// If GPS is now VALID, but we haven't qualified pps yet, do it
 			if ((gps_state == GPS_STATE_VALID) && (!gotpps))
 			{
-				TMR3 = 0;
-				gotpps = 1;
+				TMR3 = 0;	// Reset the Timer 3 register
+				gotpps = 1;	// GPS is good, so PPS must be good
 				lockcnt = 0;
 				samplecnt = 0;
 				fillindex = 0;
@@ -972,23 +1017,28 @@ BOOL ppsx;
 				gppstimer = 0;
 #endif
 			}
-			else if (gotpps) 
+			else if (gotpps) 	// PPS is already qualified
 			{
 				if (ppscount >= 3)
-				{
-					T4CON = 0x10;			//TMR4 divide Fosc by 8
+				{	// Setup Timer 4 for Internal Clock (Fosc/2 aka Fcy)
+					// Divide/8 prescaler
+					// Therefore, each tick is 1/(38.4MHz/8) = 0.2083uS
+					// When this timer expires (after launch delay), it will call the 
+					// T4 interrupt ISR, turning on the DAC for TX
+					T4CON = 0x10;
 					PR4 = AppConfig.LaunchDelay + 5; // Give 1us to let it get outa the CN interrupt!!!! :-)		
-					TMR4 = 0;
-					IFS1bits.T4IF = 0;
-					IEC1bits.T4IE = 1;
-					IPC6bits.T4IP = 6;
-					T4CONbits.TON = 1;
+					TMR4 = 0;		// Reset the timer register
+					IFS1bits.T4IF = 0;	// Clear the timer flag
+					IEC1bits.T4IE = 1;	// Enable interrupts
+					IPC6bits.T4IP = 6;	// Set interrupt priority 6
+					T4CONbits.TON = 1;	// Turn timer on
 	
 					if ((samplecnt >= 7999) && (samplecnt <= 8001))
 					{
 						last_samplecnt = samplecnt;
 						sendgps = 1;
 						real_time++;
+
 						if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) // If we are short one, insert another
 						{
 							if (option_flags & OPTION_FLAG_ADPCM)
@@ -998,12 +1048,14 @@ BOOL ppsx;
 								val *= 16;
 								adpcm_index = enc_index;
 								valpred = enc_valprev;
-							    step = stepsizeTable[adpcm_index];
+								step = stepsizeTable[adpcm_index];
 								
 								/* Step 1 - compute difference with previous value */
 								diff = val - valpred;
 								sign = (diff < 0) ? 8 : 0;
-								if ( sign ) diff = (-diff);
+
+								if ( sign ) 
+									diff = (-diff);
 							
 								/* Step 2 - Divide and clamp */
 								/* Note:
@@ -1017,46 +1069,58 @@ BOOL ppsx;
 								delta = 0;
 								vpdiff = (step >> 3);
 								
-								if ( diff >= step ) {
-								    delta = 4;
-								    diff -= step;
-								    vpdiff += step;
+								if ( diff >= step ) 
+								{
+									delta = 4;
+									diff -= step;
+									vpdiff += step;
 								}
+								
 								step >>= 1;
-								if ( diff >= step  ) {
-								    delta |= 2;
-								    diff -= step;
-								    vpdiff += step;
+								
+								if ( diff >= step  ) 
+								{
+									delta |= 2;
+									diff -= step;
+									vpdiff += step;
 								}
+								
 								step >>= 1;
-								if ( diff >= step ) {
-								    delta |= 1;
-								    vpdiff += step;
+								
+								if ( diff >= step ) 
+								{
+									delta |= 1;
+									vpdiff += step;
 								}
 							
 								/* Step 3 - Update previous value */
 								if ( sign )
-								  valpred -= vpdiff;
+									valpred -= vpdiff;
 								else
-								  valpred += vpdiff;
+									valpred += vpdiff;
 							
 								/* Step 4 - Clamp previous value to 16 bits */
 								if ( valpred > 32767 )
-								  valpred = 32767;
+									valpred = 32767;
 								else if ( valpred < -32768 )
-								  valpred = -32768;
+									valpred = -32768;
 							
 								/* Step 5 - Assemble value, update index and step values */
 								delta |= sign;
 								
 								adpcm_index += indexTable[delta];
-								if ( adpcm_index < 0 ) adpcm_index = 0;
-								if ( adpcm_index > 88 ) adpcm_index = 88;
+								
+								if ( adpcm_index < 0 ) 
+									adpcm_index = 0;
+								
+								if ( adpcm_index > 88 ) 
+									adpcm_index = 88;
 								enc_valprev = valpred;
 								enc_index = adpcm_index;
+								
 								if (fillindex & 1)
 								{
-									audio_buf[filling_buffer][fillindex++ >> 1]	= (enc_lastdelta << 4) | delta;
+									audio_buf[filling_buffer][fillindex++ >> 1] = (enc_lastdelta << 4) | delta;
 								}
 								else
 								{
@@ -1065,28 +1129,30 @@ BOOL ppsx;
 							}
 							else  // is ULAW
 							{
-						        short sample,sign, exponent, mantissa;
-						        BYTE ulawbyte;
-						
+						        	short sample,sign, exponent, mantissa;
+						        	BYTE ulawbyte;
+								
 								sample = last_adcsample;
 								sample -= 2048;
 								sample *= 16;
-						        /* Get the sample into sign-magnitude. */
-						        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-						        if (sign != 0)
-						                sample = -sample;              /* get magnitude */
-						        if (sample > CLIP)
-						                sample = CLIP;             /* clip the magnitude */
+
+						        	/* Get the sample into sign-magnitude. */
+								sign = (sample >> 8) & 0x80;	/* set aside the sign */
+								
+								if (sign != 0)
+									sample = -sample;	/* get magnitude */
+								
+							        if (sample > CLIP)
+									sample = CLIP;		/* clip the magnitude */
 						
-						        /* Convert from 16 bit linear to ulaw. */
-						        sample = sample + BIAS;
-						        exponent = exp_lut[(sample >> 7) & 0xFF];
-						        mantissa = (sample >> (exponent + 3)) & 0x0F;
-						        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-
-
+								/* Convert from 16 bit linear to ulaw. */
+								sample = sample + BIAS;
+								exponent = exp_lut[(sample >> 7) & 0xFF];
+								mantissa = (sample >> (exponent + 3)) & 0x0F;
+								ulawbyte = ~(sign | (exponent << 4) | mantissa);
 								audio_buf[filling_buffer][fillindex++] = ulawbyte;
 							}
+
 							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 							{
 								if (option_flags & OPTION_FLAG_ADPCM)
@@ -1098,6 +1164,7 @@ BOOL ppsx;
 									enc_prev_valprev = enc_valprev;
 									enc_prev_index = enc_index;
 								}
+
 								filled = 1;
 								fillindex = 0;
 								filling_buffer ^= 1;
@@ -1106,6 +1173,7 @@ BOOL ppsx;
 								timing_time = next_time;
 							}
 						}
+
 						if ((!gpssync) && (gps_state == GPS_STATE_VALID))
 						{
 							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
@@ -1117,64 +1185,90 @@ BOOL ppsx;
 						gpssync = 0;
 						ppscount = 0;
 					}
-			    } else ppscount++;
+				} 
+				else ppscount++;
 			}
 			samplecnt = 0;
 		}
 	}
-	IFS1bits.CNIF = 0;
+	IFS1bits.CNIF = 0;	// Clear the CN interript flag, we're done!
 }
 
+/*****************************************************************************/
+//                                                                           //
+//              T4 Interrupt ISR                                             //
+//                                                                           //
+/*****************************************************************************/
+/* This ISR is called when the Launch Delay (+1uS) expires.
+   It turns on the DAC for TX output, after the launch delay
+*/
 void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 {
 	CORCONbits.PSV = 1;
-	IFS1bits.T4IF = 0;
-	IEC1bits.T4IE = 0;
-	T4CONbits.TON = 0;		//Turn it off
-	DAC1CONbits.DACEN = 1;
-	IEC4bits.DAC1LIE = 1;
+	IFS1bits.T4IF = 0;	// Clear the T4 interrupt flag
+	IEC1bits.T4IE = 0;	// Disable the T4 interrupts
+	T4CONbits.TON = 0;	// Turn off the T4 timer
+	DAC1CONbits.DACEN = 1;	// Enable DAC1
+	IEC4bits.DAC1LIE = 1;	// Enable DAC1 Left interrupt
 }
 
-
+/*****************************************************************************/
+//									     //
+//		ADC ISR							     //
+//									     //
+/*****************************************************************************/
+/* Every time TMR3 expires (62.5uSec), we service the ADC.
+   On ODD calls of this ISR, we grab an RX Audio value and encode it, 
+   which means, every 125uSec we encode a packet, or 8000 samples/sec (8kHz) 
+   audio.
+   On EVEN calls of this ISR, we rotate between getting values for RXNoise 
+   (RSSI), Squelch Pot position, and Diode Voltage (temp comp).
+   EVERY time through, we bump some counters.
+*/ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
-
-
-WORD index;
+	WORD index;		// Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff)
 
 #ifndef GGPS
-long accum;
-short saccum;
-BYTE i;
+	long accum;
+	short saccum;
+	BYTE i;
 
-//Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
-#endif
+	//Stuff for ADPCM encode
+	int val;		/* Current input sample value */
+	int sign;		/* Current adpcm sign bit */
+	BYTE delta;		/* Current adpcm output value */
+	int diff;		/* Difference between val and valprev */
+	int step;		/* Stepsize */
+	int vpdiff;		/* Current change to valpred */
+	long valpred;		/* Predicted output value */
+	int adpcm_index;
+	BYTE *cp;
+#endif // ggps
 
 	CORCONbits.PSV = 1;
-	index = ADC1BUF0;
-	if (adcother)
+	index = ADC1BUF0;	// Copy the current ADC buffer value
+
+	if (adcother) 	// True if this time we're processing other ADC channels (not RX Audio)
 	{
+		// Divide by 4, effectively scaling the ADC value to 0x000-0x3ff (0-1023)
+		// and increment the ADC channel index (used at the end to select the next channel)
 		adcothers[adcindex++] = index >> 2;
-		if(adcindex >= ADCOTHERS) adcindex = 0;
-		AD1CHS0 = 0;
+		if(adcindex >= ADCOTHERS) adcindex = 0; // Reset if we've already gone through all the channels
+		AD1CHS0 = 0; // Reset our ADC channel (0 is RX Audio)
+
+		// Bump some timers to make sure everything is okay
 		if (gotpps) ppstimer++;
 		if (gps_state != GPS_STATE_IDLE) gpstimer++;
+
 #ifdef	GGPS
 		if (((!gpskicking) && gotpps && (gps_state == GPS_STATE_VALID)) || (!USE_PPS))
 			gpskicktimer = 0;
 		else
 			gpskicktimer++;
 #endif
-		if (connected) 
+
+		if (connected) 	// If we're connected to the host, update some timers
 		{
 			gpsforcetimer++;
 			elketimer++;
@@ -1182,11 +1276,15 @@ BYTE *cp;
 			if (pingtimer) pingtimer--;
 			if (misstimer1) misstimer1--;
 		}
+
 		if (!connected) attempttimer++;
 		else lastrxtimer++;
+
 		termbuftimer++;
+
 		if (cwtimer1) cwtimer1--;
-		dsecondtimer++;
+			dsecondtimer++;
+
 		if (dsecondtimer >= DSECOND_TIME)
 		{
 			dsecondtimer = 0;
@@ -1195,6 +1293,7 @@ BYTE *cp;
 			uptimer++;
 			if (misstimer) misstimer--;
 		}
+
 		if (secondtimer++ >= SECOND_TIME)
 		{
 			secondtimer = 0;
@@ -1214,11 +1313,14 @@ BYTE *cp;
 		}
 #endif
 	}
-	else
+	else	// Not processing other ADC channels, we're doing RX Audio
 	{
-		last_index = last_index1;
-		last_index1 = index;
+		last_index = last_index1;	// Previous sample becomes last_index
+		last_index1 = index;		// Current sample becomes last_index1
 #ifndef GGPS
+		// If we're not simulcasting, or we are simulcasting and not using PPS, 
+		// we're going to encode an RX Audio sample. 
+		// Otherwise, we're just going to skip it.
 		if (!(SIMULCAST_ENABLE && USE_PPS))
 		{
 			if (gotpps || (!USE_PPS))
@@ -1228,32 +1330,39 @@ BYTE *cp;
 					next_index = samplecnt;
 					next_time = real_time;
 				}
-				last_adcsample = index;
+				
+				last_adcsample = index;	// index is the current ADC Buffer value
+				
 				// Make 16 bit number from 12 bit ADC sample
-				saccum = index;
+				saccum = index;	// index is the current ADC Buffer value
 				saccum -= 2048;
 				accum = saccum * 16;
-	            if (accum > amax)
-	            {
-	                amax = accum;
-	                discounteru = discfactor;
-	            }
-	            else if (--discounteru <= 0)
-	            {
-	                discounteru = discfactor;
-	                amax = (long)((amax * 32700) / 32768L);
-	            }
-	            if (accum < amin)
-	            {
-	                amin = accum;
-	                discounterl = discfactor;
-	            }
-	            else if (--discounterl <= 0)
-	            {
-	                discounterl = discfactor;
-	                amin = (long)((amin * 32700) / 32768L);
-	            }
+
+	            		if (accum > amax)
+	            		{
+	                		amax = accum;
+	                		discounteru = discfactor;
+	            		}
+	            		else if (--discounteru <= 0)
+	            		{
+	                		discounteru = discfactor;
+	                		amax = (long)((amax * 32700) / 32768L);
+	            		}
+
+				if (accum < amin)
+	            		{
+	                		amin = accum;
+	                		discounterl = discfactor;
+	            		}
+	            		else if (--discounterl <= 0)
+	            		{
+	                		discounterl = discfactor;
+	                		amin = (long)((amin * 32700) / 32768L);
+				}
+				
+				// Reset the sample counter when we hit 8000 samples
 				if ((!USE_PPS) && (samplecnt == 8000)) samplecnt = 0;
+	
 				if (samplecnt++ < 8000)
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
@@ -1261,16 +1370,17 @@ BYTE *cp;
 						val = index;
 						val -= 2048;
 						val *= 16;
-	
+					
 						adpcm_index = enc_index;
 						valpred = enc_valprev;
-					    step = stepsizeTable[adpcm_index];
-						
+						step = stepsizeTable[adpcm_index];
+							
 						/* Step 1 - compute difference with previous value */
 						diff = val - valpred;
 						sign = (diff < 0) ? 8 : 0;
+
 						if ( sign ) diff = (-diff);
-					
+						
 						/* Step 2 - Divide and clamp */
 						/* Note:
 						** This code *approximately* computes:
@@ -1283,43 +1393,55 @@ BYTE *cp;
 						delta = 0;
 						vpdiff = (step >> 3);
 						
-						if ( diff >= step ) {
-						    delta = 4;
-						    diff -= step;
-						    vpdiff += step;
+						if ( diff >= step ) 
+						{
+							delta = 4;
+							diff -= step;
+							vpdiff += step;
 						}
+
 						step >>= 1;
-						if ( diff >= step  ) {
-						    delta |= 2;
-						    diff -= step;
-						    vpdiff += step;
+
+						if ( diff >= step  ) 
+						{
+							delta |= 2;
+							diff -= step;
+							vpdiff += step;
 						}
+
 						step >>= 1;
-						if ( diff >= step ) {
-						    delta |= 1;
-						    vpdiff += step;
+
+						if ( diff >= step ) 
+						{
+							delta |= 1;
+							vpdiff += step;
 						}
-					
+						
 						/* Step 3 - Update previous value */
 						if ( sign )
-						  valpred -= vpdiff;
+							valpred -= vpdiff;
 						else
-						  valpred += vpdiff;
-					
+							valpred += vpdiff;
+						
 						/* Step 4 - Clamp previous value to 16 bits */
 						if ( valpred > 32767 )
-						  valpred = 32767;
+							valpred = 32767;
 						else if ( valpred < -32768 )
-						  valpred = -32768;
-					
+							valpred = -32768;
+						
 						/* Step 5 - Assemble value, update index and step values */
 						delta |= sign;
 						
 						adpcm_index += indexTable[delta];
-						if ( adpcm_index < 0 ) adpcm_index = 0;
-						if ( adpcm_index > 88 ) adpcm_index = 88;
+
+						if ( adpcm_index < 0 ) 
+							adpcm_index = 0;
+
+						if ( adpcm_index > 88 ) 
+							adpcm_index = 88;
 						enc_valprev = valpred;
 						enc_index = adpcm_index;
+
 						if (fillindex & 1)
 						{
 							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
@@ -1332,28 +1454,33 @@ BYTE *cp;
 					}
 					else  // is ULAW
 					{
-				        short sample,sign, exponent, mantissa;
-				        BYTE ulawbyte;
-				
+						short sample,sign, exponent, mantissa;
+						BYTE ulawbyte;
+					
 						sample = index;
 						sample -= 2048;
 						sample *= 16;
-				        /* Get the sample into sign-magnitude. */
-				        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-				        if (sign != 0)
-				                sample = -sample;              /* get magnitude */
-				        if (sample > CLIP)
-				                sample = CLIP;             /* clip the magnitude */
-				
-				        /* Convert from 16 bit linear to ulaw. */
-				        sample = sample + BIAS;
-				        exponent = exp_lut[(sample >> 7) & 0xFF];
-				        mantissa = (sample >> (exponent + 3)) & 0x0F;
-				        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-	
-						audio_buf[filling_buffer][fillindex++] = ulawbyte;
+					
+					        /* Get the sample into sign-magnitude. */
+					        sign = (sample >> 8) & 0x80;	/* set aside the sign */
+
+					        if (sign != 0)
+					                sample = -sample;	/* get magnitude */
+
+					        if (sample > CLIP)
+					                sample = CLIP;		/* clip the magnitude */
+					
+					        /* Convert from 16 bit linear to ulaw. */
+					        sample = sample + BIAS;
+					        exponent = exp_lut[(sample >> 7) & 0xFF];
+					        mantissa = (sample >> (exponent + 3)) & 0x0F;
+					        ulawbyte = ~(sign | (exponent << 4) | mantissa);
+					
+							audio_buf[filling_buffer][fillindex++] = ulawbyte;
 					}
+					
 					if (txseqno == 0) txseqno = 3;
+					
 					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 					{
 						if (option_flags & OPTION_FLAG_ADPCM)
@@ -1365,10 +1492,14 @@ BYTE *cp;
 							enc_prev_valprev = enc_valprev;
 							enc_prev_index = enc_index;
 							txseqno++;
+							
 							if (host_txseqno) host_txseqno++;
 						}
+						
 						txseqno++;
+							
 						if (host_txseqno) host_txseqno++;
+							
 						filled = 1;
 						fillindex = 0;
 						filling_buffer ^= 1;
@@ -1382,41 +1513,50 @@ BYTE *cp;
 				}
 			}
 		} 
-#endif
+#endif	// ggps
 #if defined(SMT_BOARD)
-		AD1CHS0 = adcindex + 1;
+		AD1CHS0 = adcindex + 1; // Select the next non-RX ADC channel for next time
 #else
-		AD1CHS0 = adcindex + 2;
+		AD1CHS0 = adcindex + 2; // Select the next non-RX ADC channel for next time
 #endif
 		sqlcount++;
 	}
-	adcother ^= 1;
-	IFS0bits.AD1IF = 0;
+	adcother ^= 1;		// Toggle adcother so we switch between doing an RX sample or other ADC sample
+	IFS0bits.AD1IF = 0; 	// Clear the interrupt flag, we're done!
 }
+/***************End of ADC ISR************************************************/
 
+/*****************************************************************************/
+//									     //
+//		DAC ISR							     //
+//									     //
+/*****************************************************************************/
+/* In order for this ISR to run, the Launch Delay timer must expire, 
+   so that the interrupt gets enabled.
+*/
 void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 {
 	BYTE c;
 	short s;
 
-WORD index;
-long accum;
-short saccum;
-BYTE i;
+	WORD index;
+	long accum;
+	short saccum;
+	BYTE i;
 
-//Stuff for ADPCM encode
-int val;			/* Current input sample value */
-int sign;			/* Current adpcm sign bit */
-BYTE delta;			/* Current adpcm output value */
-int diff;			/* Difference between val and valprev */
-int step;			/* Stepsize */
-int vpdiff;			/* Current change to valpred */
-long valpred;		/* Predicted output value */
-int adpcm_index;
-BYTE *cp;
+	//Stuff for ADPCM encode
+	int val;		// Current input sample value 
+	int sign;		// Current adpcm sign bit 
+	BYTE delta;		// Current adpcm output value 
+	int diff;		// Difference between val and valprev 
+	int step;		// Stepsize 
+	int vpdiff;		// Current change to valpred
+	long valpred;		// Predicted output value 
+	int adpcm_index;
+	BYTE *cp;
 
 	CORCONbits.PSV = 1;
-	IFS4bits.DAC1LIF = 0;
+	IFS4bits.DAC1LIF = 0;	// Clear the DAC1Left Interrupt Flag
 #ifdef	GGPS
 	if (++gppstimer >= 8000)
 	{
@@ -1496,6 +1636,7 @@ BYTE *cp;
 				}
 			}
 		}
+
 		if (repeatit)
 		{
 			short s1;
@@ -1503,13 +1644,15 @@ BYTE *cp;
 			s1 = last_index << 4;
 			s += s1 - 32768;
 		}
+
 		if (ptt && (!host_ptt) && tone_fac)
 		{  
-	      	tone_v1 = tone_v2;
-	        tone_v2 = tone_v3;
-	        tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
+		      	tone_v1 = tone_v2;
+		        tone_v2 = tone_v3;
+	        	tone_v3 = (tone_fac * tone_v2 >> 15) - tone_v1;
 			s += tone_v3;
 		}
+
 		if (ptt)
 		{
 #ifdef	DMWDIAG
@@ -1517,11 +1660,12 @@ BYTE *cp;
 			if (mwp > 7) mwp = 0;
 #else
 			c = txaudio[txdrainindex];
+
 			if (connected && (!IS_POGSAG_TX(c)))
 				DAC1LDAT = ulawtabletx[c] + s;
 			else
 				DAC1LDAT = s;
-	#if defined (GGPS)
+#if defined (GGPS)
 			if (IS_POGSAG_TX(c))
 			{
 				TESTBIT_TRIS = 0;
@@ -1532,13 +1676,17 @@ BYTE *cp;
 				TESTBIT = 0;
 				TESTBIT_TRIS = 1;
 			}
-	#endif
-#endif
-		} else DAC1LDAT = 0;
+#endif // ggps
+#endif // dmwdiag
+		} 
+		else DAC1LDAT = 0;
+
 		txaudio[txdrainindex++] = ULAW_SILENCE;
+
 		if (txdrainindex >= AppConfig.TxBufferLength)
 		txdrainindex = 0;
 	}
+
 #ifdef	GGPS
 	if (1)
 #else
@@ -1554,32 +1702,38 @@ BYTE *cp;
 				next_index = samplecnt;
 				next_time = real_time;
 			}
+
 			last_adcsample = index;
+	
 			// Make 16 bit number from 12 bit ADC sample
 			saccum = index;
 			saccum -= 2048;
 			accum = saccum * 16;
-            if (accum > amax)
-            {
-                amax = accum;
-                discounteru = discfactor;
-            }
-            else if (--discounteru <= 0)
-            {
-                discounteru = discfactor;
-                amax = (long)((amax * 32700) / 32768L);
-            }
-            if (accum < amin)
-            {
-                amin = accum;
-                discounterl = discfactor;
-            }
-            else if (--discounterl <= 0)
-            {
-                discounterl = discfactor;
-                amin = (long)((amin * 32700) / 32768L);
-            }
+			
+			if (accum > amax)
+			{
+				amax = accum;
+				discounteru = discfactor;
+			}
+			else if (--discounteru <= 0)
+			{
+				discounteru = discfactor;
+				amax = (long)((amax * 32700) / 32768L);
+			}
+			
+			if (accum < amin)
+			{
+				amin = accum;
+				discounterl = discfactor;
+			}
+			else if (--discounterl <= 0)
+			{
+				discounterl = discfactor;
+				amin = (long)((amin * 32700) / 32768L);
+			}
+
 			if ((!USE_PPS) && (samplecnt == 8000)) samplecnt = 0;
+		
 			if (samplecnt++ < 8000)
 			{
 				if (option_flags & OPTION_FLAG_ADPCM)
@@ -1587,14 +1741,15 @@ BYTE *cp;
 					val = index;
 					val -= 2048;
 					val *= 16;
-
+					
 					adpcm_index = enc_index;
 					valpred = enc_valprev;
-				    step = stepsizeTable[adpcm_index];
+					step = stepsizeTable[adpcm_index];
 					
 					/* Step 1 - compute difference with previous value */
 					diff = val - valpred;
 					sign = (diff < 0) ? 8 : 0;
+				
 					if ( sign ) diff = (-diff);
 				
 					/* Step 2 - Divide and clamp */
@@ -1608,44 +1763,56 @@ BYTE *cp;
 					*/
 					delta = 0;
 					vpdiff = (step >> 3);
+						
+					if ( diff >= step ) 
+					{
+						delta = 4;
+						diff -= step;
+						vpdiff += step;
+					}
 					
-					if ( diff >= step ) {
-					    delta = 4;
-					    diff -= step;
-					    vpdiff += step;
-					}
 					step >>= 1;
-					if ( diff >= step  ) {
-					    delta |= 2;
-					    diff -= step;
-					    vpdiff += step;
+					
+					if ( diff >= step  ) 
+					{
+						delta |= 2;
+						diff -= step;
+						vpdiff += step;
 					}
+					
 					step >>= 1;
-					if ( diff >= step ) {
-					    delta |= 1;
-					    vpdiff += step;
+					
+					if ( diff >= step ) 
+					{
+						delta |= 1;
+						vpdiff += step;
 					}
-				
+					
 					/* Step 3 - Update previous value */
 					if ( sign )
-					  valpred -= vpdiff;
+						valpred -= vpdiff;
 					else
-					  valpred += vpdiff;
-				
+						valpred += vpdiff;
+					
 					/* Step 4 - Clamp previous value to 16 bits */
 					if ( valpred > 32767 )
-					  valpred = 32767;
+						valpred = 32767;
 					else if ( valpred < -32768 )
-					  valpred = -32768;
+						valpred = -32768;
 				
 					/* Step 5 - Assemble value, update index and step values */
 					delta |= sign;
-					
 					adpcm_index += indexTable[delta];
-					if ( adpcm_index < 0 ) adpcm_index = 0;
-					if ( adpcm_index > 88 ) adpcm_index = 88;
+					
+					if ( adpcm_index < 0 ) 
+						adpcm_index = 0;
+						
+					if ( adpcm_index > 88 ) 
+						adpcm_index = 88;
+				
 					enc_valprev = valpred;
 					enc_index = adpcm_index;
+						
 					if (fillindex & 1)
 					{
 						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
@@ -1654,32 +1821,36 @@ BYTE *cp;
 					{
 						enc_lastdelta = delta;
 					}
+
 					fillindex++;
 				}
 				else  // is ULAW
 				{
-			        short sample,sign, exponent, mantissa;
-			        BYTE ulawbyte;
-			
+					short sample,sign, exponent, mantissa;
+					BYTE ulawbyte;
+				
 					sample = index;
 					sample -= 2048;
 					sample *= 16;
-			        /* Get the sample into sign-magnitude. */
-			        sign = (sample >> 8) & 0x80;          /* set aside the sign */
-			        if (sign != 0)
-			                sample = -sample;              /* get magnitude */
-			        if (sample > CLIP)
-			                sample = CLIP;             /* clip the magnitude */
+	
+				        /* Get the sample into sign-magnitude. */
+				        sign = (sample >> 8) & 0x80;	/* set aside the sign */
+				        if (sign != 0)
+			        	        sample = -sample;	/* get magnitude */
+					
+					if (sample > CLIP)
+						sample = CLIP;		/* clip the magnitude */
 			
-			        /* Convert from 16 bit linear to ulaw. */
-			        sample = sample + BIAS;
-			        exponent = exp_lut[(sample >> 7) & 0xFF];
-			        mantissa = (sample >> (exponent + 3)) & 0x0F;
-			        ulawbyte = ~(sign | (exponent << 4) | mantissa);
-
+					/* Convert from 16 bit linear to ulaw. */
+					sample = sample + BIAS;
+					exponent = exp_lut[(sample >> 7) & 0xFF];
+					mantissa = (sample >> (exponent + 3)) & 0x0F;
+					ulawbyte = ~(sign | (exponent << 4) | mantissa);
 					audio_buf[filling_buffer][fillindex++] = ulawbyte;
 				}
+				
 				if (txseqno == 0) txseqno = 3;
+
 				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE * 2 : FRAME_SIZE))
 				{
 					if (option_flags & OPTION_FLAG_ADPCM)
@@ -1691,10 +1862,15 @@ BYTE *cp;
 						enc_prev_valprev = enc_valprev;
 						enc_prev_index = enc_index;
 						txseqno++;
+						
 						if (host_txseqno) host_txseqno++;
+
 					}
+
 					txseqno++;
+	
 					if (host_txseqno) host_txseqno++;
+	
 					filled = 1;
 					fillindex = 0;
 					filling_buffer ^= 1;
@@ -1710,6 +1886,11 @@ BYTE *cp;
 	}
 }
 
+/******************************************************************************
+//									     //
+//	These ISR's are not used					     //
+//									     //
+******************************************************************************/
 
 void __attribute__((interrupt, auto_psv)) _DefaultInterrupt(void)
 {
@@ -1722,21 +1903,26 @@ void __attribute__((interrupt, auto_psv)) _OscillatorFail(void)
    Nop();
    Nop();
 }
+
 void _ISR __attribute__((__no_auto_psv__)) _AddressError(void)
 {
    Nop();
    Nop();
 }
+
 void _ISR __attribute__((__no_auto_psv__)) _StackError(void)
 {
    Nop();
    Nop();
 }
+
 void __attribute__((interrupt, auto_psv)) _MathError(void)
 {
    Nop();
    Nop();
 }
+/*****************************************************************************/
+
 
 int myfgets(char *buffer, unsigned int len);
 
@@ -1744,136 +1930,141 @@ int myfgets(char *buffer, unsigned int len);
 
 ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 
-	void SetLED(BYTE led,BOOL val)
-	{
-		LATB &= ~ledmask[led];
-		if (!val) LATB |= ledmask[led];
-	}
+void SetLED(BYTE led,BOOL val)
+{
+	LATB &= ~ledmask[led];
 	
-	void ToggleLED(BYTE led)
-	{
-		LATB ^= ledmask[led];
-	}
+	if (!val) LATB |= ledmask[led];
+}
 	
-	void SetPTT(BOOL val)
-	{
-		_LATB4 = val;	
-	}
+void ToggleLED(BYTE led)
+{
+	LATB ^= ledmask[led];
+}
 	
-	void SetAudioSrc(void)
-	{
-		BYTE myflags;
+void SetPTT(BOOL val)
+{
+	_LATB4 = val;	
+}
+	
+void SetAudioSrc(void)
+{
+	BYTE myflags;
 
-		if (indiag) myflags = diag_option_flags;
-		else if (!connected) 
-		{
-			myflags = 0;
-			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
-			if (AppConfig.Sawyer == 1) myflags |= 4;
-		}
-		else myflags = option_flags;
-		if (myflags & 1)_LATB3 = 1;
-		else _LATB3 = 0;
-		if (!(myflags & 4)) _LATB2 = 1;
-		else _LATB2 = 0;
+	if (indiag) myflags = diag_option_flags;
+	else if (!connected) 
+	{
+		myflags = 0;
+
+		if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
+
+		if (AppConfig.Sawyer == 1) myflags |= 4;
 	}
+	else myflags = option_flags;
+
+	if (myflags & 1)_LATB3 = 1;
+	else _LATB3 = 0;
+
+	if (!(myflags & 4)) _LATB2 = 1;
+	else _LATB2 = 0;
+}
 
 #else
 
-	#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+#define ClearSPIDoneFlag()
 	
-	#define ClearSPIDoneFlag()
-	static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
-	{
-	    while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
-	}
+static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
+{
+	while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
+}
 	
-	#define SPI_ON_BIT          (IOEXP_SPISTATbits.SPIEN)
+#define SPI_ON_BIT (IOEXP_SPISTATbits.SPIEN)
 	
-	void IOExp_Write(BYTE reg,BYTE val)
-	{
+void IOExp_Write(BYTE reg,BYTE val)
+{
+	volatile BYTE vDummy;
+	BYTE vSPIONSave;
+	WORD SPICON1Save;
 	
-	    volatile BYTE vDummy;
-	    BYTE vSPIONSave;
-	    WORD SPICON1Save;
+	// Save SPI state
+	SPICON1Save = IOEXP_SPICON1;
+	vSPIONSave = SPI_ON_BIT;
 	
-	    // Save SPI state
-	    SPICON1Save = IOEXP_SPICON1;
-	    vSPIONSave = SPI_ON_BIT;
+	// Configure SPI
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = PROPER_SPICON1;
+	SPI_ON_BIT = 1;
 	
-	    // Configure SPI
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = PROPER_SPICON1;
-	    SPI_ON_BIT = 1;
+	SPISel(SPICS_IOEXP);
+	IOEXP_SSPBUF = 0x40;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = reg;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
 	
-	    SPISel(SPICS_IOEXP);
-	    IOEXP_SSPBUF = 0x40;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-	    IOEXP_SSPBUF = reg;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = val;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	SPISel(SPICS_IDLE);
+	    
+	// Restore SPI State
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = SPICON1Save;
+	SPI_ON_BIT = vSPIONSave;
 	
-	    IOEXP_SSPBUF = val;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-	    SPISel(SPICS_IDLE);
-	    // Restore SPI State
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = SPICON1Save;
-	    SPI_ON_BIT = vSPIONSave;
+	ClearSPIDoneFlag();
+}
 	
-		ClearSPIDoneFlag();
-	}
+BYTE IOExp_Read(BYTE reg)
+{	
+	volatile BYTE vDummy,retv;
+	BYTE vSPIONSave;
+	WORD SPICON1Save;
 	
-	BYTE IOExp_Read(BYTE reg)
-	{
+	// Save SPI state
+	SPICON1Save = IOEXP_SPICON1;
+	vSPIONSave = SPI_ON_BIT;
 	
-	    volatile BYTE vDummy,retv;
-	    BYTE vSPIONSave;
-	    WORD SPICON1Save;
+	// Configure SPI
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = PROPER_SPICON1;
+	SPI_ON_BIT = 1;
 	
-	    // Save SPI state
-	    SPICON1Save = IOEXP_SPICON1;
-	    vSPIONSave = SPI_ON_BIT;
+	SPISel(SPICS_IOEXP);
+	IOEXP_SSPBUF = 0x41;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = reg;
+	WaitForDataByte();
+	vDummy = IOEXP_SSPBUF;
+	IOEXP_SSPBUF = 0;
+	WaitForDataByte();
+	retv = IOEXP_SSPBUF;
 	
-	    // Configure SPI
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = PROPER_SPICON1;
-	    SPI_ON_BIT = 1;
+	SPISel(SPICS_IDLE);
+	// Restore SPI State
+	SPI_ON_BIT = 0;
+	IOEXP_SPICON1 = SPICON1Save;
+	SPI_ON_BIT = vSPIONSave;
 	
-	    SPISel(SPICS_IOEXP);
-	    IOEXP_SSPBUF = 0x41;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-	    IOEXP_SSPBUF = reg;
-	    WaitForDataByte();
-	    vDummy = IOEXP_SSPBUF;
-		IOEXP_SSPBUF = 0;
-	    WaitForDataByte();
-	    retv = IOEXP_SSPBUF;
-	
-	    SPISel(SPICS_IDLE);
-	    // Restore SPI State
-	    SPI_ON_BIT = 0;
-	    IOEXP_SPICON1 = SPICON1Save;
-	    SPI_ON_BIT = vSPIONSave;
-	
-		ClearSPIDoneFlag();
-		return retv;
-	}
-	
-	void IOExpInit(void)
-	{
-		IOExp_Write(IOEXP_IOCON,0x20);
-		IOExp_Write(IOEXP_IODIRA,0xD0);
-		IODirB = 0xf3;
-		IOExp_Write(IOEXP_IODIRB,IODirB);
-		IOExpOutA = 0xDF;
-		IOExp_Write(IOEXP_OLATA,IOExpOutA);
-		IOExpOutB = 0x53;
-		IOExp_Write(IOEXP_OLATB,IOExpOutB);
-	}
+	ClearSPIDoneFlag();
+	return retv;
+}
+
+// Initialize the IO Expander	
+void IOExpInit(void)
+{
+	IOExp_Write(IOEXP_IOCON,0x20);
+	IOExp_Write(IOEXP_IODIRA,0xD0);
+	IODirB = 0xf3;
+	IOExp_Write(IOEXP_IODIRB,IODirB);
+	IOExpOutA = 0xDF;
+	IOExp_Write(IOEXP_OLATA,IOExpOutA);
+	IOExpOutB = 0x53;
+	IOExp_Write(IOEXP_OLATB,IOExpOutB);
+}
 
 #ifdef	GGPS
 	void KickGPS(BOOL val)
@@ -1884,55 +2075,76 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 	}
 #endif
 	
-	void SetLED(BYTE led,BOOL val)
-	{
+void SetLED(BYTE led,BOOL val)
+{
 	BYTE mask,oldout;
+	oldout = IOExpOutA;
+	mask = 1 << led;
+	IOExpOutA &= ~mask;
 	
-		oldout = IOExpOutA;
-		mask = 1 << led;
-		IOExpOutA &= ~mask;
-		if (!val) IOExpOutA |= mask;
-		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	}
+	if (!val) IOExpOutA |= mask;
 	
-	void ToggleLED(BYTE led)
-	{
+	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
+	
+void ToggleLED(BYTE led)
+{
 	BYTE mask,oldout;
+	oldout = IOExpOutA;
+	mask = 1 << led;
+	IOExpOutA ^= mask;
+		
+	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
 	
-		oldout = IOExpOutA;
-		mask = 1 << led;
-		IOExpOutA ^= mask;
-		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	}
-	
-	void SetPTT(BOOL val)
-	{
+void SetPTT(BOOL val)
+{
 	BYTE oldout;
-	
-		oldout = IOExpOutA;
-		IOExpOutA &= ~0x20;
-		if (val) IOExpOutA |= 0x20;
-		if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
-	}
-	
-	void SetAudioSrc(void)
-	{
+	oldout = IOExpOutA;
+	IOExpOutA &= ~0x20;
+
+	if (val) IOExpOutA |= 0x20;
+		
+	if (IOExpOutA != oldout) IOExp_Write(IOEXP_OLATA,IOExpOutA);
+}
+
+void SetAudioSrc(void)
+{
+	/* Determine the filtering for the receive audio.
+	   ASEL1 = IOExpOutB mask Bit 4 = SPB2, setting to 1 is PL Filter IN, setting to 0 is PL Filter OUT
+	   ASEL2 = IOExpOutB mask Bit 8 = SPB3, Setting to 1 is NO de-emphasis, setting to 0 is de-emphazised
+
+	   myflags holds the bitmask
+	   myflags 0 = de-emphazised,  PL filtered
+	   myflags 1 = no de-emphasis, PL filtered
+	   myflags 4 = de-emphasized,  no PL filter
+	   myflags 5 = no de-emphasis, no PL filter
+
+	   "Sawyer Mode" (Sawyer=1) forces the PL Filter OFF in Offline mode
+	*/
+
 	BYTE oldout,myflags;
 
-		if (indiag) myflags = diag_option_flags;
-		else if (!connected) 
-		{
-			myflags = 0;
-			if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
-			if (AppConfig.Sawyer == 1) myflags |= 4;
-		}
-		else myflags = option_flags;
-		oldout = IOExpOutB;
-		IOExpOutB &= ~0x0c;
-		if (myflags & 1) IOExpOutB |= 8;
-		if (!(myflags & 4)) IOExpOutB |= 4;
-		if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
+	if (indiag) myflags = diag_option_flags;
+	else if (!connected) 
+	{
+		myflags = 0;
+
+		if (AppConfig.CORType || AppConfig.OffLineNoDeemp) myflags |= 1;
+			
+		if (AppConfig.Sawyer == 1) myflags |= 4;
 	}
+	else myflags = option_flags;
+	
+	oldout = IOExpOutB;
+	IOExpOutB &= ~0x0c;
+	
+	if (myflags & 1) IOExpOutB |= 8;
+	
+	if (!(myflags & 4)) IOExpOutB |= 4;
+
+	if (IOExpOutB != oldout) IOExp_Write(IOEXP_OLATB,IOExpOutB);
+}
 
 #ifdef	GGPS
 	void TickleDog(void)
@@ -1948,7 +2160,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 void RTCM_Reset(void)
 {
 #ifdef	GGPS
-volatile DWORD i;
+	volatile DWORD i;
 #endif
 
 	SetPTT(0);
@@ -1980,7 +2192,6 @@ BOOL HasCTCSS(void)
 
 void SetCTCSSTone(float freq, WORD gain)
 {
-
 	if ((freq <= 0.0) || (gain < 1))
 	{
 		tone_fac = 0;
@@ -2001,17 +2212,16 @@ void SetCTCSSTone(float freq, WORD gain)
 
 void SetTxTone(int freq)
 {
-
 	DISABLE_INTERRUPTS();
 	if (freq == 0)
 	{
-		DAC1CONbits.DACFDIV = 74;		// Divide by 75 for 8K Samples/sec
+		DAC1CONbits.DACFDIV = 74;	// Divide by 75 for 8K Samples/sec
 		testp = 0;
 		testidx = 0;
 	}
 	else
 	{
-		DAC1CONbits.DACFDIV = 36;		// Divide by 37 for approx 16216.216 Samples/sec
+		DAC1CONbits.DACFDIV = 36;	// Divide by 37 for approx 16216.216 Samples/sec
 		switch(freq)
 		{
 		    case 100:
@@ -2048,15 +2258,18 @@ void SetTxTone(int freq)
 
 static void domorse(char *str)
 {
-BYTE c;
+	BYTE c;
 
 	if (!cwptr)
 	{
 		while((c = *str++))
 		{
 			if (c < ' ') continue;
+	
 			if (c > 'Z') continue;
+	
 			c -= ' ';
+	
 			if (mbits[c].len)
 			{
 				cwlen = mbits[c].len * 2;
@@ -2073,6 +2286,7 @@ BYTE c;
 			}
 			break;
 		}
+
 		cwtimer1 = AppConfig.CWBeforeTime;
 		cwptr = str;
 	}
@@ -2080,7 +2294,7 @@ BYTE c;
 
 BYTE GetBootCS(void)
 {
-BYTE x = 0x69,i;
+	BYTE x = 0x69,i;
 
 	for(i = 0; i < 4; i++) x += AppConfig.BootIPAddr.v[i];
 	return(x);
@@ -2103,48 +2317,52 @@ BYTE x = 0x69,i;
 
 static int explode_string(char *str, char *strp[], int limit, char delim, char quote)
 {
-int     i,l,inquo;
+	int i,l,inquo;
 
         inquo = 0;
         i = 0;
         strp[i++] = str;
-        if (!*str)
-           {
-                strp[0] = 0;
-                return(0);
-           }
-        for(l = 0; *str && (l < limit) ; str++)
-        {
-                if(quote)
-                {
-                        if (*str == quote)
-                        {
-                                if (inquo)
-                                {
-                                        *str = 0;
-                                        inquo = 0;
-                                }
-                                else
-                                {
-                                        strp[i - 1] = str + 1;
-                                        inquo = 1;
-                                }
-                        }
-                }
-                if ((*str == delim) && (!inquo))
-                {
-                        *str = 0;
-                        l++;
-                        strp[i++] = str + 1;
-                }
-        }
-        strp[i] = 0;
-        return(i);
 
+	if (!*str)
+	{
+		strp[0] = 0;
+		return(0);
+	}
+
+	for(l = 0; *str && (l < limit) ; str++)
+	{
+		if (quote)
+		{
+			if (*str == quote)
+			{
+				if (inquo)
+				{
+					*str = 0;
+					inquo = 0;
+				}
+				else
+				{
+					strp[i - 1] = str + 1;
+					inquo = 1;
+				}
+			}
+		}
+
+		if ((*str == delim) && (!inquo))
+		{
+			*str = 0;
+			l++;
+			strp[i++] = str + 1;
+		}
+	}
+
+	strp[i] = 0;
+	return(i);
 }
 
-#define	memclr(x,y) memset(x,0,y)
-#define ARPIsTxReady()      MACIsTxReady() 
+#define	memclr(x,y) 	memset(x,0,y)
+#define ARPIsTxReady()	MACIsTxReady() 
+
 WORD htons(WORD x)
 {
 	WORD y;
@@ -2193,21 +2411,26 @@ DWORD ntohl(DWORD x)
 	return(y);
 }
 
+// Read an NMEA string from the GPS on UART2
 BOOL getGPSStr(void)
 {
-BYTE	c;
+	BYTE	c;
 
 	while (DataRdyUART2())
 	{
 		c = ReadUART2();
+	
 		if (c == '\n')
 		{
 			gps_buf[gps_bufindex]= 0;
 			gps_bufindex = 0;
 			return 1; 
 		}
+	
 		if (c < ' ') continue;
+	
 		gps_buf[gps_bufindex++] = c;
+	
 		if (gps_bufindex >= (sizeof(gps_buf) - 1))
 		{
 			gps_buf[gps_bufindex]= 0;
@@ -2218,27 +2441,33 @@ BYTE	c;
 	return 0;
 }
 
+// Read a TSIP GPS packet on UART2
 BOOL getTSIPPacket(void)
 {
-BYTE     c;
+	BYTE     c;
 
-		if (!DataRdyUART2()) return 0;
-		c = ReadUART2();
-        if (gps_bufindex == 0)
+	if (!DataRdyUART2()) return 0;
+		
+	c = ReadUART2();
+        
+	if (gps_bufindex == 0)
         {
                 TSIPwasdle = 0;
-                if (c == 16)
+        
+	        if (c == 16)
                 {
                         TSIPwasdle = 1;
                         gps_bufindex++;
                 }
                 return 0;
         }
+
         if (gps_bufindex > sizeof(gps_buf))
         {
                 gps_bufindex = 0;
                 return 0;
         }
+
         if ((c == 16) && (!TSIPwasdle))
         {
                 TSIPwasdle = 1;
@@ -2249,37 +2478,51 @@ BYTE     c;
                 gps_bufindex = 0;
                 return 1;
         }
+
         TSIPwasdle = 0;
         gps_buf[gps_bufindex - 1] = c;
-		gps_bufindex++;
+	gps_bufindex++;
         return 0;
 }
 
 static DWORD twoascii(char *s)
 {
-DWORD rv;
+	DWORD rv;
 
 	rv = s[1] - '0';
 	rv += 10 * (s[0] - '0');
 	return(rv);
 }
 
+/*****************************************************************************/
+//									     //
+//		Logtime Subroutine					     //
+//									     //
+/*****************************************************************************/
 #define	logtime() logtime_p(&system_time)
 
 static char *logtime_p(VTIME *p)
 {
-time_t	t;
-static char str[50];
-static ROM char notime[] = "<System Time Not Set>",
+	time_t	t;
+	static char str[50];
+	static ROM char notime[] = "<System Time Not Set>",
 	logtemplate[] = "%m/%d/%Y %H:%M:%S";
 
 	t = p->vtime_sec;
+	
 	if (t == 0) return((char *)notime);
+	
 	strftime(str,sizeof(str) - 1,(char *)logtemplate,gmtime(&t));
 	sprintf(str + strlen(str),".%03lu",p->vtime_nsec / 1000000L);
 	return(str);
 }
 
+
+/*****************************************************************************/
+//									     //
+//		Calculate epoch Subroutine (mktime() replacement)	     //
+//									     //
+/*****************************************************************************/
 // 01/06/21 WA1JHK patch to replace broken mktime() in MPLAB C30
 static DWORD getSecondsSinceEpoch (struct tm *tm)
 {
@@ -2314,17 +2557,25 @@ static DWORD getSecondsSinceEpoch (struct tm *tm)
     return  (total_seconds);
 }
 
+
+/*****************************************************************************/
+//									     //
+//		Process GPS Subroutine					     //
+//									     //
+/*****************************************************************************/
 void process_gps(void)
 {
-int n;
-char *strs[30];
-static ROM char gpgga[] = "$GPGGA",
-	gpgsv[] = "$GPGSV", gprmc[] = "$GPRMC";
+	int n;
+	char *strs[30];
+	static ROM char 	gpgga[] = "$GPGGA",
+				gpgsv[] = "$GPGSV", 
+				gprmc[] = "$GPRMC";
 
-// Please see doubleify.c for explanation of this poo-poo
-extern float doubleify(BYTE *p);
+	// Please see doubleify.c for explanation of this poo-poo
+	extern float doubleify(BYTE *p);
 	
 	if (indiag) return;
+
 #ifdef	GGPS
 	if (gps_state == GPS_STATE_SYNCED)
 	{
@@ -2335,9 +2586,12 @@ extern float doubleify(BYTE *p);
 		}
 		gps_unhappy = 0;
 	}
+
 	if (AppConfig.DebugLevel & 4) return;
 #endif
+
 	if (gps_state == GPS_STATE_IDLE) gps_time = 0;
+
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID))
 	{
 		gps_state = GPS_STATE_SYNCED;
@@ -2345,11 +2599,13 @@ extern float doubleify(BYTE *p);
 		printf(gpsmsg3);
 		main_processing_loop();
 	}
+
 	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED))
 	{
 		gps_state = GPS_STATE_VALID;
 		printf(logtime());
 		printf(gpsmsg5);
+
 		if (USE_PPS)
 		{
 			connected = 0;
@@ -2362,23 +2618,33 @@ extern float doubleify(BYTE *p);
 			SetAudioSrc();
 		}
 	}
+
 	if (AppConfig.GPSProto == GPS_NMEA)
 	{
 		if (!getGPSStr()) return;
+
 		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc))
+
 #ifdef GGPS
 			printf("%d GPS-DEBUG: %s\n",ggps_unavail,gps_buf);
 #else
+		{
 			printf("GPS-DEBUG: %s\n",gps_buf);
+		
+			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+		}
 #endif
 
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
+	
 		if (n < 1) return;
+	
 		if (!strcmp(strs[0],gpgsv))
 		{
 			if (n >= 4) gps_nsat = atoi(strs[3]);
 			return;
 		}
+	
 		if (!strcmp(strs[0],gprmc))
 		{
 			struct tm tm;
@@ -2409,25 +2675,31 @@ extern float doubleify(BYTE *p);
 			tm.tm_min = twoascii(strs[1] + 2);
 			tm.tm_hour = twoascii(strs[1]);
 			tm.tm_mday = twoascii(strs[9]);
+
 			if (AppConfig.DebugLevel & 128) // this can probably be removed now
 				tm.tm_mon = twoascii(strs[9] + 2); // add 1 month, some GPS are broken?
 			else
 				tm.tm_mon = twoascii(strs[9] + 2); // no lonfer need to -1, not using mktime()
 			tm.tm_year = twoascii(strs[9] + 4); // don't need to be relative to 1900, not using mktime()
 			if (AppConfig.DebugLevel & 64)
-				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + 1; // Fix for GPS one second off
+				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + 1 + (DWORD) AppConfig.GPSOffset; // Fix for GPS one second off
 			else
-				gps_time = (DWORD) getSecondsSinceEpoch(&tm);
+				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
+
 			if (AppConfig.DebugLevel & 32)
 				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+	
 			if (!USE_PPS) system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			return;
 		}
 	
 		if (n < 7) return;
+	
 		if (strcmp(strs[0],gpgga)) return;
+	
 		gpswarn = 0;
 		gpstimer = 0;
+	
 		if (gps_state == GPS_STATE_IDLE)
 		{
 			gps_state = GPS_STATE_RECEIVED;
@@ -2437,12 +2709,15 @@ extern float doubleify(BYTE *p);
 		}
 #ifndef	GGPS
 		n = atoi(strs[6]);
+	
 		if ((n < 1) || (n > 2)) 
 		{
 			if (gps_state == GPS_STATE_RECEIVED) return;
+	
 			gps_state = GPS_STATE_IDLE;
 			printf(logtime());
 			printf(gpsmsg6);
+	
 			if (USE_PPS)
 			{
 				connected = 0;
@@ -2465,6 +2740,7 @@ extern float doubleify(BYTE *p);
 			printf(gpsmsg2);
 			printf("%d\n",gps_nsat);
 		}
+	
 		memclr(&gps_packet,sizeof(gps_packet));
 		strncpy(gps_packet.lat,strs[2],7);
 		gps_packet.lat[7] = *strs[3];
@@ -2475,15 +2751,17 @@ extern float doubleify(BYTE *p);
 	else /* is a Trimble TSIP Device */
 	{
 /* We are looking for two types of packets from TSIP devices:
-	The 0x8f-ab Primary Timing Packet
-	The 0x8f-ac Supplementary Timing Packet
+   The 0x8f-ab Primary Timing Packet
+   The 0x8f-ac Supplementary Timing Packet
 
    Both packets are read in to the gps_buf array. NOTE, our array count is off by one, if you 
    are looking at the TSIP reference, since gps_buf[0] contains the Header Byte, instead of the 
    Subcode byte.
 */
 		if (!getTSIPPacket()) return;
+
 		if (gps_buf[0] != 0x8f) return; // "Superpacket" Header
+
 		if (gps_buf[1] == 0xab) // AB is the Primary Timing Packet
 		{
 			struct tm tm;
@@ -2494,20 +2772,21 @@ extern float doubleify(BYTE *p);
 			tm.tm_min = gps_buf[12]; // minutes 0-59
 			tm.tm_hour = gps_buf[13]; // hours 0-23
 			tm.tm_mday = gps_buf[14]; // day of month 1-31
+
 			/* gps_buf[15] is Month of Year, 1-12 */
 			if (AppConfig.DebugLevel & 128) // this probably can be removed
 				tm.tm_mon = gps_buf[15]; // add 1 month, some GPS are broken?
 			else
 				tm.tm_mon = gps_buf[15]; // no longer need to -1 as we are not using mktime() 
+
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8); // 4-digit year (two bytes)
 			tm.tm_year = w - 2000; // tm_year is now relative to years since 2000 (not using mktime())
 
 			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8); // gps week number (two bytes)
 
-
 			if (!AppConfig.GPSTbolt) // if this isn't a Tbolt device, don't fudge the time
 			{
-				gps_time = (DWORD) getSecondsSinceEpoch(&tm);
+				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 			}
 			else
 			{
@@ -2515,15 +2794,17 @@ extern float doubleify(BYTE *p);
 			it thinks it is, and correct it.*/
 				if ((gpsweek >= 0) && (gpsweek <= 935)) // for weeks 0-935, add 1024 weeks
 				{
-					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) ADD_1024_WEEKS;
+					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) ADD_1024_WEEKS + (DWORD) AppConfig.GPSOffset;
 				}
+
 				if ((gpsweek >= 936) && (gpsweek <= 1023)) // for weeks 936-1023, add 2048 weeks
 				{
-					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (2 * (DWORD) ADD_1024_WEEKS);
+					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (2 * (DWORD) ADD_1024_WEEKS) + (DWORD) AppConfig.GPSOffset;
 				}
+
 				if (gpsweek >= 1024) // this isn't a Tbolt, so don't fudge the time
 				{
-					gps_time = (DWORD) getSecondsSinceEpoch(&tm);
+					gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 				}
 			}
 
@@ -2539,14 +2820,17 @@ extern float doubleify(BYTE *p);
 			{
 				gps_time = gps_time - gpsleap;
 			}
-
 			
 			if (AppConfig.DebugLevel & 32)
+			{
 			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
-			
+				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
+			}
+
 			if (!USE_PPS) system_time.vtime_sec = timing_time = gps_time + 1;
 		 	return;
 		}
+
 		if (gps_buf[1] == 0xac) // AC is the Supplemental Timing Packet
 		{
 			BOOL happy;
@@ -2554,20 +2838,27 @@ extern float doubleify(BYTE *p);
 			float f;
 
 			happy = 1;
+
 			if (gps_buf[13]) happy = 0; // GPS Decoding Status - 0=doing fixes
+
 			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) happy = 0; // Discipline Activity, Phase Locked and Recovery Mode?
+
 			if (gps_buf[9] || gps_buf[10]) happy = 0; // 0=No Critical Alarms
+
 			if ((gps_buf[11] & 0x1f) | gps_buf[12]) happy = 0; // 0=No Minor Alarms
 			/* Minor alarms are tricky! gps_buf[11] is Bits 8-12, gps_buf[12] is Bits 0-7
 			ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
 			   gps_buf[11]=0x08 -> Almanac not complete */
+
 			if (AppConfig.DebugLevel & 32)
 			{
 				printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
 					happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
 			}
+
 			gpswarn = 0;
 			gpstimer = 0;
+
 			if (gps_state == GPS_STATE_IDLE)
 			{
 				gps_state = GPS_STATE_RECEIVED;
@@ -2575,12 +2866,15 @@ extern float doubleify(BYTE *p);
 				gpswarn = 0;
 				printf(gpsmsg1);
 			}
+
 			if (!happy)
 			{
 				if (gps_state == GPS_STATE_RECEIVED) return;
+
 				gps_state = GPS_STATE_IDLE;
 				printf(logtime());
 				printf(gpsmsg6);
+
 				if (USE_PPS)
 				{
 					connected = 0;
@@ -2592,42 +2886,55 @@ extern float doubleify(BYTE *p);
 					lastrxtimer = 0;
 					SetAudioSrc();
 				}
+
 				gpssync = 0;
 				gotpps = 0;
 			}
+
 			gps_nsat = 3; // Hah, we're faking the number of received sats.
+
 			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time)
 			{
 				gps_state = GPS_STATE_VALID;
-		
 				printf(gpsmsg9);
 
 			}
+
 			memclr(&gps_packet,sizeof(gps_packet));
 			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
 			x = (int) f;
 			f -= (float) x;
+
 			if (f < 0.0) f = -f;
+
 			f *= 60.0;
 			y = (int) f;
 			f -= (float) y;
+
 			if (f < 0.0) f = -f;
+
 			if (x < 0)
 				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
 			else
 				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
+
 			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
 			x = (int) f;
 			f -= (float) x;
+
 			if (f < 0.0) f = -f;
+
 			f *= 60.0;
 			y = (int) f;
 			f -= (float) y;
+
 			if (f < 0.0) f = -f;
+
 			if (x < 0)
 				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
 			else
 				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
+
 			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
 			return;
 		}
@@ -2635,45 +2942,55 @@ extern float doubleify(BYTE *p);
 	return;
 }
 
+/*****************************************************************************/
+//									     //
+//		ADPCM Decoder Subroutine				     //
+//									     //
+/*****************************************************************************/
 void adpcm_decoder(BYTE *indata)
 {
-    BYTE *inp;		/* Input buffer pointer */
-    int sign;			/* Current adpcm sign bit */
-    BYTE delta;			/* Current adpcm output value */
-    int step;			/* Stepsize */
-    long valpred;		/* Predicted value */
-    int vpdiff;			/* Current change to valpred */
-    int index;			/* Current step change index */
-    BYTE inputbuffer;		/* place to keep next 4-bit value */
-    BOOL bufferstep;		/* toggle between inputbuffer/input */
+	BYTE *inp;		// Input buffer pointer 
+	int sign;		// Current adpcm sign bit 
+	BYTE delta;		// Current adpcm output value 
+	int step;		// Stepsize 
+	long valpred;	// Predicted value 
+	int vpdiff;		// Current change to valpred 
+	int index;		// Current step change index 
+	BYTE inputbuffer;	// place to keep next 4-bit value 
+	BOOL bufferstep;	// toggle between inputbuffer/input 
 	WORD i;
-    short sample, musign, exponent, mantissa;
-    BYTE ulawbyte;
+	short sample, musign, exponent, mantissa;
+	BYTE ulawbyte;
 
-    inp = indata;
+	inp = indata;
 
-    valpred = dec_valprev;
-    index = dec_index;
-    step = stepsizeTable[index];
+	valpred = dec_valprev;
+	index = dec_index;
+	step = stepsizeTable[index];
+	bufferstep = 0;
+	inputbuffer = 0;
 
-    bufferstep = 0;
-    inputbuffer = 0;
 
-   
-    for ( i = 0; i < FRAME_SIZE * 2; i++) {
-	
+	for ( i = 0; i < FRAME_SIZE * 2; i++) 
+	{
 		/* Step 1 - get the delta value */
-		if ( bufferstep ) {
-		    delta = inputbuffer & 0xf;
-		} else {
-		    inputbuffer = *inp++;
-		    delta = (inputbuffer >> 4) & 0xf;
+		if ( bufferstep ) 
+		{
+			delta = inputbuffer & 0xf;
+		} 
+		else 
+		{
+			inputbuffer = *inp++;
+			delta = (inputbuffer >> 4) & 0xf;
 		}
+
 		bufferstep = !bufferstep;
 	
 		/* Step 2 - Find new index value (for later) */
 		index += indexTable[delta];
+		
 		if ( index < 0 ) index = 0;
+		
 		if ( index > 88 ) index = 88;
 	
 		/* Step 3 - Separate sign and magnitude */
@@ -2686,20 +3003,23 @@ void adpcm_decoder(BYTE *indata)
 		** in adpcm_coder.
 		*/
 		vpdiff = step >> 3;
+	
 		if ( delta & 4 ) vpdiff += step;
+	
 		if ( delta & 2 ) vpdiff += step >> 1;
+	
 		if ( delta & 1 ) vpdiff += step >> 2;
 	
 		if ( sign )
-		  valpred -= vpdiff;
+			valpred -= vpdiff;
 		else
-		  valpred += vpdiff;
+			valpred += vpdiff;
 	
 		/* Step 5 - clamp output value */
 		if ( valpred > 32767 )
-		  valpred = 32767;
+			valpred = 32767;
 		else if ( valpred < -32768 )
-		  valpred = -32768;
+			valpred = -32768;
 	
 		/* Step 6 - Update step value */
 		step = stepsizeTable[index];
@@ -2708,18 +3028,21 @@ void adpcm_decoder(BYTE *indata)
 //		vout = valpred + 32768;
 			
 		sample = valpred;
-        /* Get the sample into sign-magnitude. */
-        musign = (sample >> 8) & 0x80;          /* set aside the sign */
-        if (musign != 0)
-                sample = -sample;              /* get magnitude */
-        if (sample > CLIP)
-                sample = CLIP;             /* clip the magnitude */
+        
+		/* Get the sample into sign-magnitude. */
+		musign = (sample >> 8) & 0x80;	/* set aside the sign */
+        
+		if (musign != 0)
+			sample = -sample;	/* get magnitude */
+        
+		if (sample > CLIP)
+			sample = CLIP;		/* clip the magnitude */
 
-        /* Convert from 16 bit linear to ulaw. */
-        sample = sample + BIAS;
-        exponent = exp_lut[(sample >> 7) & 0xFF];
-        mantissa = (sample >> (exponent + 3)) & 0x0F;
-        ulawbyte = ~(musign | (exponent << 4) | mantissa);
+		/* Convert from 16 bit linear to ulaw. */
+		sample = sample + BIAS;
+		exponent = exp_lut[(sample >> 7) & 0xFF];
+		mantissa = (sample >> (exponent + 3)) & 0x0F;
+		ulawbyte = ~(musign | (exponent << 4) | mantissa);
 
 		dec_buffer[i] = ulawbyte;
     }
@@ -2728,10 +3051,13 @@ void adpcm_decoder(BYTE *indata)
     dec_index = index;
 }
 
-
+/*****************************************************************************/
+//									     //
+//		Process UDP Packet Subroutine				     //
+//									     //
+/*****************************************************************************/
 void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 {
-
 	BYTE n,c,i,j,*cp;
 #ifdef	DSPBEW
 	short x;
@@ -2749,6 +3075,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	myhost_txseqno = host_txseqno;
 
 	if (indiag) return;
+
 	if (filled && (gpssync || (!USE_PPS)) && (!time_filled))
 	{
 		system_time.vtime_sec = timing_time;
@@ -2763,6 +3090,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		for(i = 0; i < FFT_BLOCK_LENGTH; i++)
 		{
 			x = ulawtabletx[audio_buf[filling_buffer ^ 1][i]];
+
 			if (AppConfig.BEWMode > 1)
 			{
 				if (x > 16383) x = 16383;
@@ -2773,14 +3101,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			{
 				sigCmpx[i].real = x / 2;
 			}
+
 			sigCmpx[i].imag = 0x0000;
 		}
 	
-	#ifndef FFTTWIDCOEFFS_IN_PROGMEM
+#ifndef FFTTWIDCOEFFS_IN_PROGMEM
 		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
-	#else
+#else
 		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]), (int) __builtin_psvpage(&twiddleFactors[0]));
-	#endif
+#endif
 	
 		/* Store output samples in bit-reversed order of their addresses */
 		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
@@ -2790,13 +3119,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	
 		wp = (unsigned int *)&sigCmpx[0];
 		fftresult = 0;
+
 		// Get the total energy above CTCSS and below 2000 Hz
 		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++)
 		{
 			if (i >= 2) fftresult += *wp;
+
 			wp++;
 		}
+
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
+
 		if (!AppConfig.BEWMode) qualnoise = 1;
 	
 		if (!qualnoise)
@@ -2809,13 +3142,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		{
 //TESTBIT ^= 1;
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
+
 			if (AppConfig.CORType == 1) rssiheld = rssi = 255;
 #ifdef	DSPBEW
 			if (qualnoise || (!HasCOR())) rssiheld = rssi;
 #else
 			rssiheld = rssi;
 #endif
-			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
+			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) 
+			{
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
@@ -2823,16 +3158,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					(!USE_PPS) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
+				
 				if (tosend) audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? 3 : 1);
+				
 				i = 0;
 				cp = (BYTE *) &audio_packet;
 				for(i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) UDPPut(*cp++);
 				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 
-	            if (tosend)
-				{
-					
+	            		if (tosend)
+				{	
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS())
 					{
 						UDPPut(rssiheld);
@@ -2846,9 +3182,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					}
 				}
 				else if (!USE_PPS) UDPPut(OPTION_FLAG_MIX);
-	             //Send contents of transmit buffer, and free buffer
-	            UDPFlush();
-				attempttimer = 0;
+
+			//Send contents of transmit buffer, and free buffer
+			UDPFlush();
+			attempttimer = 0;
 			}
 		}
 #ifdef	DSPBEW
@@ -2862,42 +3199,51 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		filled = 0;
 		time_filled = 0;
 	}
+	
 	if (connected && (sendgps || (!USE_PPS)) && (gps_packet.lat[0] || (gpsforcetimer >= GPS_FORCE_TIME)))
 	{
-	        if (UDPIsPutReady(*udpSocketUser)) {
-				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-				gps_packet.vph.curtime.vtime_sec = htonl(real_time);
-				gps_packet.vph.curtime.vtime_nsec = htonl(0);
-				strcpy((char *)gps_packet.vph.challenge,challenge);
-				gps_packet.vph.digest = htonl(resp_digest);
-				gps_packet.vph.payload_type = htons(2);
-				// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
-				cp = (BYTE *) &gps_packet.vph;
-				for(i = 0; i < sizeof(gps_packet.vph); i++) UDPPut(*cp++);
-				if (gps_packet.lat[0])
-				{
-					cp = (BYTE *) gps_packet.lat;
-					for(i = 0; i < sizeof(gps_packet.lat); i++) UDPPut(*cp++);
-					cp = (BYTE *) gps_packet.lon;
-					for(i = 0; i < sizeof(gps_packet.lon); i++) UDPPut(*cp++);
-					cp = (BYTE *) gps_packet.elev;
-					for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
-				}
-	            UDPFlush();
-				sendgps = 0;
-				gpsforcetimer = 0;
-	         }
-			memclr(&gps_packet,sizeof(gps_packet));
+	        if (UDPIsPutReady(*udpSocketUser)) 
+		{
+			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
+			gps_packet.vph.curtime.vtime_nsec = htonl(0);
+			strcpy((char *)gps_packet.vph.challenge,challenge);
+			gps_packet.vph.digest = htonl(resp_digest);
+			gps_packet.vph.payload_type = htons(2);
+			
+			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+			cp = (BYTE *) &gps_packet.vph;
+			for(i = 0; i < sizeof(gps_packet.vph); i++) UDPPut(*cp++);
+			if (gps_packet.lat[0])
+			{
+				cp = (BYTE *) gps_packet.lat;
+				for(i = 0; i < sizeof(gps_packet.lat); i++) UDPPut(*cp++);
+				cp = (BYTE *) gps_packet.lon;
+				for(i = 0; i < sizeof(gps_packet.lon); i++) UDPPut(*cp++);
+				cp = (BYTE *) gps_packet.elev;
+				for(i = 0; i < sizeof(gps_packet.elev); i++) UDPPut(*cp++);
+			}
+		
+		UDPFlush();
+		sendgps = 0;
+		gpsforcetimer = 0;
+		}
+
+		memclr(&gps_packet,sizeof(gps_packet));
 	}
 
-	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
+	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) 
+	{
 		n = 0;
 		cp = (BYTE *) &audio_packet;
+		
 		while(UDPGet(&c))
 		{
 			if (n++ < sizeof(audio_packet)) *cp++ = c;	
 		}
-		if (n >= sizeof(VOTER_PACKET_HEADER)) {
+		
+		if (n >= sizeof(VOTER_PACKET_HEADER)) 
+		{
 			/* if this is a new session */
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge))
 			{
@@ -2915,17 +3261,23 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					(ntohs(audio_packet.vph.payload_type) == 0))
 				{
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
+				
 					if (mydigest == ntohl(audio_packet.vph.digest))
 					{
 						digest = mydigest;
+				
 						if (!connected) gpsforcetimer = 0;
+				
 						connected = 1;
 						lastrxtimer = 0;
+				
 						if (n > sizeof(VOTER_PACKET_HEADER)) option_flags = audio_packet.rssi;
 						else option_flags = 0;
+				
 						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX)))
 						{
 							if (n > sizeof(VOTER_PACKET_HEADER)) gotbadmix = 1; 
+
 							connected = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
@@ -2950,50 +3302,64 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					BYTE wconnected;
 				
 					wconnected = connected;
+
 					if (!connected) gpsforcetimer = 0;
+
 					connected = 1;
 					lastrxtimer = 0;
+
 					if (!wconnected) SetAudioSrc();
+
 					lastrxtimer = 0;
+
 					if (ntohs(audio_packet.vph.payload_type) == 5) // PING
 					{
 						if (!pingtimer) // If okay to respond to a ping 
 						{
-					        if (UDPIsPutReady(*udpSocketUser)) {
+					        	if (UDPIsPutReady(*udpSocketUser)) 
+							{
 								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
 								audio_packet.vph.curtime.vtime_nsec = htonl(0);
 								strcpy((char *)audio_packet.vph.challenge,challenge);
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(5);
+
 								// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
 								cp = (BYTE *) &audio_packet.vph;
 								for(i = 0; i < n; i++) UDPPut(*cp++);
-					            UDPFlush();
+
+					            		UDPFlush();
 								pingtimer = MIN_PING_TIME;
 							}
 						}
 					}
+
 					if ((ntohs(audio_packet.vph.payload_type) == 1) || (ntohs(audio_packet.vph.payload_type) == 3))
 					{
 						long index,ndiff;
 						short mydiff;
-
-
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
 						last_rxpacket_inbounds = 0;
+
 						if (!USE_PPS)
 						{
 							mytxseqno = txseqno;
-							if (mytxseqno > (txseqno_ptt + 2))
-									host_txseqno = 0;
+
+							if (mytxseqno > (txseqno_ptt + 2)) 
+								host_txseqno = 0;
+
 							txseqno_ptt = mytxseqno;
-							if (!host_txseqno) myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+
+							if (!host_txseqno) 
+								myhost_txseqno = host_txseqno = ntohl(audio_packet.vph.curtime.vtime_nsec);
+
 							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
 							index *= FRAME_SIZE;
-							if (AppConfig.TxBufferLength >= 1440)
+
+							if (AppConfig.TxBufferLength >= 1440) 
 								index -= (FRAME_SIZE * 4);
 							else if (AppConfig.TxBufferLength >= 1120)
 								index -= (FRAME_SIZE * 3);
@@ -3009,13 +3375,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 							index += (ndiff / 125000);
 						}
+
 						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
 //printf("%ld %u\n",index,AppConfig.TxBufferLength - (FRAME_SIZE * 2));
 						last_rxpacket_index = index;
-                        /* if in bounds */
-                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
-                        {
+			
+			                        /* if in bounds */
+                        			if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2))))
+                        			{	
 							last_rxpacket_inbounds = 1;
+						
 							if (!USE_PPS)
 							{
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) 
@@ -3031,8 +3400,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 									lastrxtime.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 								}
 							}
-                            index += mytxindex;
-					   		if (index > AppConfig.TxBufferLength) index -= AppConfig.TxBufferLength;
+
+                            				index += mytxindex;
+
+					   		if (index > AppConfig.TxBufferLength) 
+								index -= AppConfig.TxBufferLength;
+							
 							mydiff = AppConfig.TxBufferLength;
 
 							if (ntohs(audio_packet.vph.payload_type) == 3)
@@ -3041,31 +3414,32 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
 								dec_index = audio_packet.audio[162];
 								adpcm_decoder(audio_packet.audio);
-	                            if (mydiff >= 0)
-	                            {
-	                                    memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
-	                             }
-	                            else
-	                            {
-	                                    memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
-	                                    memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
-	                            }
 
+								if (mydiff >= 0)
+								{
+									memcpy(txaudio + index,dec_buffer,FRAME_SIZE * 2);
+								}
+								else
+								{
+									memcpy(txaudio + index,dec_buffer,(FRAME_SIZE * 2) + mydiff);
+									memcpy(txaudio,dec_buffer + ((FRAME_SIZE * 2) + mydiff),-mydiff);
+								}
 							}
 							else
 							{
 					  			mydiff -= ((short)index + FRAME_SIZE);
-	                            if (mydiff >= 0)
-	                            {
-	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
-	                             }
-	                            else
-	                            {
-	                                    memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
-	                                    memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
-	                            }
+	                            				
+								if (mydiff >= 0)
+								{	
+									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
+								}
+								else
+								{
+									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
+									memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
+								}
 							}
-                        }
+                        			}
 						else /* not in bounds */
 						{
 							if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))
@@ -3073,6 +3447,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							else
 								missed = index;
 							misstimer1 = PKT_MISS_TIME;
+
 							if (!USE_PPS)
 							{
 								host_txseqno = 0;
@@ -3082,14 +3457,20 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				}
 			}
 		}
+
 		UDPDiscard();
 	}
 }
 
+/*****************************************************************************/
+//									     //
+//		Main Processing Loop					     //
+//									     //
+/*****************************************************************************/
 void main_processing_loop(void)
 {
 
-	//UDP State machine
+	// UDP State machine
 	#define SM_UDP_SEND_ARP     0
 	#define SM_UDP_WAIT_RESOLVE 1
 	#define SM_UDP_RESOLVED     2
@@ -3100,24 +3481,27 @@ void main_processing_loop(void)
 
 	if(!MACIsLinked())
 	{
-			connected = 0;
-			txseqno = 0;
-			txseqno_ptt = 0;
-			resp_digest = 0;
-			digest = 0;
-			their_challenge[0] = 0;
-			lastrxtimer = 0;
-			SetAudioSrc();
-			/* if MAC was linked and now isnt, advance linkstate */
-			if (linkstate == 1) linkstate++;
+		connected = 0;
+		txseqno = 0;
+		txseqno_ptt = 0;
+		resp_digest = 0;
+		digest = 0;
+		their_challenge[0] = 0;
+		lastrxtimer = 0;
+		SetAudioSrc();
+		
+		/* if MAC was linked and now isnt, advance linkstate */
+		if (linkstate == 1) linkstate++;
 	}
 	else
 	{
-			/* if first time having link, advance linkstate */
-			if (linkstate == 0) linkstate++;
-			/* if had link, lost it, and now have it again, reset processor (silly TCP/IP stack!) */
-			if (linkstate == 2) RTCM_Reset();
+		/* if first time having link, advance linkstate */
+		if (linkstate == 0) linkstate++;
+
+		/* if had link, lost it, and now have it again, reset processor (silly TCP/IP stack!) */
+		if (linkstate == 2) RTCM_Reset();
 	}
+
 	if ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))
 	{
 		if (altdns)
@@ -3143,6 +3527,7 @@ void main_processing_loop(void)
 							MyAltVoterAddr = vaddr;
 						} 
 						else altdnsnotify = 2;
+		
 						dnsdone = 1;
 						altdns = 0;
 					}
@@ -3162,6 +3547,7 @@ void main_processing_loop(void)
 					DNSEndUsage();
 					dnstimer = 60;
 					dnsdone = 0;
+			
 					if(DNSBeginUsage()) 
 						DNSResolve((BYTE *)AppConfig.VoterServerFQDN,DNS_TYPE_A);
 				}
@@ -3177,6 +3563,7 @@ void main_processing_loop(void)
 							MyVoterAddr = vaddr;
 						} 
 						else dnsnotify = 2;
+			
 						dnsdone = 1;
 						altdns = 1;
 					}
@@ -3187,13 +3574,17 @@ void main_processing_loop(void)
 		if (altconnected && (!connected))
 		{
 			althost ^= 1;
+
 			if (althost && 
 				((!AppConfig.AltVoterServerFQDN[0]) ||
 					 (!MyAltVoterAddr.v[0]))) althost = 0;
+
 			alttimer = 0;
 			altchange = 1;
 		}
+
 		altconnected = connected;
+
 		if (alttimer >= MAX_ALT_TIME)
 		{
 			althost ^= 1;
@@ -3203,20 +3594,25 @@ void main_processing_loop(void)
 			alttimer = 0;
 			altchange = 1;
 		}
+
 		if (connected) alttimer = 0;
+
 		if (althost) vaddr = MyAltVoterAddr;
 		else vaddr = MyVoterAddr;
+
 		if (memcmp(&LastVoterAddr,&vaddr,sizeof(IP_ADDR)))
 		{
 	
 			if (udpSocketUser != INVALID_UDP_SOCKET) UDPClose(udpSocketUser);
 						memclr(&udpServerNode, sizeof(udpServerNode));
+
 			udpServerNode.IPAddr = vaddr;
 			udpSocketUser = UDPOpen(AppConfig.MyPort, &udpServerNode, 
 				(althost && AppConfig.AltVoterServerPort) ? AppConfig.AltVoterServerPort : AppConfig.VoterServerPort);
 			smUdp = SM_UDP_SEND_ARP;
 			CurVoterAddr = vaddr;
 			altchange1 = 1;
+
 			if (lastalthost == althost)
 			{
 				connected = 0;
@@ -3229,100 +3625,122 @@ void main_processing_loop(void)
 				SetAudioSrc();
 			}
 		}
+
 		LastVoterAddr = vaddr;
 		lastalthost = althost;
 	
 		if (connected && (lastrxtimer > LASTRX_TIME))
 		{
-				hosttimedout = 1;
-				connected = 0;
-				txseqno = 0;
-				txseqno_ptt = 0;
-				resp_digest = 0;
-				digest = 0;
-				their_challenge[0] = 0;
-				lastrxtimer = 0;
-				SetAudioSrc();
+			hosttimedout = 1;
+			connected = 0;
+			txseqno = 0;
+			txseqno_ptt = 0;
+			resp_digest = 0;
+			digest = 0;
+			their_challenge[0] = 0;
+			lastrxtimer = 0;
+			SetAudioSrc();
 		}
 
-      if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) {
-        case SM_UDP_SEND_ARP:
-            if (ARPIsTxReady()) {
-                //Remember when we sent last request
-                tsecWait = TickGet();
+		if (udpSocketUser != INVALID_UDP_SOCKET) switch (smUdp) 
+		{
+			case SM_UDP_SEND_ARP:
+            			if (ARPIsTxReady()) 
+				{
+					//Remember when we sent last request
+					tsecWait = TickGet();
                 
-                //Send ARP request for given IP address
-                ARPResolve(&udpServerNode.IPAddr);
+					//Send ARP request for given IP address
+					ARPResolve(&udpServerNode.IPAddr);
                 
-                smUdp = SM_UDP_WAIT_RESOLVE;
-            }
-            break;
-        case SM_UDP_WAIT_RESOLVE:
-            //The IP address has been resolved, we now have the MAC address of the
-            //node at 10.1.0.101
-            if (ARPIsResolved(&udpServerNode.IPAddr, &udpServerNode.MACAddr)) {
-                smUdp = SM_UDP_RESOLVED;
-            }
-            //If not resolved after 2 seconds, send next request
-            else {
-				if ((TickGet() - tsecWait) >= TICK_SECOND / 2ul) {
-                    smUdp = SM_UDP_SEND_ARP;
-                }
-            }
-            break;
-        case SM_UDP_RESOLVED:
-			process_udp(&udpSocketUser,&udpServerNode);
-            break;
-       }
+					smUdp = SM_UDP_WAIT_RESOLVE;
+				}
+				break;
+
+			case SM_UDP_WAIT_RESOLVE:
+				//The IP address has been resolved, we now have the MAC address of the
+				//node at 10.1.0.101
+				if (ARPIsResolved(&udpServerNode.IPAddr, &udpServerNode.MACAddr)) 
+				{
+					smUdp = SM_UDP_RESOLVED;
+				}
+					//If not resolved after 2 seconds, send next request
+				else 
+				{
+					if ((TickGet() - tsecWait) >= TICK_SECOND / 2ul) 
+					{
+						smUdp = SM_UDP_SEND_ARP;
+					}
+				}
+				break;
+
+			case SM_UDP_RESOLVED:
+				process_udp(&udpSocketUser,&udpServerNode);
+				break;
+		}
 	}
-    // This task performs normal stack task including checking
-    // for incoming packet, type of packet and calling
-    // appropriate stack entity to process it.
-    StackTask();
+	// This task performs normal stack task including checking
+	// for incoming packet, type of packet and calling
+	// appropriate stack entity to process it.
+	StackTask();
     
-    // This tasks invokes each of the core stack application tasks
-    StackApplications();
+	// This tasks invokes each of the core stack application tasks
+	StackApplications();
 
- 	if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
+	if ((termbufidx > 0) && (termbuftimer > TELNET_TIME)) ProcessTelnetTimer();
 }
+/***************End of Main Processing Loop***********************************/
 
+/*****************************************************************************/
+//									     //
+//		Secondary Processing Loop				     //
+//									     //
+/*****************************************************************************/
 void secondary_processing_loop(void)
 {
 
-	static ROM char  cfgwritten[] = "Squelch calibration saved, noise gain = ",diodewritten[] = "Diode calibration saved, value (hex) = ",
-		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-		altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n", altdnsfailed[] = "  Warning: Unable to resolve DNS for Alternate Voter Host %s\n",
-		altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n", dnshost[] = "  Using Primary Voter Host (%d.%d.%d.%d)\n",
-		dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
-		gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n", losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";	
+	static ROM char  	cfgwritten[] = "Squelch calibration saved, noise gain = ",
+				diodewritten[] = "Diode calibration saved, value (hex) = ",
+				dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", 
+				dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
+				altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n", 
+				altdnsfailed[] = "  Warning: Unable to resolve DNS for Alternate Voter Host %s\n",
+				altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n", 
+				dnshost[] = "  Using Primary Voter Host (%d.%d.%d.%d)\n",
+				dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",
+				miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
+				gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n", 
+				losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";	
 	
-	static ROM char ipinfo[] = "\nIP Configuration Info: \n",ipwithdhcp[] = "Configured With DHCP\n",
-			ipwithstatic[] = "Static IP Configuration\n", ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
-			ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
+	static ROM char 	ipinfo[] = "\nIP Configuration Info: \n",
+				ipwithdhcp[] = "Configured With DHCP\n",
+				ipwithstatic[] = "Static IP Configuration\n", 
+				ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
+				ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", 
+				ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
+
 #ifdef	DIAGMENU
-	static ROM char diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
-		diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
-		diagerr3[] = "Error - Failed to read data from GPS UART\n",
-		diagfail[] = "  \nDiagnostics Failed With %d Errors!!!!\n",
-		diagpass[] = " \nDiagnostics Passed Successfully\n",
-		diag1[] = "Testing PTT/External CTCSS\n",
-		diag2[] = "Testing GPS UART\n",
-		measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
-		measmsg[] = "Testing level at %d Hz for %s\n",
-		flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",deemp_test_str[] = "De-Emphasized Audio",
-		sql_test_str[] = "Squelch Noise Detector";
+	static ROM char 	diagerr1[] = "Error - Failed to read PTT/CTCSS in un-asserted state\n",
+				diagerr2[] = "Error - Failed to read PTT/CTCSS in asserted state\n",
+				diagerr3[] = "Error - Failed to read data from GPS UART\n",
+				diagfail[] = "  \nDiagnostics Failed With %d Errors!!!!\n",
+				diagpass[] = " \nDiagnostics Passed Successfully\n",
+				diag1[] = "Testing PTT/External CTCSS\n",
+				diag2[] = "Testing GPS UART\n",
+				measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
+				measmsg[] = "Testing level at %d Hz for %s\n",
+				flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",
+				deemp_test_str[] = "De-Emphasized Audio",
+				sql_test_str[] = "Squelch Noise Detector";
 
-	static ROM struct meas flat_test[] = {
-		{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
-	}, plfilt_test[] = {
-		{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0} 
-	}, deemp_test[] = {
-		{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0} 
-	}, sql_test[] = {
-		{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} 
-	};
+	static ROM struct 	meas flat_test[] = 	{{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},
+							{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0}}, 
+				plfilt_test[] = 	{{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},
+							{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0}}, 
+				deemp_test[] = 		{{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0}}, 
+				sql_test[] = 		{{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} };
 
-	static ROM BYTE diaguart[] = {0x55,0xaa,0x69,0};
+	static ROM BYTE 	diaguart[] = {0x55,0xaa,0x69,0};
 
 #endif
 
@@ -3336,10 +3754,12 @@ void secondary_processing_loop(void)
 	BOOL isoffline;
 	BOOL qualtx;
 	WORD g1;
+
 #ifdef	DSPBEW
 	BYTE qualnoise;
 	static BYTE qualcnt = 255;
 #endif
+
 #ifdef	DIAGMENU
 	struct meas *m;
 	static DWORD tdiag = 0;
@@ -3361,12 +3781,15 @@ void secondary_processing_loop(void)
 		hwlock = 0;
 	else
 		hwlock = 1;
+
 	if (gps_state == GPS_STATE_IDLE) 
 		hwlock = 0;
 	// If HW lock input not disabled, disqualify hwlock if not locked in h/w
 	if ((!(AppConfig.DebugLevel & 2)) && (!HWLOCK))
 		hwlock = 0;
+
 	sod = system_time.vtime_sec % 86400UL;
+
 	if (USE_PPS)
 	{
 		if ((grestarttimer >= GRESTARTTIME) && (sod >= GSODMIN) && (sod <= GSODMAX))
@@ -3384,7 +3807,6 @@ void secondary_processing_loop(void)
 
 	if (!indiag)
 	{
-
 		if (gps_state != GPS_STATE_IDLE)
 		{
 			if ((!gpswarn) && (gpstimer > ((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_WARN_TIME : GPS_NMEA_WARN_TIME)))
@@ -3399,6 +3821,7 @@ void secondary_processing_loop(void)
 				printf(logtime());
 				printf(gpsmsg6);
 				gps_state = GPS_STATE_IDLE;
+
 				if (USE_PPS)
 				{
 					connected = 0;
@@ -3408,11 +3831,13 @@ void secondary_processing_loop(void)
 					lastrxtimer = 0;
 					SetAudioSrc();
 				}
+
 				gpssync = 0;
 				gotpps = 0;
 			}
 #endif
 		}
+
 		if (gotpps && USE_PPS)
 		{
 			if ((!ppswarn) && (ppstimer > PPS_WARN_TIME))
@@ -3466,15 +3891,16 @@ void secondary_processing_loop(void)
 		else
 		{
 			if (gpskicking) KickGPS(0);
+
 			gpskicktimer = 0;
 			gpskicking = 0;
 		}
 #endif
 		process_gps();
+
 		if (sqlcount >= 33)
 		{
 			BOOL qualcor;
-
 			sqlcount = 0;
 			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
 			sql2 ^= 1;
@@ -3483,8 +3909,11 @@ void secondary_processing_loop(void)
 			qualcor = (HasCOR() && HasCTCSS());	
 #ifdef	DSPBEW
 			qualnoise = ((fftresult <= FFT_MAX_RESULT) || (!qualcor)); 
+
 			if (!AppConfig.BEWMode) qualnoise = 1;
+
 			if (!qualnoise) qualcnt = 0;
+
 			if (qualcnt <= QUALCOUNT)
 			{
 				qualcnt++;
@@ -3504,11 +3933,14 @@ void secondary_processing_loop(void)
 #endif
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
+
 				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE)))
 				{
 					if (AppConfig.FailMode == 2) needburp = 1;
+
 					if ((AppConfig.FailMode == 3) && (!connfail)) needburp = 1;
 				}
+
 				wascor = qualcor;
 			}
 #ifdef	DSPBEW
@@ -3518,10 +3950,13 @@ void secondary_processing_loop(void)
 #endif
 		
 			rssi = calcrssi(mynoise >> 3);
+
 			if ((rssi < 1) && (qualcor)) rssiheld = rssi = 1;
+
 			if (!AppConfig.SqlNoiseGain) rssiheld = rssi = 0;
 
 			lastcor = HasCOR();
+
 			if (write_eeprom_cali)
 			{
 				write_eeprom_cali = 0;
@@ -3530,23 +3965,31 @@ void secondary_processing_loop(void)
 				SaveAppConfig();
 				printf(cfgwritten);
 				printf("%d\n",noise_gain);
+
 				if (!WVF)
 				{
 					printf(diodewritten);
 					printf("%d\n",caldiode);
 				}
 			}
+
 			if (!CAL) SetLED(SQLED,sqled);
 		}
+
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 		isoffline = ((!connected) && (AppConfig.FailMode == 3));
+
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			repeatit = 1;
+
 			if (isoffline) hangtimer = AppConfig.HangTime + 1;
 			else hangtimer = AppConfig.Duplex3;
-		} else repeatit = 0;
+
+		} 
+		else repeatit = 0;
+
 		if (cwptr || cwtimer1 || hangtimer)
 		{
 			host_ptt = 0;
@@ -3557,9 +4000,11 @@ void secondary_processing_loop(void)
 		{
 			if (HasCOR() && HasCTCSS()) g1 = glasertimer = AppConfig.Glasers;
 			else g1 = 0;
+
 			qualtx = ((!AppConfig.Elkes) ||
 						(AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes));
 			qualtx &= (!((AppConfig.Glasers && (AppConfig.Glasers != 0xffff)) && (glasertimer || g1)));
+
 			if (connected)
 			{
 				if (!USE_PPS)
@@ -3586,6 +4031,7 @@ void secondary_processing_loop(void)
 						z += y / 1000000;
 						z -= (AppConfig.TxBufferLength - 160) >> 3;
 					}
+
 					if (ptt && ((z > 60L) || (!qualtx)))
 					{
 						host_ptt = 0;
@@ -3611,6 +4057,7 @@ void secondary_processing_loop(void)
 		if (LEVDISP)
 		{
 			if ((!misstimer1) || (!connected)) SetLED(CONNLED,connected);
+
 			if ((gps_state == GPS_STATE_SYNCED) ||
 				((gps_state == GPS_STATE_VALID) && (!USE_PPS)))
 					SetLED(GPSLED,1);
@@ -3622,8 +4069,10 @@ void secondary_processing_loop(void)
 			if (HasCOR() && HasCTCSS())
 			{
 				mypeak = apeak / (7200 / LEVDISP_FACTOR);
+
 				if (mypeak < dispcnt) SetLED(CONNLED,1);
 				else SetLED(CONNLED,0);
+
 				if (mypeak > (dispcnt + LEVDISP_FACTOR)) SetLED(GPSLED,1);
 				else SetLED(GPSLED,0);
 			}
@@ -3633,6 +4082,7 @@ void secondary_processing_loop(void)
 				SetLED(CONNLED,0);
 			}
 			dispcnt++;
+
 			if (dispcnt > LEVDISP_FACTOR) dispcnt = 0;
 		}
 	
@@ -3644,31 +4094,40 @@ void secondary_processing_loop(void)
 				SetLED(SQLED,0);
 		}
 	}
-    // Blink LEDs as appropriate
-    if(TickGet() - t1 >= TICK_SECOND / 6ul)
-    {
-	  t1 = TickGet();
-	  if (indiag) ToggleLED(SYSLED);
-    }
-    // Blink LEDs as appropriate
-    if(TickGet() - t2 >= TICK_SECOND / 10ul)
-    {
-	  t2 = TickGet();
-	  if (misstimer1) ToggleLED(CONNLED);
-    }
-    // Blink LEDs as appropriate
-    if(TickGet() - t >= TICK_SECOND / 2ul)
-    {
+
+	// Blink LEDs as appropriate
+	if(TickGet() - t1 >= TICK_SECOND / 6ul)
+	{
+		t1 = TickGet();
+
+		if (indiag) ToggleLED(SYSLED);
+	}
+
+	// Blink LEDs as appropriate
+	if(TickGet() - t2 >= TICK_SECOND / 10ul)
+	{
+		t2 = TickGet();
+		
+		if (misstimer1) ToggleLED(CONNLED);
+	}
+
+	// Blink LEDs as appropriate
+	if(TickGet() - t >= TICK_SECOND / 2ul)
+	{
 		if (dnstimer) dnstimer--;
+		
 		alttimer++;
-       	t = TickGet();
+		t = TickGet();
+
 		if (!indiag)
 		{
 			ToggleLED(SYSLED);
+
 			if (LEVDISP)
 			{
 				if ((gps_state == GPS_STATE_VALID) && USE_PPS) ToggleLED(GPSLED);
 			}
+
 			if (CAL && (AppConfig.CORType == 0) && (lastcor && (!HasCTCSS()))) ToggleLED(SQLED);
 		}
 #ifdef	SILLY
@@ -3679,64 +4138,72 @@ void secondary_processing_loop(void)
 	if ((!indipsw) && (!indisplay) && (!leddiag)) tdisp = 0;
 
 	// Rx Level Display handler
-
-    if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
+	if(indisplay && (TickGet() - tdisp >= TICK_SECOND / 10ul))
 	{
-       	tdisp = TickGet();
+       		tdisp = TickGet();
+
 		if (indiag || (HasCOR() && HasCTCSS()))
 			meas = apeak;
 		else
 			meas = 0;
+
 		putchar('|');
-           for(i = 0; i < NCOLS; i++)
-           {
-                   thresh = (meas * (long)NCOLS) / 16384;
-                   if (i < thresh) putchar('=');
-                   else if (i == thresh) putchar('>');
-                   else putchar(' ');
-           }
+		for(i = 0; i < NCOLS; i++)
+		{
+			thresh = (meas * (long)NCOLS) / 16384;
+			
+			if (i < thresh) putchar('=');
+			else if (i == thresh) putchar('>');
+			else putchar(' ');
+		}
+
 		putchar('|');
 		putchar('\r');
 		fflush(stdout);
 		amin = amax = 0;
 	}
 
-   // Dip Switch diagnostic display handler
-   if(indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul))
-   {
-       	tdisp = TickGet();
+	// Dip Switch diagnostic display handler
+	if(indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul))
+	{
+		tdisp = TickGet();
 		printf(" (%s) (%s) (%s) (%s)\r",(!JP8) ? "Down" : " Up ",(!JP9) ? "Down" : " Up ",
 			(!JP10) ? "Down" : " Up ",(!JP11) ? "Down" : " Up ");
 		fflush(stdout);
-   } 
-      // LED Flash diagnostic handler
-   if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul))
-   {
-       	tdisp = TickGet();
+	}
+ 
+	// LED Flash diagnostic handler
+	if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul))
+	{
+		tdisp = TickGet();
 		SetLED(SQLED,0);
 		SetLED(GPSLED,0);
 		SetLED(CONNLED,0);
 		SetPTT(0);
+
 		switch (leddiag)
 		{
-		    case 1:
+			case 1:
 				SetLED(SQLED,1);
-			    leddiag = 2;
+			    	leddiag = 2;
 				break;
-		    case 2:
+
+			case 2:
 				SetLED(CONNLED,1);
 				leddiag = 3;
 				break;
-		    case 3:
+	
+			case 3:
 				SetPTT(1);
 				leddiag = 4;
 				break;
+
 			case 4:
 				SetLED(GPSLED,1);
 				leddiag = 1;
 				break;
 		}
-   }
+   	}
 
 #ifdef GGPS
 	if (ggps_unavail != oldok)
@@ -3744,6 +4211,7 @@ void secondary_processing_loop(void)
 		printf("GGPS_UNAVAIL: %d, hwlock: %d, timer: %ld\n",ggps_unavail,hwlock,hwlocktimer);
 		oldok = ggps_unavail;
 	}
+
 	if (HWLOCK != oldhwlock)
 	{
 		printf("HWLOCK: %d, hwlock: %d, timer: %ld\n",HWLOCK,hwlock,hwlocktimer);
@@ -3753,9 +4221,9 @@ void secondary_processing_loop(void)
 
 #ifdef	DIAGMENU
 
-   // "Diagnostic Suite" handler
-   if (indiag && (tdiag < TickGet()))
-   {
+	// "Diagnostic Suite" handler
+	if (indiag && (tdiag < TickGet()))
+	{
 		// If we have a result, perform measurement and check results
 		if (measp && measidx)
 		{
@@ -3767,7 +4235,9 @@ void secondary_processing_loop(void)
 			m = (measp + (measidx - 1));
 			for(i = 0; i < NAPEAKS; i++) accum += apeaks[i];
 			aval = (WORD)(accum / NAPEAKS);
+
 			if (sqlval < 0) sqlval = 0;
+
 			if (m->issql)
 			{
 				if ((sqlval < m->min) || (sqlval > m->max)) isok = 0;
@@ -3776,15 +4246,18 @@ void secondary_processing_loop(void)
 			{
 				if ((aval < m->min) || (aval > m->max)) isok = 0;
 			}
+
 			if (!isok) 
 			{
 				printf(measerr,(m->issql) ? sqlval : aval,m->min,m->max);
 				errcnt++;
 			}
-		    // Grab next "step" in current measurement sequence
+			
+			// Grab next "step" in current measurement sequence
 			measidx++;
 			m = (measp + (measidx - 1));
 			memset(apeaks,0,sizeof(apeaks));
+
 			// If no more steps
 			if (!m->freq) 
 			{
@@ -3797,63 +4270,73 @@ void secondary_processing_loop(void)
 			{
 				SetTxTone(m->freq);
 				tdiag = TickGet() + DIAG_WAIT_MEAS;
+
 				if (measstr) printf(measmsg,m->freq,measstr);
 			}
 		}
+
 		if (!measp)
 		{
 			// State machine for various steps of diagnostics
 			switch(diagstate)
 			{
 				case 1: // Make sure PTT is seen in both states and
-						// set up UART and send test data
+					// set up UART and send test data
 					printf(diag1);
 					SetPTT(0);
 					Nop();
 					Nop();
 					Nop();
 					Nop();
+
 					if (!CTCSSIN)
 					{
 						errcnt++;
 						printf(diagerr1);
 					}
+
 					SetPTT(1);
 					Nop();
 					Nop();
 					Nop();
 					Nop();
+
 					if (CTCSSIN)
 					{
 						errcnt++;
 						printf(diagerr2);
 					}
+
 					printf(diag2);
 					U2MODEbits.URXINV = 0;
 					U2STAbits.UTXINV = 0;
+
 					while (DataRdyUART2()) ReadUART2();
+
 					putrsUART2((ROM char *)diaguart);
 					diagstate = 2;
 					tdiag = TickGet() + DIAG_WAIT_UART; // Wait 333 ms
 					break;
+
 				case 2: // see if UART got test data okay
 					for(i = 0; diaguart[i]; i++)
 					{
 						if (!DataRdyUART2()) break;
 						if (ReadUART2() != diaguart[i]) break;
 					}
+
 					if (diaguart[i] || DataRdyUART2())
 					{
 						errcnt++;
 						printf(diagerr3);
 					}
-	#if defined(SMT_BOARD)
+#if defined(SMT_BOARD)
 					U2MODEbits.URXINV = AppConfig.GPSPolarity;
 					U2STAbits.UTXINV = AppConfig.GPSPolarity;
-	#else
+#else
 					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
 					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
-	#endif
+#endif
 					// Perform measurement sequence with no filters on audio
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc();
@@ -3867,6 +4350,7 @@ void secondary_processing_loop(void)
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
+
 				case 3: // Perform measurement sequence with de-demphasis enabled
 					diag_option_flags = OPTION_FLAG_FLATAUDIO;
 					SetAudioSrc();
@@ -3880,6 +4364,7 @@ void secondary_processing_loop(void)
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
+
 				case 4: // Perform measurement sequence with CTCSS filter enabled
 					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc();
@@ -3893,6 +4378,7 @@ void secondary_processing_loop(void)
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
+
 				case 5: // Perform measurement sequence of squelch noise detector
 					diag_option_flags = 0;
 					SetAudioSrc();
@@ -3907,10 +4393,13 @@ void secondary_processing_loop(void)
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
 					printf(measmsg,m->freq,measstr);
 					break;
+
 				case 255: // No more measurements to do
 					tdiag = 0;
+
 					if (errcnt) printf(diagfail,errcnt);
 					else printf(diagpass);
+
 					printf(paktc);
 					diagstate = 0;
 					break;
@@ -3919,18 +4408,20 @@ void secondary_processing_loop(void)
 	}
 #endif
 
-    if (gotbadmix)
+	if (gotbadmix)
 	{
 		printf(logtime());
 		printf(badmix);
 		gotbadmix = 0;
 	}
-    if (hosttimedout)
+
+	if (hosttimedout)
 	{
 		printf(logtime());
 		printf(hosttmomsg);
 		hosttimedout = 0;
 	}
+
 	if (dnsnotify == 1)
 	{
 		printf(logtime());
@@ -3941,7 +4432,9 @@ void secondary_processing_loop(void)
 		printf(logtime());
 		printf(dnsfailed,AppConfig.VoterServerFQDN);
 	}
+
 	dnsnotify = 0;
+
 	if (altdnsnotify == 1)
 	{
 		printf(logtime());
@@ -3952,6 +4445,7 @@ void secondary_processing_loop(void)
 		printf(logtime());
 		printf(altdnsfailed,AppConfig.AltVoterServerFQDN);
 	}
+
 	altdnsnotify = 0;
 #ifdef	GGPS
 	if (missed > 0)
@@ -3970,25 +4464,28 @@ void secondary_processing_loop(void)
 		misstimer = MISS_REPORT_TIME;
 		missed = 0;
 	}
+
 	if (!indiag)
 	{
 		if ((!connected) && connrep)
 		{
-		    printf(logtime());
+			printf(logtime());
 			printf(losthost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			connrep = 0;
 		}
 		else if (connected && (!connrep))
 		{
-		    printf(logtime());
+			printf(logtime());
 			printf(gothost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 			connrep = 1;
 		}
+
 		if (connected)
 		{
 			failtimer = 0;
 			hangtimer = 0;
 		}
+
 		if (connected && (!connfail)) connfail = 1;
 		else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
@@ -4009,6 +4506,7 @@ void secondary_processing_loop(void)
 					failtimer = 0;
 				}
 			}
+
 			if ((connfail == 2) && AppConfig.FailTime && 
 				(failtimer >= AppConfig.FailTime) && AppConfig.FailString[0])
 			{
@@ -4016,7 +4514,9 @@ void secondary_processing_loop(void)
 				failtimer = 0;
 			}
 		}
+
 		if (connected) needburp = 0;
+
 		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS)))
 		{
 			needburp = 0;
@@ -4025,19 +4525,20 @@ void secondary_processing_loop(void)
 			failtimer = 0;
 		}
 	}
-       // If the local IP address has changed (ex: due to DHCP lease change)
-       // write the new IP address to the LCD display, UART, and Announce 
-       // service
+
+	// If the local IP address has changed (ex: due to DHCP lease change)
+	// write the new IP address to the LCD display, UART, and Announce 
+	// service
 	if(dwLastIP != AppConfig.MyIPAddr.Val)
 	{
 		dwLastIP = AppConfig.MyIPAddr.Val;
-
-		
 		printf(ipinfo);
+
 		if (AppConfig.Flags.bIsDHCPReallyEnabled)
 			printf(ipwithdhcp);
 		else
 			printf(ipwithstatic);
+
 		printf(ipipaddr,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
 		printf(ipsubnet,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
 		printf(ipgateway,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
@@ -4046,6 +4547,7 @@ void secondary_processing_loop(void)
 			AnnounceIP();
 		#endif
 	}
+
 	if (AppConfig.DebugLevel & 1)
 	{
 		if (altchange)
@@ -4056,35 +4558,43 @@ void secondary_processing_loop(void)
 			else
 				printf(dnshost,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
 		}
+
 		if (altchange1)
 		{
 			printf(logtime());
 			printf(dnsusing,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 		}
 	}
+
 	altchange = 0;
 	altchange1 = 0;
 }
+/***************End of Secondary Processing Loop*******************************/
+
 
 int write(int handle, void *buffer, unsigned int len)
 {
-int i;
-BYTE *cp;
+	int i;
+	BYTE *cp;
+	i = len;
 
-		i = len;
-		if ((handle >= 0) && (handle <= 2))
+	if ((handle >= 0) && (handle <= 2))
 		{
 			cp = (BYTE *)buffer;
 			while(i--)
 			{
 				while(BusyUART()) main_processing_loop();
+			
 				if (*cp == '\n')
 				{
 					WriteUART('\r');
+			
 					if (netisup) while(!PutTelnetConsole('\r')) main_processing_loop();
 					while(BusyUART())main_processing_loop();
 				}
+
 				WriteUART(*cp);
+
 				if (netisup) while (!PutTelnetConsole(*cp)) main_processing_loop();
 				cp++;
 			}
@@ -4094,6 +4604,7 @@ BYTE *cp;
 			errno = EBADF;
 			return(-1);
 		}
+
 	return(len);
 }
 
@@ -4104,12 +4615,9 @@ int read(int handle,void *buffer, unsigned int len)
 
 int myfgets(char *dest, unsigned int len)
 {
-
-BYTE c;
-int count,x;
-
+	BYTE c;
+	int count,x;
 	ClrWdt();
-
 	fflush(stdout);
 	inread = 1;
 	aborted = 0;
@@ -4123,93 +4631,131 @@ int count,x;
 #ifdef	GGPS
 			TickleDog();
 #endif
-			if ((!netisup) && 
-				((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
-					netisup = 1;
+			if ((!netisup) && ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
+				netisup = 1;
+
 			if (DataRdyUART())
 			{
 				c = ReadUART() & 0x7f;
 				break;
 			}
+
 			if (netisup)
 			{
 				c = GetTelnetConsole();
+
 				if (c == 4) 
 				{
 					CloseTelnetConsole();
 					continue;
 				}
+
 				if (c) break;
 			}
+
 			main_processing_loop();
 			secondary_processing_loop();
 		}
+
 		if (c == 127) continue;
+
 		if (c == 3) 
 		{
 			while(BusyUART())  main_processing_loop();
 			WriteUART('^');
+
 			if (telnet_echo && netisup) while(!PutTelnetConsole('^'))  main_processing_loop();
+
 			while(BusyUART())  main_processing_loop();
 			WriteUART('C');
+
 			if (telnet_echo && netisup) while(!PutTelnetConsole('C'))  main_processing_loop();
+
 			aborted = 1;
 			dest[0] = '\n';
 			dest[1] = 0;
 			count = 1;
 			break;
 		}
+
 		if ((c == 8) || (c == 21))
 		{
 			if (!count) continue;
+
 			if (c == 21) x = count;
 			else x = 1;
+
 			while(x--)
 			{
 				count--;
 				dest[count] = 0;
+
 				while(BusyUART())  main_processing_loop();
 				WriteUART(8);
+
 				if (netisup) while(!PutTelnetConsole(8))  main_processing_loop();
+
 				while(BusyUART()) main_processing_loop();
 				WriteUART(' ');
+
 				if (netisup) while(!PutTelnetConsole(' '))  main_processing_loop();
+
 				while(BusyUART()) main_processing_loop();
 				WriteUART(8);
+
 				if (netisup) while(!PutTelnetConsole(8))  main_processing_loop();
 			}
 			continue;
 		}
+
 		if (c == 4) 
 		{
 			if (netisup) CloseTelnetConsole();
 			continue;
 		}
+
 		if ((c != '\r') && (c < ' ')) continue;
+
 		if (c > 126) continue;
+
 		if (c == '\r') c = '\n';
+
 		dest[count++] = c;
 		dest[count] = 0;
+
 		if (c == '\n') break;
+
 		while(BusyUART())  main_processing_loop();
 		WriteUART(c);
+
 		if (telnet_echo && netisup) while(!PutTelnetConsole(c))  main_processing_loop();
 
 	}
+
 	while(BusyUART())  main_processing_loop();
 	WriteUART('\r');
+
 	if (netisup) while(!PutTelnetConsole('\r'))  main_processing_loop();
+
 	while(BusyUART())  main_processing_loop();
 	WriteUART('\n');
+
 	if (netisup) while(!PutTelnetConsole('\n'))  main_processing_loop();
+
 	inread = 0;
 	return(count);
 }
 
+/*****************************************************************************/
+//									     //
+//		DynDNS Subroutine					     //
+//									     //
+/*****************************************************************************/
 static void SetDynDNS(void)
 {
 	static ROM BYTE checkip[] = "checkip.dyndns.com", update[] = "members.dyndns.org";
 	memset(&DDNSClient,0,sizeof(DDNSClient));
+
 	if (AppConfig.DynDNSEnable)
 	{
 		DDNSClient.CheckIPServer.szROM = checkip;
@@ -4224,14 +4770,18 @@ static void SetDynDNS(void)
 	}
 }
 
-
+/*****************************************************************************/
+//									     //
+//		Diagnostic Menu (not included if BEW is enabled)	     //
+//									     //
+/*****************************************************************************/
 #ifdef	DIAGMENU
-
 static void DiagMenu()
 {
 
 	indiag = 1; 
 	gps_state = GPS_STATE_IDLE;
+
 	if (USE_PPS)
 	{
 		connected = 0;
@@ -4242,6 +4792,7 @@ static void DiagMenu()
 		DAC1CONbits.DACEN = 1;
 		IEC4bits.DAC1LIE = 1;
 	}
+
 	gpssync = 0;
 	gotpps = 0;
 	ppscount = 0;
@@ -4286,40 +4837,51 @@ static void DiagMenu()
 		SetLED(CONNLED,0);
 		SetPTT(0);
 		aborted = 0;
+
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
+
 			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
+
 			if (!strchr(cmdstr,'!')) break;
 		}
+
 		if (aborted) continue;
+
 		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
 		{
-				CloseTelnetConsole();
-				continue;
+			CloseTelnetConsole();
+			continue;
 		}
+	
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
-				CloseTelnetConsole();
-				printf(booting);
-				RTCM_Reset();
+			CloseTelnetConsole();
+			printf(booting);
+			RTCM_Reset();
 		}
+
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
-				break;
+			break;
 		}
+
 		printf(" \n");
+
 		if ((strchr(cmdstr,'C')) || strchr(cmdstr,'c'))
 		{
 		        printf(diagcable);
- 				printf(paktc);
-				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
-				printf("\n\n");
-				continue;
+ 			printf(paktc);
+			fflush(stdout);
+			myfgets(cmdstr,sizeof(cmdstr) - 1);
+			printf("\n\n");
+			continue;
 		}
+
 		sel = atoi(cmdstr);
+
 		switch(sel)
 		{
 			case 1: // Send 1000Hz Tone, Display RX Level Quasi-Graphically 
@@ -4327,23 +4889,27 @@ static void DiagMenu()
 				SetTxTone(1000);
 				printf(settone);
 			 	putchar(' ');
-		      	for(i = 0; i < NCOLS; i++) putchar(' ');
-		        printf(rxvoicestr);
+				
+				for(i = 0; i < NCOLS; i++) putchar(' ');
+				
+				printf(rxvoicestr);
 				indisplay = 1;
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				indisplay = 0;
 				SetPTT(0);
 				SetTxTone(0);
 				continue;
+
 			case 2: // Dip Switch test  
-		        printf(dipstr);
+				printf(dipstr);
 				indipsw = 1;
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				indipsw = 0;
 				printf("\n\n");
 				continue;
+
 			case 3: // Flash LED's
-		        printf(ledstr);
+				printf(ledstr);
 				leddiag = 1;
  				printf(paktc);
 				fflush(stdout);
@@ -4351,9 +4917,12 @@ static void DiagMenu()
 				leddiag = 0;
 				printf("\n\n");
 				continue;
+
 			case 4: // Run diags
-		        printf(diagstr);
+				printf(diagstr);
+
 				if (!AppConfig.SqlDiode) printf(diodewarn);
+
 				errcnt = 0;
 				diagstate = 1;
 				fflush(stdout);
@@ -4371,11 +4940,13 @@ static void DiagMenu()
 				diagstate = 0;
 				printf("\n\n");
 				continue;
+
 			default:
 				printf(invalselection);
 				continue;
 		}
 	}
+
 	SetTxTone(0);
 	SetPTT(0);
 	ptt = 0;
@@ -4394,6 +4965,7 @@ static void DiagMenu()
 	gpssync = 0;
 	gotpps = 0;
 	ppscount = 0;
+
 	if (USE_PPS)
 	{
 		DAC1CONbits.DACEN = 0;
@@ -4402,13 +4974,16 @@ static void DiagMenu()
 	}
 	indiag = 0;
 }
+#endif // diagmenu
 
-#endif
-
+/*****************************************************************************/
+//									     //
+//		IP Menu							     //
+//									     //
+/*****************************************************************************/
 static void IPMenu()
 {
-
- while(1) 
+	while(1) 
 	{
 		unsigned int i1,i2,i3,i4,x;
 		BOOL bootok,ok;
@@ -4477,42 +5052,55 @@ static void IPMenu()
 		printf(menu8);
 		fflush(stdout);
 		aborted = 0;
+
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
+
 			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
+
 			if (!strchr(cmdstr,'!')) break;
 		}
+
 		if (aborted) continue;
+
 		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
 		{
-				CloseTelnetConsole();
-				continue;
+			CloseTelnetConsole();
+			continue;
 		}
+
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
-				CloseTelnetConsole();
-				printf(booting);
-				RTCM_Reset();
+			CloseTelnetConsole();
+			printf(booting);
+			RTCM_Reset();
 		}
+
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
-				break;
+			break;
 		}
+
 		printf(" \n");
 		sel = atoi(cmdstr);
+
 		if ((sel >= 1) && (sel <= 15))
 		{
 			printf(entnewval);
+
 			if (aborted) continue;
+
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2))
 			{
 				printf(newvalnotchanged);
 				continue;
 			}
+
 			if (aborted) continue;
 		}
+
 		ok = 0;
 		switch(sel)
 		{
@@ -4527,6 +5115,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 2: // Default Netmask
 				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) &&
 					(i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256))
@@ -4538,6 +5127,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 3: // Default Gateway
 				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) &&
 					(i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256))
@@ -4549,6 +5139,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 4: // Default Primary DNS
 				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) &&
 					(i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256))
@@ -4560,6 +5151,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 5: // Default Secondary DNS
 				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) &&
 					(i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256))
@@ -4571,6 +5163,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 6: // DHCP Enable
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
@@ -4578,6 +5171,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 7: // Telnet Port
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
@@ -4585,8 +5179,10 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 8: // Telnet Username
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.TelnetUsername)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4594,8 +5190,10 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 9: // Telnet Password
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.TelnetPassword)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4603,6 +5201,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 10: // DynDNS Enable
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
@@ -4611,8 +5210,10 @@ static void IPMenu()
 					SetDynDNS();
 				}
 				break;
+
 			case 11: // DynDNS Username
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSUsername)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4621,8 +5222,10 @@ static void IPMenu()
 					SetDynDNS();
 				}
 				break;
+
 			case 12: // DynDNS Password
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSPassword)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4631,8 +5234,10 @@ static void IPMenu()
 					SetDynDNS();
 				}
 				break;
+
 			case 13: // DynDNS Host
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSHost)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4641,6 +5246,7 @@ static void IPMenu()
 					SetDynDNS();
 				}
 				break;
+
 			case 14: // BootLoader IP Address
 				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) &&
 					(i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256))
@@ -4653,6 +5259,7 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 15: // Ethernet Duplex Setting
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
@@ -4660,10 +5267,12 @@ static void IPMenu()
 					ok = 1;
 				}
 				break;
+
 			case 99:
 				SaveAppConfig();
 				printf(saved);
 				continue;
+
 			default:
 				printf(invalselection);
 				continue;
@@ -4671,10 +5280,15 @@ static void IPMenu()
 	}
 }
 
+/*****************************************************************************/
+//									     //
+//		Offline Menu						     //
+//									     //
+/*****************************************************************************/
 static void OffLineMenu()
 {
 
- while(1) 
+	while(1) 
 	{
 		unsigned int i1,x;
 		BOOL ok;
@@ -4711,44 +5325,58 @@ static void OffLineMenu()
 		printf(menu2);
 		fflush(stdout);
 		aborted = 0;
+
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
+
 			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
+
 			if (!strchr(cmdstr,'!')) break;
 		}
+
 		if (aborted) continue;
+
 		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
 		{
-				CloseTelnetConsole();
-				continue;
+			CloseTelnetConsole();
+			continue;
 		}
+
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
-				CloseTelnetConsole();
-				printf(booting);
-				RTCM_Reset();
+			CloseTelnetConsole();
+			printf(booting);
+			RTCM_Reset();
 		}
+
 		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
 		{
-				break;
+			break;
 		}
+
 		printf(" \n");
 		sel = atoi(cmdstr);
+
 		if ((sel >= 1) && (sel <= 11))
 		{
 			printf(entnewval);
+
 			if (aborted) continue;
+
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || 
 				((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6))))
 			{
 				printf(newvalnotchanged);
 				continue;
 			}
+
 			if (aborted) continue;
 		}
+
 		ok = 0;
+
 		switch(sel)
 		{
 			case 1: // Fail Mode
@@ -4758,6 +5386,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 2: // CW Speed
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 100))
 				{
@@ -4765,6 +5394,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 3: // Pre-CW Delay
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
@@ -4772,6 +5402,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 4: // Post-CW Delay
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
@@ -4779,8 +5410,10 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 5: // "Offline" (ID) String
 				x = strlen(cmdstr);
+
 				if ((x > 0) && (x < sizeof(AppConfig.FailString)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4789,8 +5422,10 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 6: // "Online" String
 				x = strlen(cmdstr);
+
 				if ((x > 0) && (x < sizeof(AppConfig.UnFailString)))
 				{
 					cmdstr[x - 1] = 0;
@@ -4799,6 +5434,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 7: // Offline (ID) Period Time
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
@@ -4806,6 +5442,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 8: // Hang Time
 				if (sscanf(cmdstr,"%u",&i1) == 1) 
 				{
@@ -4813,8 +5450,10 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 9: // CTCSS Tone
 				f = atof(cmdstr);
+
 				if ((f == 0.0) || ((f >= 60.0) && (f <= 300.0)))
 				{
 					AppConfig.CTCSSTone = f;
@@ -4822,6 +5461,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 10: // CTCSS Level
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 32767))
 				{
@@ -4830,6 +5470,7 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 11: // DEEMP Override
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
 				{
@@ -4837,16 +5478,24 @@ static void OffLineMenu()
 					ok = 1;
 				}
 				break;
+
 			case 99:
 				SaveAppConfig();
 				printf(saved);
 				continue;
+
 			default:
 				printf(invalselection);
 				continue;
 		}
 	}
 }
+
+/*****************************************************************************/
+//									     //
+//	MAIN Subroutine							     //
+//									     //
+/*****************************************************************************/
 
 int main(void)
 {
@@ -4856,10 +5505,10 @@ int main(void)
 	BYTE i;
 	long mydiff,mydiff1;
 
-    static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
+	static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
-		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
+			defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
 	static /* ROM */ char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
 		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n",
@@ -4873,6 +5522,7 @@ int main(void)
 		"7  - Tx Buffer Length (%d)\n"
 		"8  - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"81 - GPS Type (0=Normal TSIP, 1=Trimble Thunderbolt) (%d)\n"
+		"82 - GPS Time Offset (seconds to add for correction) (%lu)\n"
 		"9  - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
 		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n",
 		menu4[] = 
@@ -4916,6 +5566,7 @@ int main(void)
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
 		"GPS Lock: %d\n"
+		"PPS BAD or Wrong Polarity: %d\n"
 		"Connected: %d\n"
 		"COR: %d\n",
 		oprdata7[] = 
@@ -4999,12 +5650,12 @@ int main(void)
 	indipsw = 0;
 	leddiag = 0;
 	diagstate = 0;
-    dec_valprev = 0;
-    dec_index = 0;
-    enc_valprev = 0;
-    enc_index = 0;
-    enc_prev_valprev = 0;
-    enc_prev_index = 0;
+	dec_valprev = 0;
+	dec_index = 0;
+	enc_valprev = 0;
+	enc_index = 0;
+	enc_prev_valprev = 0;
+	enc_prev_index = 0;
 	enc_lastdelta = 0;
 	memset(dec_buffer,0,FRAME_SIZE);
 	txseqno = 0;
@@ -5072,7 +5723,6 @@ int main(void)
 	last_rxpacket_index = 0;
 	last_rxpacket_inbounds = 0;
 
-
 	// Initialize application specific hardware
 	InitializeBoard();
 
@@ -5080,7 +5730,7 @@ int main(void)
 
 	// Initialize stack-related hardware components that may be 
 	// required by the UART configuration routines
-    TickInit();
+	TickInit();
 
 	SetLED(SYSLED,1);
 
@@ -5095,89 +5745,89 @@ int main(void)
 	}
 
 	// UART
-	#if defined(STACK_USE_UART)
-
-		U1MODE = 0x8000;			// Set UARTEN.  Note: this must be done before setting UTXEN
-
-		U1STA = 0x0400;		// UTXEN set
-
-		#define CLOSEST_U1BRG_VALUE ((GetPeripheralClock()+8ul*BAUD_RATE1)/16/BAUD_RATE1-1)
-		#define BAUD_ACTUAL1 (GetPeripheralClock()/16/(CLOSEST_U1BRG_VALUE+1))
-
-		#define BAUD_ERROR1 ((BAUD_ACTUAL1 > BAUD_RATE1) ? BAUD_ACTUAL1-BAUD_RATE1 : BAUD_RATE1-BAUD_ACTUAL1)
-		#define BAUD_ERROR_PRECENT1	((BAUD_ERROR1*100+BAUD_RATE1/2)/BAUD_RATE1)
-		#if (BAUD_ERROR_PRECENT1 > 3)
-			#warning UART1 frequency error is worse than 3%
-		#elif (BAUD_ERROR_PRECENT1 > 2)
-			#warning UART1 frequency error is worse than 2%
-		#endif
+#if defined(STACK_USE_UART)
 	
-		U1BRG = CLOSEST_U1BRG_VALUE;
+	U1MODE = 0x8000;	// Set UARTEN.  Note: this must be done before setting UTXEN
+	U1STA = 0x0400;		// UTXEN set
 
-		U2MODE = 0x8000;			// Set UARTEN.  Note: this must be done before setting UTXEN
-#if !defined(SMT_BOARD)
-		U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
-#else
-		U2MODEbits.URXINV = AppConfig.GPSPolarity;
-#endif
+	#define CLOSEST_U1BRG_VALUE ((GetPeripheralClock()+8ul*BAUD_RATE1)/16/BAUD_RATE1-1)
+	#define BAUD_ACTUAL1 (GetPeripheralClock()/16/(CLOSEST_U1BRG_VALUE+1))
 
-		U2STA = 0x0400;		// UTXEN set
-#if !defined(SMT_BOARD)
-		U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
-#else
-		U2STAbits.UTXINV = AppConfig.GPSPolarity;
-#endif
-		#define CLOSEST_U2BRG_VALUE ((GetPeripheralClock()+8ul*AppConfig.GPSBaudRate)/16/AppConfig.GPSBaudRate-1)
-		U2BRG = CLOSEST_U2BRG_VALUE;
-
-		InitUARTS();
+	#define BAUD_ERROR1 ((BAUD_ACTUAL1 > BAUD_RATE1) ? BAUD_ACTUAL1-BAUD_RATE1 : BAUD_RATE1-BAUD_ACTUAL1)
+	#define BAUD_ERROR_PRECENT1	((BAUD_ERROR1*100+BAUD_RATE1/2)/BAUD_RATE1)
+	#if (BAUD_ERROR_PRECENT1 > 3)
+		#warning UART1 frequency error is worse than 3%
+	#elif (BAUD_ERROR_PRECENT1 > 2)
+		#warning UART1 frequency error is worse than 2%
 	#endif
+	
+	U1BRG = CLOSEST_U1BRG_VALUE;
+	U2MODE = 0x8000;	// Set UARTEN.  Note: this must be done before setting UTXEN
+#if !defined(SMT_BOARD)
+	U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+#else
+	U2MODEbits.URXINV = AppConfig.GPSPolarity;
+#endif
 
-    // Initiates board setup process if button is depressed 
-	// on startup
-    if(!INITIALIZE)
-    {
+	U2STA = 0x0400;		// UTXEN set
+#if !defined(SMT_BOARD)
+	U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+#else
+	U2STAbits.UTXINV = AppConfig.GPSPolarity;
+#endif
+	#define CLOSEST_U2BRG_VALUE ((GetPeripheralClock()+8ul*AppConfig.GPSBaudRate)/16/AppConfig.GPSBaudRate-1)
+	U2BRG = CLOSEST_U2BRG_VALUE;
+
+	InitUARTS();
+#endif
+
+	// Initiates board setup process if button is depressed on startup
+	if(!INITIALIZE)
+	{
 		#if defined(EEPROM_CS_TRIS) || defined(SPIFLASH_CS_TRIS)
-		// Invalidate the EEPROM contents if BUTTON0 is held down for more than 4 seconds
+		// Invalidate the EEPROM contents if BUTTON is held down for more than 4 seconds
 		DWORD StartTime = TickGet();
 		SetLED(SYSLED,1);
-
 
 		while(!INITIALIZE)
 		{
 			if(TickGet() - StartTime > 4*TICK_SECOND)
-			{
-				#if defined(EEPROM_CS_TRIS)
-			    XEEBeginWrite(0x0000);
-			    XEEWrite(0xFF);
-			    XEEEndWrite();
-			    #elif defined(SPIFLASH_CS_TRIS)
-			    SPIFlashBeginWrite(0x0000);
-			    SPIFlashWrite(0xFF);
-			    #endif
-
-				printf(defwritten);
-				if (!INITIALIZE_WVF) 
 				{
-					InitAppConfig();
-					AppConfig.SqlDiode = adcothers[ADCDIODE];
-					SaveAppConfig();
-					printf(defdiode);
+					#if defined(EEPROM_CS_TRIS)
+					XEEBeginWrite(0x0000);
+					XEEWrite(0xFF);
+					XEEEndWrite();
+					#elif defined(SPIFLASH_CS_TRIS)
+					SPIFlashBeginWrite(0x0000);
+					SPIFlashWrite(0xFF);
+					#endif
+	
+					printf(defwritten);
+	
+					if (!INITIALIZE_WVF) 
+					{
+						InitAppConfig();
+						AppConfig.SqlDiode = adcothers[ADCDIODE];
+						SaveAppConfig();
+						printf(defdiode);
+					}
+
+					SetLED(SYSLED,0);
+	
+					while((LONG)(TickGet() - StartTime) <= (LONG)(9*TICK_SECOND/2));
+					SetLED(SYSLED,1);
+
+					while(!INITIALIZE);
+					RTCM_Reset();
+					break;
 				}
-				SetLED(SYSLED,0);
-				while((LONG)(TickGet() - StartTime) <= (LONG)(9*TICK_SECOND/2));
-				SetLED(SYSLED,1);
-				while(!INITIALIZE);
-				RTCM_Reset();
-				break;
-			}
 		}
-		#endif
-    }
+#endif
+	}
 
 	// Initialize core stack layers (MAC, ARP, TCP, UDP) and
 	// application modules (HTTP, SNMP, etc.)
-    StackInit(AppConfig.EthFullDuplex);
+	StackInit(AppConfig.EthFullDuplex);
 
 	SetAudioSrc();
 
@@ -5189,7 +5839,7 @@ int main(void)
 	TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactors[0], 0);	/* We need to do this only once at start-up */
 #endif
 
-#endif
+#endif // dspbew
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
@@ -5200,13 +5850,14 @@ int main(void)
 	// execute all stack-related tasks, as well as your own
 	// application's functions.  Custom functions should be added
 	// at the end of this loop.
-    // Note that this is a "co-operative mult-tasking" mechanism
-    // where every task performs its tasks (whether all in one shot
-    // or part of it) and returns so that other tasks can do their
-    // job.
-    // If a task needs very long time to do its job, it must be broken
-    // down into smaller pieces so that other tasks can have CPU time.
-__builtin_nop();
+
+	// Note that this is a "co-operative mult-tasking" mechanism
+	// where every task performs its tasks (whether all in one shot
+	// or part of it) and returns so that other tasks can do their
+	// job.
+	// If a task needs very long time to do its job, it must be broken
+	// down into smaller pieces so that other tasks can have CPU time.
+	__builtin_nop();
 
 	ClrWdt();
 	RCONbits.SWDTEN = 1;
@@ -5237,22 +5888,23 @@ __builtin_nop();
 	if (!AppConfig.Flags.bIsDHCPReallyEnabled)
 		AppConfig.Flags.bInConfigMode = FALSE;
 
-
-    while(1) 
+	while(1) 
 	{
 		char ok;
 		unsigned int i1,x;
 		unsigned long l;
 
 		SetTxTone(0);
-		if ((!netisup) && 
-			((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
-				netisup = 1;
+
+		if ((!netisup) && ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode)))
+			netisup = 1;
+
 		if (indiag) 
 		{	
 			SetPTT(0);
 			set_atten(noise_gain);
 		}
+
 		indiag = 0;
 		SetAudioSrc();
 		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
@@ -5263,7 +5915,7 @@ __builtin_nop();
 			AppConfig.HostPassword);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
+		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSOffset,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel1);
@@ -5276,49 +5928,56 @@ __builtin_nop();
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,
 			AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
-
 		aborted = 0;
+
 		while(!aborted)
 		{
 			printf(entsel);
 			memset(cmdstr,0,sizeof(cmdstr));
+
 			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
+
 			if (!strchr(cmdstr,'!')) break;
 		}
+
 		if (aborted) continue;
+
 		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
 		{
-				CloseTelnetConsole();
-				continue;
+			CloseTelnetConsole();
+			continue;
 		}
+
 		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
 		{
-				CloseTelnetConsole();
-				printf(booting);
-				RTCM_Reset();
+			CloseTelnetConsole();
+			printf(booting);
+			RTCM_Reset();
 		}
 #ifdef	DIAGMENU
 		if ((strchr(cmdstr,'D')) || strchr(cmdstr,'d'))
 		{
-				DiagMenu();
-				continue;
+			DiagMenu();
+			continue;
 		}
 #endif
 		if ((strchr(cmdstr,'I')) || strchr(cmdstr,'i'))
 		{
-				IPMenu();
-				continue;
+			IPMenu();
+			continue;
 		}
+
 		if ((strchr(cmdstr,'O')) || strchr(cmdstr,'o'))
 		{
-				OffLineMenu();
-				continue;
+			OffLineMenu();
+			continue;
 		}
 #ifdef	GGPS
 		if ((strchr(cmdstr,'G')) || strchr(cmdstr,'g'))
 		{
 			if (USE_PPS)
 			{
+
 				if (!gpskicking)
 				{
 					KickGPS(1);
@@ -5330,8 +5989,10 @@ __builtin_nop();
 				{
 					printf("GPS already re-setting!!\n");
 				}
+
 				continue;
 			}
+
 			printf(invalselection);
 			continue;
 		}
@@ -5339,21 +6000,26 @@ __builtin_nop();
 		
 		sel = atoi(cmdstr);
 #ifdef	DSPBEW
-		if (((sel >= 1) && (sel <= 19)) || ( sel == 81) || (sel == 11780) || (sel == 1103) || (sel == 1170))
+		if (((sel >= 1) && (sel <= 19)) || (sel == 81) || (sel == 82) || (sel == 11780) || (sel == 1103) || (sel == 1170))
 #else
-		if ((((sel >= 1) && (sel <= 19)) || ( sel == 81) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
+		if ((((sel >= 1) && (sel <= 19)) || (sel == 81) || (sel == 82) || (sel == 11780) || (sel == 1103) || (sel == 1170)) && (sel != 17))
 #endif
 		{
 			printf(entnewval);
+
 			if (aborted) continue;
+
 			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 15)))
 			{
 				printf(newvalnotchanged);
 				continue;
 			}
+
 			if (aborted) continue;
 		}
+
 		ok = 0;
+
 		switch(sel)
 		{
 			case 1: // Serial # (part of Mac Address)
@@ -5366,6 +6032,7 @@ __builtin_nop();
 
 			case 2: // VOTER Server FQDN
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.VoterServerFQDN)))
 				{
 					cmdstr[x - 1] = 0;
@@ -5373,6 +6040,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 3: // Voter Server PORT
 				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
@@ -5380,6 +6048,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 4: // My Default Port
 				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
@@ -5387,8 +6056,10 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 5: // VOTER Client Password
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.Password)))
 				{
 					cmdstr[x - 1] = 0;
@@ -5396,8 +6067,10 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 6: // VOTER Server Password
 				x = strlen(cmdstr);
+
 				if ((x > 2) && (x < sizeof(AppConfig.HostPassword)))
 				{
 					cmdstr[x - 1] = 0;
@@ -5405,6 +6078,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 7: // Tx Buffer Length
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN))
 				{
@@ -5412,27 +6086,15 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 8: // GPS Type
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP))
 				{
-					if ((AppConfig.GPSProto != GPS_TSIP) && 
-						(i1 == GPS_TSIP))
-					{
-						AppConfig.GPSBaudRate = 9600;
-						AppConfig.PPSPolarity = 0;
-						AppConfig.GPSPolarity = 0;
-					}
-					if ((AppConfig.GPSProto == GPS_TSIP) && 
-						(i1 != GPS_TSIP))
-					{
-						AppConfig.GPSBaudRate = 4800;
-						AppConfig.PPSPolarity = 0;
-						AppConfig.GPSPolarity = 0;
-					}
 					AppConfig.GPSProto = i1;
 					ok = 1;
 				}
 				break;
+
 			case 81: // GPS is a Thunderbolt
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
@@ -5440,6 +6102,15 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
+			case 82: // GPS Time Offset (seconds)
+				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l <= 788400000UL))
+				{
+					AppConfig.GPSOffset = l;
+					ok = 1;
+				}
+				break;
+
 			case 9: // GPS Invert
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
 				{
@@ -5447,6 +6118,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 10: // PPS Invert
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 3))
 				{
@@ -5454,6 +6126,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 11: // GPS Baud Rate
 				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >= 300L) && (l <= 230400L))
 				{
@@ -5461,6 +6134,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 12: // EXT CTCSS
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
 				{
@@ -5468,6 +6142,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 13: // COR Type
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2))
 				{
@@ -5475,6 +6150,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 14: // Debug Level
 				if (sscanf(cmdstr,"%lu",&l) == 1)
 				{
@@ -5483,8 +6159,10 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 15: // Alt VOTER Server FQDN
 				x = strlen(cmdstr);
+
 				if ((x > 0) && (x < sizeof(AppConfig.VoterServerFQDN)))
 				{
 					cmdstr[x - 1] = 0;
@@ -5492,6 +6170,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 16: // Alt Voter Server PORT
 				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
@@ -5515,6 +6194,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 19: // Launch Delay
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 600))
 				{
@@ -5532,12 +6212,15 @@ __builtin_nop();
 #endif
 			case 97: // Display RX Level Quasi-Graphically  
 			 	putchar(' ');
-		      	for(i = 0; i < NCOLS; i++) putchar(' ');
-		        printf(rxvoicestr);
+
+				for(i = 0; i < NCOLS; i++) putchar(' ');
+
+				printf(rxvoicestr);
 				indisplay = 1;
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				indisplay = 0;
 				continue;
+
 			case 98:
 				t = system_time.vtime_sec;
 				printf(oprdata,VERSION,uptimer / 10,uptimer % 10,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
@@ -5559,7 +6242,7 @@ __builtin_nop();
 				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,connected,lastcor);
+				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,ppsx,connected,lastcor);
 				main_processing_loop();
 				secondary_processing_loop();
 #ifdef	GGPS
@@ -5576,8 +6259,10 @@ __builtin_nop();
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
+
 				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec)
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+
 				main_processing_loop();
 				secondary_processing_loop();
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
@@ -5585,7 +6270,7 @@ __builtin_nop();
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
 				mydiff = last_rxpacket_sys_time.vtime_sec - last_rxpacket_time.vtime_sec;
@@ -5593,21 +6278,22 @@ __builtin_nop();
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Last Rx Pkt index: %ld, inbounds: %d\n",
-					last_rxpacket_index,last_rxpacket_inbounds);
+				printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
 				fflush(stdout);
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				continue;
+
 			case 99:
 				SaveAppConfig();
 				printf(saved);
 				continue;
+
 			case 111:
 				printf("Elkes (11730): %lu, Glasers (1103): %u, Sawyer (1170): %d\n",
 					AppConfig.Elkes,AppConfig.Glasers,AppConfig.Sawyer);
@@ -5617,6 +6303,7 @@ __builtin_nop();
 				fflush(stdout);
 				myfgets(cmdstr,sizeof(cmdstr) - 1);
 				continue;
+
 			case 11780: // Elkes
 				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >=0))
 				{
@@ -5624,6 +6311,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 1103: // Glasers
 				if (sscanf(cmdstr,"%u",&i1) == 1)
 				{
@@ -5632,6 +6320,7 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			case 1170: // Sawyer Mode
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1))
 				{
@@ -5639,10 +6328,12 @@ __builtin_nop();
 					ok = 1;
 				}
 				break;
+
 			default:
 				printf(invalselection);
 				continue;
 		}
+
 		if (ok) printf(newvalchanged);
 		else printf(newvalerror);
 	}
@@ -5673,34 +6364,105 @@ __builtin_nop();
 static void InitializeBoard(void)
 {	
 
-	// Crank up the core frequency Fosc = 76.8MHz, Fcy = 38.4MHz
-	PLLFBD = 30;				// Multiply by 32 for 153.6MHz VCO output (9.6MHz XT oscillator)
-	CLKDIV = 0x0000;			// FRC: divide by 2, PLLPOST: divide by 2, PLLPRE: divide by 2
+/*Setup the system clock. We are going to use the PLL in the PIC.
+Fin is input frequency (from crystal)
+Fosc is output frequency of PLL (System Clock)
+Fcy is Fosc/2 (Instruction Clock)
+
+Fosc = Fin ( M/(N1 * N2) )
+
+M is PLLFBD, but PLLFBD is offset by 2, so 30 is actually 32
+N1 is PLLPRE
+N2 is PLLPOST
+N1 and N2 are configured with CLKDIV
+In this case, N1 = N2 =2
+
+Therefore, with a 9.6MHz crystal (Fin), Fosc = 9.6 ( 32 / 4 ) = 76.8MHz and 
+Fcy is then 38.4MHz. Fvco is before PLLPOST, so Fvco = 153.6MHz.
+
+For the DAC, it uses 256x oversampling, and it's clock will be Fosc. It is 
+configured (below) for divide by 75. So, our sample rate becomes 
+(153.6MHz / 256) / 75 = 8000 samples/sec, aka 8kHz sampling. ***This is 
+critical for the ADPCM/uLAW encode/decode.*** This limits the available 
+oscillators we can use, since we need to be able to configure the PLL to 
+give us Fosc of 153.6MHz. Note, 9.8304MHz SHOULD also work, with the correct 
+PLL settings... this is aka CDMA 8x Chip in ex-CDMA GPSDO's... just 'sayin. */
+
+	// Multiplier (M) factor for the PLL ***offset by 2*** so it is really 32
+	PLLFBD = 30;
+	// N1=Fxtal/2, N2=Fvco/2
+	CLKDIV = 0x0000;
+	// Primary OSC is Clock Source, Divide by 1, AOSC disabled, 
+	// PLL output (Fvco) provides source for Aux Clock Divider
 	ACLKCON = 0x780;
 
 
-//_________________________________________________________________
+/* Timer 3 is used for it's special feature to be able to trigger 
+an ADC conversion. TMR3 always generates the ADC interrupt, the 
+ADC must be configured to use it.
+
+The divide by 8 prescaler makes each timer tick:
+1/(Fcy/8) = 1/(38.4MHz/8) = 0.208uSec
+
+So, every 300*0.208uSec = 62.5uSec, which is the sample time for 
+the ADC, after which we will trigger an ADC conversion.
+
+ADC conversion time is calculated as:
+Tcy = 1/Fcy = 1/38.4MHz = 0.026042uS
+Tad = 4*Tcy (configured below) = 0.1042uS
+Tconv = 14*Tad = 1.458uS for 12-bit mode
+*/
+	// Turn off interrupts while we configure them.
 	DISABLE_INTERRUPTS();
 
-	T3CON = 0x10;			//TMR3 divide Fosc by 8
-	PR3 = 299;				//Set to period of 300
-	T3CONbits.TON = 1;		//Turn it on
+	// Timer 3, continue in idle mode, gating disabled, 
+	// divide Fcy by 8
+	T3CON = 0x10;
+	// Set to period to 299 + 1 (total 62.5uSec)
+	PR3 = 299;
+	// Turn it on
+	T3CONbits.TON = 1;
 
+// Configure our ADC pins
 #if defined(SMT_BOARD)
-	AD1PCFGL = 0xFFF0;				// Enable AN0-AN3 as analog 
+	// Enable AN0-AN3 as analog
+	AD1PCFGL = 0xFFF0; 
 #else
-	AD1PCFGL = 0xFFE2;				// Enable AN0, AN2-AN4 as analog 
+	// Enable AN0, AN2-AN4 as analog
+	// AN0 RX Audio, AN2 Noise Voltage (RSSI)
+	// AN3 SQ Ctrl Pos, AN4 Diode (Temp Comp) Votlage
+	AD1PCFGL = 0xFFE2; 
 #endif
+	
+	// ADC is operating, continue operation in idle mode
+	// DMA written in scatter/gather mode
+	// 12-bit mode, Unsigned Int output (0x0000-0x0FFF)
+	// Use TMR3 to end sampling and start conversion
+	// Sample multiple channels individually in sequence
+	// Sampling begins again immediately after last conversion
+	AD1CON1 = 0x8444;
+	// ADREF+ is AVdd and ADREF- is AVss
+	// Do not scan inputs
+	// Conversion CH0, since we are in 12-bit mode
+	// Start buffer fill at address 0x0, use channel input selects for Sample A
+	AD1CON2 = 0x0;
+	// ADC Clock from system clock (Fosc/2 = Fcy)
+	// (Clock calculations above)
+	// Auto Sample Time is 16*Tad... but this isn't used since TMR3 
+	// is controlling sample time
+	// ADC Conversion Clock Select (multiplier) = (3 + 1) Tcy = Tad
+	AD1CON3 = 0x1003;
+	// Turn on the ADC module (already turned on)
+	AD1CON1bits.ADON = 1;
 
-	AD1CON1 = 0x8444;			// TMR Sample Start, 12 bit mode (on parts with a 12bit A/D)
-	AD1CON2 = 0x0;			// AVdd, AVss, int every conversion, MUXA only, no scan
-	AD1CON3 = 0x1003;			// 16 Tad auto-sample, Tad = 3*Tcy
-	AD1CON1bits.ADON = 1;		// Turn On
-
+	// Clear the AD1 flag
 	IFS0bits.AD1IF = 0;
+	// Enable AD1 interrupts
 	IEC0bits.AD1IE = 1;
+	// Set the interrupt priority to 6
 	IPC3bits.AD1IP = 6;
 
+// Configure the DAC (TX audio output)
 	DAC1DFLT = 0;
 	DAC1STAT = 0x8000;
 	DAC1STATbits.LITYPE = 0;
@@ -5710,53 +6472,57 @@ static void InitializeBoard(void)
 	IPC19bits.DAC1LIP = 6;
 
 #if defined(SMT_BOARD)
-
 	PORTA=0;	
 	PORTB=0x3c00;
 	PORTC=7;	
-	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers */
+	// RA4 is CN0/PPS Pulse, RA7-CTCSS, RA8-RA10 jumpers
 	TRISA = 0xFFFF;	 
-	//RB0-1 are Analog, RB2-3 are audio select, RB4 is PTT, RB5-6 are Programming Pins, RB7 is INT0 (Ethenet INT)
-	//RB8 is Test Pin, RB9 is JP11, RB10-13 are LEDs, RB14-15 are DAC outputs
+	// RB0-1 are Analog, 
+	// RB2-3 are audio select, 
+	// RB4 is PTT, RB5-6 are Programming Pins, 
+	// RB7 is INT0 (Ethenet INT)
+	// RB8 is Test Pin, RB9 is JP11, 
+	// RB10-13 are LEDs, RB14-15 are DAC outputs
 	TRISB = 0x0283;// 0x02E3;	
-	//RC0-RC2 are CS pins, RC4 is RP20/SDO, RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
+	// RC0-RC2 are CS pins, RC4 is RP20/SDO, 
+	// RC5 is RP21/SCK, RC7 is RP23/U1TX, RC9 is RP25/U2TX
 	TRISC = 0xFD48;
 
 	__builtin_write_OSCCONL(OSCCON & ~0x40); //clear the bit 6 of OSCCONL to unlock pin re-map
 	_U1RXR = 22;	// RP22 is UART1 RX
-	_RP23R = 3;		// RP23 is UART1 TX (U1TX) 3
+	_RP23R = 3;	// RP23 is UART1 TX (U1TX) 3
 	_U2RXR = 24;	// RP24 is UART2 RX
-	_RP25R = 5;		// RP25 is UART2 TX (U2TX) 5 
+	_RP25R = 5;	// RP25 is UART2 TX (U2TX) 5 
 	_SDI1R = 19;	// RP19 is SPI1 MISO
-	_RP21R = 8;		// RP21 is SPI1 CLK (SCK1OUT) 8
-	_RP20R = 7;		// RP20 is SPI1 MOSI (SDO1) 7
+	_RP21R = 8;	// RP21 is SPI1 CLK (SCK1OUT) 8
+	_RP20R = 7;	// RP20 is SPI1 MOSI (SDO1) 7
 	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to lock pin re-map
-
 #else
-
-	PORTA=0;	//Initialize LED pin data to off state
-	PORTB=0;	//Initialize LED pin data to off state
+	PORTA=0;	// Initialize LED pin data to off state
+	PORTB=0;	// Initialize LED pin data to off state
 	// RA4 is CN0/PPS Pulse
 #if defined (GGPS)
-	TRISA = 0xFFFF;	 //RA1 is Test Bit, tristate in this case
+	TRISA = 0xFFFF;	// RA1 is Test Bit, tristate in this case
 #else
-	TRISA = 0xFFFD;	 //RA1 is Test Bit -- Set to 0xFFF5 for RA1/RA3 Test Bits
+	TRISA = 0xFFFD;	// RA1 is Test Bit -- Set to 0xFFF5 for RA1/RA3 Test Bits
 #endif
-	//RB0-2 are Analog, RB3-4 are SPI select, RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), RB8 is RP8/SCK,
-	//RB9 is RP9/SDO, RB10 is RP10/SDI, RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, RB14-15 are DAC outputs
+	// RB0-2 are Analog, RB3-4 are SPI select, 
+	// RB5-6 are Programming pins, RB7 is INT0 (Ethenet INT), 
+	// RB8 is RP8/SCK, RB9 is RP9/SDO, RB10 is RP10/SDI, 
+	// RB11 is RP11/U1TX, RB12 is RP12/U1RX, RB13 is RP13/U2RX, 
+	// RB14-15 are DAC outputs
 	TRISB = 0x3487;	
 
 	__builtin_write_OSCCONL(OSCCON & ~0x40); //clear the bit 6 of OSCCONL to unlock pin re-map
 	_U1RXR = 12;	// RP12 is UART1 RX
-	_RP11R = 3;		// RP11 is UART1 TX (U1TX)
+	_RP11R = 3;	// RP11 is UART1 TX (U1TX)
 	_U2RXR = 13;	// RP13 is UART2 RX
 	_SDI1R = 10;	// RP10 is SPI1 MISO
-	_RP8R = 8;		// RP8 is SPI1 CLK (SCK1OUT) 8
-	_RP9R = 7;		// RP9 is SPI1 MOSI (SDO1) 7
+	_RP8R = 8;	// RP8 is SPI1 CLK (SCK1OUT) 8
+	_RP9R = 7;	// RP9 is SPI1 MOSI (SDO1) 7
 	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to lock pin re-map
 
 	IOExpInit();
-
 #endif
 
 #if defined(SPIRAM_CS_TRIS)
@@ -5769,14 +6535,13 @@ static void InitializeBoard(void)
 	SPIFlashInit();
 #endif
 
-	CNEN1bits.CN0IE = 1;
-	IEC1bits.CNIE = 1;
-	IPC4bits.CNIP = 6;
+	CNEN1bits.CN0IE = 1;	// Change Notification CN0 interrupt enable
+	IEC1bits.CNIE = 1;	// Enable CN interrupt
+	IPC4bits.CNIP = 6;	// Set interrupt priority to 6
 
 	INTCON1bits.NSTDIS = 0;
 
 	ENABLE_INTERRUPTS();
-
 }
 
 /*********************************************************************
@@ -5863,22 +6628,24 @@ static void InitAppConfig(void)
 	AppConfig.CTCSSLevel = 3000;
 	AppConfig.PPSPolarity = 2;
 	AppConfig.GPSTbolt = 0;
+	AppConfig.GPSOffset = 0;
 
 	#if defined(EEPROM_CS_TRIS)
 	{
 		BYTE c;
 		
-	    // When a record is saved, first byte is written as 0x60 to indicate
-	    // that a valid record was saved.  Note that older stack versions
+		// When a record is saved, first byte is written as 0x60 to indicate
+		// that a valid record was saved.  Note that older stack versions
 		// used 0x57.  This change has been made to so old EEPROM contents
 		// will get overwritten.  The AppConfig() structure has been changed,
 		// resulting in parameter misalignment if still using old EEPROM
 		// contents.
 		XEEReadArray(0x0000, &c, 1);/*SaveAppConfig(); */
-	    if(c == 0x60u)
-		    XEEReadArray(0x0001, (BYTE*)&AppConfig, sizeof(AppConfig));
-	    else
-	        SaveAppConfig();
+
+		if(c == 0x60u)
+			XEEReadArray(0x0001, (BYTE*)&AppConfig, sizeof(AppConfig));
+		else
+			SaveAppConfig();
 	}
 	#elif defined(SPIFLASH_CS_TRIS)
 	{
@@ -5891,6 +6658,7 @@ static void InitAppConfig(void)
 			SaveAppConfig();
 	}
 	#endif
+
 	AppConfig.MyIPAddr = AppConfig.DefaultIPAddr;
 	AppConfig.MyMask = AppConfig.DefaultMask;
 	AppConfig.MyGateway = AppConfig.DefaultGateway;
@@ -5901,6 +6669,7 @@ static void InitAppConfig(void)
 	AppConfig.MyMACAddr.v[5] = AppConfig.SerialNumber & 0xff;
 	AppConfig.MyMACAddr.v[4] = AppConfig.SerialNumber >> 8;
 	AppConfig.Flags.bIsDHCPEnabled = TRUE;
+
 	if (AppConfig.AltVoterServerFQDN[0] == -1)
 	{
 		memset(AppConfig.AltVoterServerFQDN,0,sizeof(AppConfig.AltVoterServerFQDN));
@@ -5911,15 +6680,14 @@ static void InitAppConfig(void)
 #if defined(EEPROM_CS_TRIS) || defined(SPIFLASH_CS_TRIS)
 void SaveAppConfig(void)
 {
-
 	#if defined(EEPROM_CS_TRIS)
-	    XEEBeginWrite(0x0000);
-	    XEEWrite(0x60);
-	    XEEWriteArray((BYTE*)&AppConfig, sizeof(AppConfig));
-    #else
-	    SPIFlashBeginWrite(0x0000);
-	    SPIFlashWrite(0x60);
-	    SPIFlashWriteArray((BYTE*)&AppConfig, sizeof(AppConfig));
-    #endif
+	XEEBeginWrite(0x0000);
+	XEEWrite(0x60);
+	XEEWriteArray((BYTE*)&AppConfig, sizeof(AppConfig));
+	#else
+	SPIFlashBeginWrite(0x0000);
+	SPIFlashWrite(0x60);
+	SPIFlashWriteArray((BYTE*)&AppConfig, sizeof(AppConfig));
+	#endif
 }
 #endif
