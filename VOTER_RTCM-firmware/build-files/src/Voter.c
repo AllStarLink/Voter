@@ -106,9 +106,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.00rc1 BEW 3/24/2021";
+	char	VERSION[] = "3.00rc2 BEW 3/24/2021";
 #else
-	char	VERSION[] = "3.00rc1 3/24/2021";
+	char	VERSION[] = "3.00rc2 3/24/2021";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -3902,7 +3902,14 @@ void secondary_processing_loop(void)
 		{
 			BOOL qualcor;
 			sqlcount = 0;
-			service_squelch(adcothers[ADCDIODE],0x3ff - AppConfig.Squelch,adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+			if (AppConfig.Sqpot) // check to see if we are using software squelch pot (yes if true)
+			{
+				service_squelch(adcothers[ADCDIODE],0x3ff - AppConfig.Squelch,adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+			}
+			else // we're using the hardware pot
+			{
+				service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+			}
 			sql2 ^= 1;
 //TESTBIT ^= 1;
 
@@ -4774,6 +4781,8 @@ static void SetDynDNS(void)
 //									     //
 //		Diagnostic Menu (not included if BEW is enabled)	     //
 //									     //
+//		2021/03/24 Deleted diag cable display option to make space   //
+//									     //
 /*****************************************************************************/
 #ifdef	DIAGMENU
 static void DiagMenu()
@@ -4809,26 +4818,14 @@ static void DiagMenu()
 		"2  - Display Value of DIP Switches\n"
 		"3  - Flash LED's in sequence\n"
 		"4  - Run entire diag suite\n"
-		"c  - Show Diagnostic Cable Pinouts\n"
 		"x -  Exit Diagnostic Menu (back to main menu)\nq - Disconnect Remote Console Session, r - reboot system\n\n",
-		entsel[] = "Enter Selection (1-4,c,x,q,r) : ",
+		entsel[] = "Enter Selection (1-4,x,q,r) : ",
 		settone[] = "Adjust Tx Level for 1V P-P (1 KHz) on output, then adjust Rx Level\nto \"5 KHz\" on display\n\n",
 		dipstr[] = "Dip Switch Values\n\n   SW1    SW2    SW3    SW4\n",
 		diodewarn[] = "Warning!! VF Diode NOT calibrated!!!\n\n",
 		ledstr[] = "LED's will flash as follows: Squelch (Top Green), GPS (Middle Yellow),\n"
 				"PTT (Red), Host (Top, Right Yellow). System LED will continue flashing\nat fast speed.\n",
-		diagstr[] = "Running Diagnostics...\n\n",
-		diagcable[] = "Diagnostic Cable Pinouts:\n\n9 Pin D-Shell Connector (Radio Connector):\n\n"
-			"1 - VIN (+12V or so)\n"
-			"2 - connects to 3 and also is output to 'scope for tone measurement\n"
-			"4 - connects to 7\n"
-			"5 - Gnd\n\n"
-			"15 Pin D-Shell Connector (GPS/Console Connector):\n\n"
-			"2 - Console Pin 2\n"
-			"3 - Console Pin 3\n"
-			"5 - Console Pin 5\n"
-			"6 - connects to 14\n"
-			"\"Console\" is a 9 Pin D-shell connector that connects to serial console device\n\n";
+		diagstr[] = "Running Diagnostics...\n\n";
 
 		printf(menu);
 		fflush(stdout);
@@ -4869,16 +4866,6 @@ static void DiagMenu()
 		}
 
 		printf(" \n");
-
-		if ((strchr(cmdstr,'C')) || strchr(cmdstr,'c'))
-		{
-		        printf(diagcable);
- 			printf(paktc);
-			fflush(stdout);
-			myfgets(cmdstr,sizeof(cmdstr) - 1);
-			printf("\n\n");
-			continue;
-		}
 
 		sel = atoi(cmdstr);
 
@@ -5506,14 +5493,15 @@ static void SquelchMenu()
 		int sel;
 
 	static /*ROM*/ char menu[] = "\nSquelch Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
-		"1  - Squelch Setting (1-1023) (%d)\n"
-		"2  - Hysteresis (1-100) (%d)\n",
+		"1  - Squelch Pot (0=Hardware, 1=Software) (%d)\n"
+		"2  - Squelch Setting (1-1023) (%d)\n"
+		"3  - Hysteresis (1-100) (%d)\n",
 		menu1[] = 
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit Squelch Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
-		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
+		entsel[] = "Enter Selection (1-3,99,x,q,r) : ";
 
-		printf(menu,AppConfig.Squelch,AppConfig.Hysteresis);
+		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu1);
@@ -5553,7 +5541,7 @@ static void SquelchMenu()
 		printf(" \n");
 		sel = atoi(cmdstr);
 
-		if ((sel >= 1) && (sel <= 2))
+		if ((sel >= 1) && (sel <= 3))
 		{
 			printf(entnewval);
 
@@ -5573,7 +5561,15 @@ static void SquelchMenu()
 
 		switch(sel)
 		{
-			case 1: // Squelch Setting
+			case 1: // Hardware Pot or Software Pot
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2))
+				{
+					AppConfig.Sqpot = i1;
+					ok = 1;
+				}
+				break;
+
+			case 2: // Squelch Setting
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1023))
 				{
 					AppConfig.Squelch = i1;
@@ -5581,7 +5577,7 @@ static void SquelchMenu()
 				}
 				break;
 
-			case 2: // Hysteresis
+			case 3: // Hysteresis
 				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 100))
 				{
 					AppConfig.Hysteresis = i1;
@@ -6372,7 +6368,14 @@ int main(void)
 				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
+				if (AppConfig.Sqpot) 
+				{
+					printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
+				}
+				else
+				{
+					printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT],AppConfig.Hysteresis);
+				}
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
@@ -6748,6 +6751,7 @@ static void InitAppConfig(void)
 	AppConfig.GPSOffset = 0;
 	AppConfig.Squelch = 400;
 	AppConfig.Hysteresis = 24;
+	AppConfig.Sqpot = 0;
 
 	#if defined(EEPROM_CS_TRIS)
 	{

@@ -62,3 +62,7 @@ It is often desired to be able to remotely tune the squelch of the receiver, wit
 In addition, there is a "squelch tunable" in the firmware, called "hysteresis", that will be brought out so it can be adjusted without having to recompile the firmware. By default, this has always been set to "24", unless you specifically changed it, and compiled your own firmware.
 
 Therefore, this version adds a new (S)quelch menu, that lets you adjust the squelch level and hysteresis remotely.
+
+Note, due to space constraints in the PIC, the option to display the "diagnostic cable pinout" has been removed from the diagnostic meny. This allows us to have the option to select using the hardware squelch pot, or software squelch pot.
+
+When using the software squelch setting, the change is immediate, but do not forget to save the EEPROM settings (99) when you are done your adjustment, to make it permanent.

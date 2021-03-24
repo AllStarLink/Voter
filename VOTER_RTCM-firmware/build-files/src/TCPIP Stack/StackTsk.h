@@ -56,7 +56,7 @@
  *								STACK_USE_DNS, and STACK_USE_GENERIC_TCP_EXAMPLE
  * VE7FET		12/05/20 Add GPSTBolt
  * VE7FET		12/13/20 Add GPSOffset
- * VE7FET		3/24/21 Add Squelch and Hysteresis
+ * VE7FET		 3/24/21 Add Squelch and Hysteresis and Sqpot
  ********************************************************************/
 #ifndef __STACK_TSK_H
 #define __STACK_TSK_H
@@ -169,7 +169,8 @@ typedef struct __attribute__((__packed__))
 	DWORD GPSOffset;
 	WORD Squelch;
 	WORD Hysteresis;
-	BYTE Zeros[555];
+	BOOL Sqpot;
+	BYTE Zeros[553];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
