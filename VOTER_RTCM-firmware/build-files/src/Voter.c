@@ -5510,7 +5510,7 @@ static void SquelchMenu()
 		"2  - Hysteresis (1-100) (%d)\n",
 		menu1[] = 
 		"99 - Save Values to EEPROM\n"
-		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
+		"x  - Exit Squelch Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
 
 		printf(menu,AppConfig.Squelch,AppConfig.Hysteresis);
