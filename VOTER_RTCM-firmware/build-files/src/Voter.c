@@ -84,7 +84,7 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 16 - Disable IP TOS Class for Ubiquiti
 32 - GPS Debug
 64 - Fix GPS 1 second off
-128 - Fix GPS 1 month off (subtracts one month)
+128 - not currently used
 
 */
 
@@ -106,9 +106,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.00rc2 BEW 3/24/2021";
+	char	VERSION[] = "3.00 BEW 3/24/2021";
 #else
-	char	VERSION[] = "3.00rc2 3/24/2021";
+	char	VERSION[] = "3.00 3/24/2021";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -2676,10 +2676,8 @@ void process_gps(void)
 			tm.tm_hour = twoascii(strs[1]);
 			tm.tm_mday = twoascii(strs[9]);
 
-			if (AppConfig.DebugLevel & 128) // this can probably be removed now
-				tm.tm_mon = twoascii(strs[9] + 2); // add 1 month, some GPS are broken?
-			else
-				tm.tm_mon = twoascii(strs[9] + 2); // no lonfer need to -1, not using mktime()
+			tm.tm_mon = twoascii(strs[9] + 2); // no longer need to -1, not using mktime()
+
 			tm.tm_year = twoascii(strs[9] + 4); // don't need to be relative to 1900, not using mktime()
 			if (AppConfig.DebugLevel & 64)
 				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + 1 + (DWORD) AppConfig.GPSOffset; // Fix for GPS one second off
@@ -2774,10 +2772,7 @@ void process_gps(void)
 			tm.tm_mday = gps_buf[14]; // day of month 1-31
 
 			/* gps_buf[15] is Month of Year, 1-12 */
-			if (AppConfig.DebugLevel & 128) // this probably can be removed
-				tm.tm_mon = gps_buf[15]; // add 1 month, some GPS are broken?
-			else
-				tm.tm_mon = gps_buf[15]; // no longer need to -1 as we are not using mktime() 
+			tm.tm_mon = gps_buf[15]; // no longer need to -1 as we are not using mktime() 
 
 			w = gps_buf[17] | ((WORD)gps_buf[16] << 8); // 4-digit year (two bytes)
 			tm.tm_year = w - 2000; // tm_year is now relative to years since 2000 (not using mktime())
@@ -6415,7 +6410,7 @@ int main(void)
 				continue;
 
 			case 111:
-				printf("Elkes (11730): %lu, Glasers (1103): %u, Sawyer (1170): %d\n",
+				printf("Elkes (11780): %lu, Glasers (1103): %u, Sawyer (1170): %d\n",
 					AppConfig.Elkes,AppConfig.Glasers,AppConfig.Sawyer);
 				main_processing_loop();
 				secondary_processing_loop();
