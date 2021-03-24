@@ -27,7 +27,7 @@
 
 // Tunable constants
 #define CALNOISE	900		// Peak noise amplitude to look for during calibration.
-#define HYSTERESIS	24		// Amount of hysteresis to open /close in noisy mode
+// #define HYSTERESIS	24		// Amount of hysteresis to open /close in noisy mode
 #define ADCFS		1023	// ADC Full scale value
 #define ADCMIN		0		// ADC minimum value
 
@@ -133,8 +133,8 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 	if(looptimer) // looptimer is used in the various state machines it. It just burns cycles down to 0.
 		looptimer--;
 
-	if(sqpos < HYSTERESIS + 2 )
-		sqpos = HYSTERESIS + 2 ; // The tightest squelch setting has to be gte to hysteresis + 2;
+	if(sqpos < AppConfig.Hysteresis + 2 )
+		sqpos = AppConfig.Hysteresis + 2 ; // The tightest squelch setting has to be gte to hysteresis + 2;
 
 	// Ring buffer to hold noise measurements
 	noisehistory[noisehead] = noise;
@@ -147,10 +147,10 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 
 
 	// Calculate the hysteresis band around squelch setting
-	sqposm = sqposcomp - HYSTERESIS;
+	sqposm = sqposcomp - AppConfig.Hysteresis;
 	if(sqposm & 0x8000)
 		sqposm = ADCMIN;
-	sqposp = sqposcomp + HYSTERESIS;
+	sqposp = sqposcomp + AppConfig.Hysteresis;
 	if(sqposp > ADCFS)
 		sqposp = ADCFS;
 

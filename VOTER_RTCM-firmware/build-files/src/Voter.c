@@ -106,9 +106,9 @@ RAM for signed linear audio of the necessary buffer size; sigh!
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "2.00 BEW 3/24/2021";
+	char	VERSION[] = "3.00rc1 BEW 3/24/2021";
 #else
-	char	VERSION[] = "2.00 3/24/2021";
+	char	VERSION[] = "3.00rc1 3/24/2021";
 #endif
 
 #define M_PI       3.14159265358979323846
@@ -3902,7 +3902,7 @@ void secondary_processing_loop(void)
 		{
 			BOOL qualcor;
 			sqlcount = 0;
-			service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+			service_squelch(adcothers[ADCDIODE],0x3ff - AppConfig.Squelch,adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
 			sql2 ^= 1;
 //TESTBIT ^= 1;
 
@@ -5493,6 +5493,117 @@ static void OffLineMenu()
 
 /*****************************************************************************/
 //									     //
+//		Squelch Menu						     //
+//									     //
+/*****************************************************************************/
+static void SquelchMenu()
+{
+
+	while(1) 
+	{
+		unsigned int i1;
+		BOOL ok;
+		int sel;
+
+	static /*ROM*/ char menu[] = "\nSquelch Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+		"1  - Squelch Setting (1-1023) (%d)\n"
+		"2  - Hysteresis (1-100) (%d)\n",
+		menu1[] = 
+		"99 - Save Values to EEPROM\n"
+		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
+		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
+
+		printf(menu,AppConfig.Squelch,AppConfig.Hysteresis);
+		main_processing_loop();
+		secondary_processing_loop();
+		printf(menu1);
+		fflush(stdout);
+		aborted = 0;
+
+		while(!aborted)
+		{
+			printf(entsel);
+			memset(cmdstr,0,sizeof(cmdstr));
+
+			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) continue;
+
+			if (!strchr(cmdstr,'!')) break;
+		}
+
+		if (aborted) continue;
+
+		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q'))
+		{
+			CloseTelnetConsole();
+			continue;
+		}
+
+		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r'))
+		{
+			CloseTelnetConsole();
+			printf(booting);
+			RTCM_Reset();
+		}
+
+		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x'))
+		{
+			break;
+		}
+
+		printf(" \n");
+		sel = atoi(cmdstr);
+
+		if ((sel >= 1) && (sel <= 2))
+		{
+			printf(entnewval);
+
+			if (aborted) continue;
+
+			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || 
+				((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6))))
+			{
+				printf(newvalnotchanged);
+				continue;
+			}
+
+			if (aborted) continue;
+		}
+
+		ok = 0;
+
+		switch(sel)
+		{
+			case 1: // Squelch Setting
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1023))
+				{
+					AppConfig.Squelch = i1;
+					ok = 1;
+				}
+				break;
+
+			case 2: // Hysteresis
+				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 100))
+				{
+					AppConfig.Hysteresis = i1;
+					ok = 1;
+				}
+				break;
+
+			case 99:
+				SaveAppConfig();
+				printf(saved);
+				continue;
+
+			default:
+				printf(invalselection);
+				continue;
+		}
+	}
+}
+
+
+/*****************************************************************************/
+//									     //
 //	MAIN Subroutine							     //
 //									     //
 /*****************************************************************************/
@@ -5543,9 +5654,9 @@ int main(void)
 		"97 - RX Level,  "
 		"98 - Status,  "
 		"99 - Save Values to EEPROM\n"
-		"i - IP Parameters menu, o - Offline Mode Parameters menu\n"
+		"i - IP Parameters menu, o - Offline Mode Parameters menu, s - Squelch menu\n"
 		"q - Disconnect Remote Console Session, r - reboot system, d - diagnostics\n\n",
-		entsel[] = "Enter Selection (1-27,97-99,r,q,d) : ";
+		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q,d) : ";
 
 
 	static ROM char oprdata[] = "S/W Version: %s\n"
@@ -5576,7 +5687,7 @@ int main(void)
 		"Current Samples / Sec.: %d\n"
 		"Current Peak Audio Level: %u\n",
 		oprdata8[] = 
-		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL pot %d\n",
+		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL Level %d, Hysteresis %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
 
@@ -5972,6 +6083,12 @@ int main(void)
 			OffLineMenu();
 			continue;
 		}
+
+		if ((strchr(cmdstr,'S')) || strchr(cmdstr,'s'))
+		{
+			SquelchMenu();
+			continue;
+		}
 #ifdef	GGPS
 		if ((strchr(cmdstr,'G')) || strchr(cmdstr,'g'))
 		{
@@ -6255,7 +6372,7 @@ int main(void)
 				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT]);
+				printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
@@ -6629,6 +6746,8 @@ static void InitAppConfig(void)
 	AppConfig.PPSPolarity = 2;
 	AppConfig.GPSTbolt = 0;
 	AppConfig.GPSOffset = 0;
+	AppConfig.Squelch = 400;
+	AppConfig.Hysteresis = 24;
 
 	#if defined(EEPROM_CS_TRIS)
 	{

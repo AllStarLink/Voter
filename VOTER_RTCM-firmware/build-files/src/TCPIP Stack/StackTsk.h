@@ -56,6 +56,7 @@
  *								STACK_USE_DNS, and STACK_USE_GENERIC_TCP_EXAMPLE
  * VE7FET		12/05/20 Add GPSTBolt
  * VE7FET		12/13/20 Add GPSOffset
+ * VE7FET		3/24/21 Add Squelch and Hysteresis
  ********************************************************************/
 #ifndef __STACK_TSK_H
 #define __STACK_TSK_H
@@ -166,7 +167,9 @@ typedef struct __attribute__((__packed__))
 	WORD CTCSSThreshold;
 	BYTE GPSTbolt;
 	DWORD GPSOffset;
-	BYTE Zeros[559];
+	WORD Squelch;
+	WORD Hysteresis;
+	BYTE Zeros[555];
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
