@@ -1,6 +1,6 @@
 How-to (Re-)Compile Firmware for the VOTER Board
 Lee Woldanski, VE7FET
-2017/08/08
+2021/03/024
 
 If you look in the votersystem.pdf, you will find a procedure to modify and load the bootloader in to
 the PIC of a VOTER board. 
@@ -96,6 +96,8 @@ Go to Project --> Build Configuration and select "Release". This may not be nece
 option is used in the firmware), but it removes the compiler option of __DEBUG being passed, so 
 theoretically it would build "normal" firmware.
 
+If you get license errors trying to build a "Release" version, just leave it in "DEBUG".
+
 Project --> Build All and it should build compile everything and show you "Build Succeeded".
 
 A voter.cry file should be in the board-firmware folder. You can load this with the ENC Loader.
@@ -104,6 +106,7 @@ There is also a .hex file in there that you could load with a programmer... but 
 the bootloader... so don't do that.
 
 
+***As of Version 2.00, "Chuck Squelch" is default, and the old code as been removed.***
 If you want to enable "Chuck Squelch", open the HardwareProfile.h and un-comment #define CHUCK. 
 
 You may also want to go down to Line 291 in Voter.c (right click on the window, go to Properties -->
