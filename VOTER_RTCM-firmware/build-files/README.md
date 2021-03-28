@@ -63,6 +63,8 @@ In addition, there is a "squelch tunable" in the firmware, called "hysteresis", 
 
 Therefore, this version adds a new (S)quelch menu, that lets you adjust the squelch level and hysteresis remotely.
 
-Note, due to space constraints in the PIC, the option to display the "diagnostic cable pinout" has been removed from the diagnostic meny. This allows us to have the option to select using the hardware squelch pot, or software squelch pot.
+Note, due to space constraints in the PIC, the option to display the "diagnostic cable pinout" has been removed from the diagnostic menu. This allows us to have the option to select using the hardware squelch pot, or software squelch pot.
 
 When using the software squelch setting, the change is immediate, but do not forget to save the EEPROM settings (99) when you are done your adjustment, to make it permanent.
+
+NOTE: ***You will need to manually set the Hysteresis to 24 and save, if you use this version.*** Hopefully, this will be resolved in a future release to set it to 24 by default.
