@@ -1,0 +1,9 @@
+This is a re-draw of the original VOTER Eagle schematics, using KiCAD 6.0.
+
+The original schematic has been broken up in to sheets, based on function. All of the analog signal processing is on one sheet, digital processing on another sheet, and I/O on another sheet.
+
+This is to allow for better visualisation of how the circuit functions.
+
+This schematic is correct and accurate as far as can be determined, however, use at your own risk.
+
+A PDF export is provided for review.
