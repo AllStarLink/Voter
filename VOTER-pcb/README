@@ -1,3 +1,7 @@
+The KiCAD folder contans a re-drawn version of the original Eagle 5.11 schematic contained in the voter-cad-rev-a file (see below).
+
+The schematic was re-drawn in 2022 to facilitate further development of the project. It should be accurate and functionally equvilatent to the original schematic, however some symbols have been changed.
+
 The voter-cad-rev-a.zip file contains the following:
 
 -Gerber files for the VOTER PCB
