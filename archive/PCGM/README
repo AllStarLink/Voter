@@ -1,0 +1,30 @@
+The PCGM is a Programmable Clock Generator Module.
+
+It was designed by Jim Dixon, but it looks like it was actually produced and sold by Micro-Node 
+(manufacturer of the RTCM, which is the SMT version of the VOTER).
+
+This is information from Jim about the PCGM, and the original prototype, the ClockSynth:
+
+The PCGM (Programmable Clock Generator Module) is a device used for some configurations
+of simulcast with the RTCM. For transmitters that can "swallow" a 10 MHz external reference clock source
+(such as the Motorola Quantar, etc), all you need is the output of the RTCM driving the direct
+modulation of the transmitter. For radios that do not have an external reference clock source
+(or have one, but not at 10MHz), the PCGM will take the 10Mhz reference from the GPSDO (generally
+a Trimble Thunderbolt) and "make" whatever frequency your transmitter needs for a reference
+(at least one of 17988 frequencies possible). Transmitters that do not have an external reference
+clock input at all generally need to be modified to disconnect the normal internal reference oscillator
+and make provisions to allow injection of the reference clock frequency from the PCGM.
+
+In addition the PCGM also generates the voltages (3 of them, I believe) to run the Trimble
+Thunderbolt, with a single (generally 12 volt) input to the PCGM.
+
+These devices are available for sale from the Micro-Node.Com site.
+
+There was also a question on the list about the ClockSynth project. This was merely an initial prototype
+to prove the base design of the PCGM. There were only 2 boards of this type built. They worked and
+demonstrated the validity of the general concept from which the PCGM was then based.
+Jim WB6NIL
+
+Unfortunately, there is very little information available on the PCGM, since it was manufacturered as a commercial 
+product. This appears to be the firmware for the PIC, by the looks of it, but the schematic is unknown 
+(please share if you have one).

@@ -1,0 +1,21 @@
+The KiCAD folder contans a re-drawn version of the original Eagle 5.11 schematic contained in the voter-cad-rev-a file (see below).
+
+The schematic was re-drawn in 2022 to facilitate further development of the project. It should be accurate and functionally equvilatent to the original schematic, however some symbols have been changed.
+
+The voter-cad-rev-a.zip file contains the following:
+
+-Gerber files for the VOTER PCB
+-Schematic, in .pdf and Eagle (~5.11)
+-Eagle board layout
+-Assembly drawing in .pdf
+-Bill of Materials
+
+Note that the BOM is circa 2011, and would need to be updated with currently available components, should you try and build it today.
+
+This is the original, open-source, through-hole VOTER design from Jim Dixon. It IS functional, and can be used with AllStarLink, just like the RTCM.
+
+The RTCM was a spin-off project, built and sold by Micro-Node. The RTCM is effectively the same as the VOTER, except the RTCM was designed and built with SMT components in order to make it more compact. In fact, they are so similar, they use the same firmware, except the RTCM needs a custom compilation for the SMT version of the dsPIC that it uses.
+
+In 2017 prices, the VOTER could be built for about half the cost of the RTCM, if you weren't worried about the form factor.
+
+The VOTER/RTCM are effectively custom "RoIP" adapters. That is, they convert analog audio to ethernet UDP packets. Audio is encoded with ulaw or ADPCM, and signalling is added to communicate between the host (AllStarLink chan_voter) and the client.
