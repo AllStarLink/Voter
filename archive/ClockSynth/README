@@ -1,0 +1,12 @@
+This was merely an initial prototype to prove the base design of the 
+PCGM (Programmable Clock Generator Module). 
+
+There were only 2 boards of this type built. They worked and demonstrated the 
+validity of the general concept from which the PCGM was then based.
+
+The PCGM was then manufactured and sold by Micro-Node.
+
+The ClockSynth takes 10MHz and converts it to 14.4MHz, the reference oscillator 
+used in the Motorola Maxtrac/Radius, and the like.
+
+The schematic here was supplied by Jim, and is believed to be accurate.
