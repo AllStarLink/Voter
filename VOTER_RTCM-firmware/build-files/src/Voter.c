@@ -2,8 +2,9 @@
 * VOTER Client System Firmware for VOTER board
 *
 * Copyright (C) 2011-2015
-* Jim Dixon, WB6NIL <jim@lambdatel.com>
-* Copyright (C) 2016-2021
+* Jim Dixon, WB6NIL (SK)
+* Copyright (C) 2016-2025
+* AllStarLink Inc.
 * Chuck Henderson, WB9UUS <wb9uus@liandee.com>
 * Lee Woldanski, VE7FET <ve7fet@gmail.com>
 * David Maciorowski, WA1JHK
@@ -1217,8 +1218,8 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void) {
 		/* True if this time we're processing other ADC channels (not RX Audio)
 		 * Divide by 4, effectively scaling the ADC value to 0x000-0x3ff (0-1023)
 		 * and increment the ADC channel index (used at the end to select the next channel)
-		 * adcothers[adcindex++] = index >> 2;
 		 */
+		adcothers[adcindex++] = index >> 2;
 		if (adcindex >= ADCOTHERS) {
 			adcindex = 0; /* Reset if we've already gone through all the channels */
 		}
