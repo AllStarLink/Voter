@@ -1,6 +1,6 @@
 ## Firmware Changelog
 
-## 3.01 12/26/2025
+## 3.01 12/28/2025
 Un-released version. 
 
 Code cleanup in the source to standardize formatting. There should be no functional changes over version 3.00. Version bumped for testing/tracking only.
