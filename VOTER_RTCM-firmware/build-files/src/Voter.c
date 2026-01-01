@@ -110,10 +110,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 12/30/2025";
+	char	VERSION[] = "3.10 BEW 1/1/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 12/30/2025";
+	char	VERSION[] = "3.10 1/1/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -274,8 +274,8 @@
 #define	QUALCOUNT 			4
 #define	DUPLEX3 			(AppConfig.Duplex3 != 0) /* Not supported in voting or simulcast configurations */
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	/* If the launch delay is anything but 0, use simulcast mode */
-#define	memclr(x,y) 	memset(x,0,y)
-#define ARPIsTxReady()	MACIsTxReady()
+#define	memclr(x,y) 		memset(x,0,y)
+#define ARPIsTxReady()		MACIsTxReady()
 
 /* Defines for GPS routines */
 #define	TSIP_FACTOR 57.295779513082320876798154814105 /* radians to degrees, Trimble reports lat/long in rads */
@@ -416,8 +416,8 @@ WORD txdrainindex;
 WORD last_drainindex;
 VTIME lastrxtime;
 VTIME system_time;
-VTIME last_rxpacket_time;
-VTIME last_rxpacket_sys_time;
+VTIME last_rxpacket_time; /* Host timestamp (from packet header) for the last audio packet to TX we received from the host */
+VTIME last_rxpacket_sys_time; /* OUR time when we last received an audio packet to TX from the host */
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
 BOOL ptt;
@@ -821,7 +821,7 @@ static ROM struct morse_bits mbits[] = {
 /* Define some CLI status messages and responses */
 ROM char 	gpsmsg1[] = "  GPS receiver active, waiting for acquisition",
 		gpsmsg2[] = "  GPS signal acquired, number of satellites locked = ",
-		gpsmsg3[] = "  Time now syncronized to GPS\n", 
+		gpsmsg3[] = "  Time now synchronized to GPS\n", 
 		gpsmsg5[] = "  Lost GPS time synchronization",
 		gpsmsg6[] = "  GPS signal lost entirely. Starting again...",
 		gpsmsg7[] = "  Warning: GPS data time period elapsed",
@@ -2792,7 +2792,7 @@ void process_gps(void)
 	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID) && (gps_fix) && (system_time.vtime_sec)) {
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime()); /* Print the current timestamp */
-		printf(gpsmsg3); /* Print "Time now synchonized to GPS" */
+		printf(gpsmsg3); /* Print "Time now synchronized to GPS" */
 		main_processing_loop();
 	}
 
@@ -2853,7 +2853,7 @@ void process_gps(void)
 		 */
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 	
-		/* If we didn't find any substings in the buffer, exit.
+		/* If we didn't find any substrings in the buffer, exit.
 		 * Otherwise, we're getting some data, so move to the next GPS_STATE.
 		 */
 		if (n < 1) {
@@ -2977,8 +2977,8 @@ void process_gps(void)
 		}
 
 		/* gps_nsat needs to be > 4. 3 are needed for a 2D fix, and 4 gives
-		 * us a 3D fix, since the 4th gives us time corections (allowing
-		 * for calulating altitude).
+		 * us a 3D fix, since the 4th gives us time corrections (allowing
+		 * for calculating altitude).
 		 *
 		 * Once we get to GPS_STATE_RECEIVED, see if we have more than 4
 		 * satellites in view, we have a valid fix, and gps_time contains
@@ -3081,10 +3081,10 @@ void process_gps(void)
 			}
 
 			/* Check status and alarms:
-			 * Field 8-9 (gps_buf[10]) - Criticl Alarms - it looks like only the lower byte (9)
+			 * Field 8-9 (gps_buf[10]) - Critical Alarms - it looks like only the lower byte (9)
 			 * is used for the alarms, so if Field 9 (gps_buf[10]) = 0, all should be well.
 			 *
-			 * Minor alarms are tricky (endianess)! gps_buf[11] is Bits 8-15 (only 8-12 are used),
+			 * Minor alarms are tricky (endianness)! gps_buf[11] is Bits 8-15 (only 8-12 are used),
 			 * gps_buf[12] is Bits 0-7
 			 * ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
 			 * gps_buf[11]=0x08 -> Almanac not complete
@@ -3781,7 +3781,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 
-					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF? */
+					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF?
+					 *
+					 * When we get an audio packet from the host:
+					 * - set last_rxpacket_time to the time from the HOST (from the packet header)
+					 * - set last_packet_sys_time to OUR current time
+					 */
 					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) || (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM)) {
 						long index,ndiff;
 						short mydiff;
@@ -5921,7 +5926,7 @@ int main(void)
 	BYTE i;
 	long mydiff,mydiff1;
 
-	static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, AllStarLink, Inc.\n";
+	static /*ROM*/ char signon[] = "\nVOTER Client System Version %s, AllStarLink, Inc.\n";
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
@@ -5970,12 +5975,12 @@ int main(void)
 		"VOTER Server IP: %d.%d.%d.%d\n", oprdata6[] = 
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
-		"GPS Lock: %d\n"
+		"GPS Lock: %s\n"
 		"PPS BAD or Wrong Polarity: %d\n"
 		"Connected: %d\n"
-		"COR: %d\n", oprdata7[] = 
-		"EXT CTCSS IN: %d\n"
-		"PTT: %d\n"
+		"COR: %s\n", oprdata7[] = 
+		"EXT CTCSS IN: %s\n"
+		"PTT: %s\n"
 		"RSSI: %d\n"
 		"Current Samples / Sec.: %d\n"
 		"Current Peak Audio Level: %u\n", oprdata8[] = 
@@ -6582,10 +6587,11 @@ int main(void)
 				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,ppsx,connected,lastcor);
+				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gps_fix ? "yes" : "no",ppsx,connected,lastcor ? "active" : "inactive");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
+				// printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
+				printf(oprdata7,HasCTCSS() ? "active or ignore" : "inactive",ptt ? "active" : "inactive",rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
 				if (AppConfig.Sqpot) {
@@ -6596,30 +6602,42 @@ int main(void)
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
-
+				/* If we have a curent system time, print it. */
 				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec) {
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				}
 
 				main_processing_loop();
 				secondary_processing_loop();
+				/* system_time is OUR time, last_rxpacket_sys_time is OUR time when we last received
+				 * an audio packet to TX from the host.
+				 *
+				 * This prints the last time we received a packet to TX, and how long ago that was from now.
+				 */
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				// printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				printf("Last time pkt rcvd to TX: %s, which was %ld ms ago\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
+				/* last_rxpacket_time is the HOST timestamp sent in the last audio packet header we received to TX
+				 * 
+				 * This prints that timestamp, and the difference between OUR time and the HOST time when that happened.
+				 */
 				mydiff = last_rxpacket_sys_time.vtime_sec - last_rxpacket_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				// printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				printf("Host timestamp of last pkt rcvd to TX: %s, diff from our time: %ld ms\n",logtime_p(&last_rxpacket_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
+				// printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
+				printf("Index of last pkt rcvd to TX: %ld, inbounds: %s\n",last_rxpacket_index,last_rxpacket_inbounds ? "yes" : "no");
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
