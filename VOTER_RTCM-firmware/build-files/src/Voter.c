@@ -58,7 +58,7 @@
  * NOTE: It would have been nicer to (1) use G.726 rather than this
  * ancient version of ADPCM, but G.726 was a bit too computationally
  * complex for this hardware platform, and (2) *not* to have to transcode
- * the TX audio into mulaw before outputting it, but there is no room in
+ * the TX audio into ulaw before outputting it, but there is no room in
  * RAM for signed linear audio of the necessary buffer size; sigh!
  *
  * Debug values:
@@ -92,7 +92,8 @@
  * GPS_STATE_IDLE - reset/starting state
  * GPS_STATE_RECEIVED - receiving data on the UART, print "GPS receiver active, waiting for acquisition"
  * GPS_STATE_VALID - see satellites and have set gps_time, print "GPS signal acquired..."
- *_GPS_STATE_SYNCED - have gpssync set, print "Time now synchonized to GPS"
+ *_GPS_STATE_SYNCED - have gpssync set with good pps or mix mode, valid GPS fix, and good time,
+ * print "Time now synchronized to GPS"
  *
  */
 
@@ -109,10 +110,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.02 BEW 12/30/2025";
+	char	VERSION[] = "3.10 BEW 1/1/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.02 12/30/2025";
+	char	VERSION[] = "3.10 1/1/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -273,8 +274,8 @@
 #define	QUALCOUNT 			4
 #define	DUPLEX3 			(AppConfig.Duplex3 != 0) /* Not supported in voting or simulcast configurations */
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	/* If the launch delay is anything but 0, use simulcast mode */
-#define	memclr(x,y)			memset(x,0,y)
-#define ARPIsTxReady()		MACIsTxReady() 
+#define	memclr(x,y) 		memset(x,0,y)
+#define ARPIsTxReady()		MACIsTxReady()
 
 /* Defines for GPS routines */
 #define	TSIP_FACTOR 57.295779513082320876798154814105 /* radians to degrees, Trimble reports lat/long in rads */
@@ -386,13 +387,15 @@ BOOL filled;
 BYTE audio_buf[2][FRAME_SIZE + 3];	/* Audio buffer array */
 BOOL set_atten(BYTE val);
 BOOL connected;		/* Connected to host */
+BOOL bootdone;		/* Set when main menu prints, so we can start GPS acquisition */
 BYTE rssi;		
 BYTE rssiheld;		
 BYTE gps_buf[160];	/* GPS receive buffer array */
 BYTE gps_bufindex;	/* GPS receive buffer array index pointer */
 BYTE TSIPwasdle;
 BYTE gps_state;		/* Current GPS state (idle, receiving, valid, synched) */ 
-BYTE gps_nsat;		/* Number of satellites in view (not necessarily locked) */
+BOOL gps_fix;		/* Set when we have a valid GPS fix */
+BYTE gps_nsat;		/* Number of satellites locked and being used for current fix */
 BOOL gpssync;		/* Set only when GPS_STATE_VALID */
 BOOL gotpps;		/* Set only when GPS_STATE_VALID and PPS is valid */
 DWORD gps_time;		/* GPS time in seconds */
@@ -413,8 +416,8 @@ WORD txdrainindex;
 WORD last_drainindex;
 VTIME lastrxtime;
 VTIME system_time;
-VTIME last_rxpacket_time;
-VTIME last_rxpacket_sys_time;
+VTIME last_rxpacket_time; /* Host timestamp (from packet header) for the last audio packet to TX we received from the host */
+VTIME last_rxpacket_sys_time; /* OUR time when we last received an audio packet to TX from the host */
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
 BOOL ptt;
@@ -739,7 +742,7 @@ ROM static int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-/* Configure CW/Mose tone settings used for ID in Offline Mode */
+/* Configure CW/Morse tone settings used for ID in Offline Mode */
 #define CWTONELEN 10 /* 10 samples of tone? */
 
 /* These should be the ulaw samples to set the pitch of the CW tone */
@@ -816,22 +819,22 @@ static ROM struct morse_bits mbits[] = {
 };
 
 /* Define some CLI status messages and responses */
-ROM char 	gpsmsg1[] = "\nGPS receiver active, waiting for acquisition\n", 
-		gpsmsg2[] = "\nGPS signal acquired, number of satellites in view = ",
-		gpsmsg3[] = "  Time now syncronized to GPS\n", 
-		gpsmsg5[] = "  Lost GPS time synchronization\n",
-		gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",
-		gpsmsg7[] = "  Warning: GPS data time period elapsed\n",
-		gpsmsg8[] = "  Warning: GPS PPS signal time period elapsed\n",
-		gpsmsg9[] = "GPS signal acquired\n",
+ROM char 	gpsmsg1[] = "  GPS receiver active, waiting for acquisition",
+		gpsmsg2[] = "  GPS signal acquired, number of satellites locked = ",
+		gpsmsg3[] = "  Time now synchronized to GPS\n", 
+		gpsmsg5[] = "  Lost GPS time synchronization",
+		gpsmsg6[] = "  GPS signal lost entirely. Starting again...",
+		gpsmsg7[] = "  Warning: GPS data time period elapsed",
+		gpsmsg8[] = "  Warning: GPS PPS signal time period elapsed",
+		gpsmsg9[] = "  GPS signal acquired",
 		entnewval[] = "Enter New Value : ", 
 		newvalchanged[] = "Value Changed Successfully\n",
 		saved[] = "Configuration Settings Written to EEPROM\n";
 
 char 	newvalerror[] = "Invalid Entry, Value Not Changed\n", 
 		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		badmix[] = "  ERROR! Host rejecting connection\n",
-		hosttmomsg[] = "  ERROR! Host response timeout\n";
+		badmix[] = "  ERROR! Host rejecting connection",
+		hosttmomsg[] = "  ERROR! Host response timeout";
 
 /* Configure some of the CLI display strings and put them in ROM */
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
@@ -986,7 +989,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 			 * reset samplecnt, and exit the ISR. */
 			if ((gps_state == GPS_STATE_VALID) && (!gotpps)) {
 				TMR3 = 0;	/* Reset the Timer 3 register */
-				gotpps = 1;	/* GPS is good, so PPS must be good (that seems presumptious) */
+				gotpps = 1;	/* GPS is good, so PPS must be good (that seems presumptuous) */
 				samplecnt = 0;
 				fillindex = 0;
 			}
@@ -1161,6 +1164,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						}
 
 						/* Assert gpssync only once we reach GPS_STATE_VALID */
+						/*! \todo VE7FET why do we add 1 second to gps_time? */
 						if ((!gpssync) && (gps_state == GPS_STATE_VALID)) {
 							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
 							gpssync = 1;
@@ -1176,7 +1180,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 			samplecnt = 0;
 		}
 	}
-	IFS1bits.CNIF = 0;	/* Clear the CN interript flag, we're done! */
+	IFS1bits.CNIF = 0;	/* Clear the CN interrupt flag, we're done! */
 }
 
 /*****************************************************************************/
@@ -1639,6 +1643,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	if (SIMULCAST_ENABLE && USE_PPS) {
 		index = last_index1;
 
+		/*! \todo VE7FET can we ever get here in non-PPS mode? I don't think so. */
 		if (gotpps || (!USE_PPS)) {
 			if (fillindex == 0) {
 				next_index = samplecnt;
@@ -1917,10 +1922,10 @@ void SetPTT(BOOL val)
 //   				 ASEL1 = RB3 (Pin 24), setting to 1 is PL Filter IN,	//
 // 					 setting to 0 is PL Filter OUT							//
 //					 ASEL2 = RB2 (Pin 23), Setting to 1 is NO de-emphasis,	//
-// 					 setting to 0 is de-emphazised							//
+// 					 setting to 0 is de-emphasized							//
 //																			//
 //   				 myflags holds the bitmask								//
-//   				 myflags 0 = de-emphazised,  PL filtered				//
+//   				 myflags 0 = de-emphasized,  PL filtered				//
 //   				 myflags 1 = no de-emphasis, PL filtered				//
 //   				 myflags 4 = de-emphasized,  no PL filter				//
 //   				 myflags 5 = no de-emphasis, no PL filter				//
@@ -2096,7 +2101,7 @@ void IOExpInit(void)
 	IOExp_Write(IOEXP_IODIRA,0xD0);
 	/* Configure GPB0-GPB7 
 	 * 0xF3 = 1111 0011 (7:0)
-	 * GPB0 (Pin 1) IN JP10 Calibate Diode
+	 * GPB0 (Pin 1) IN JP10 Calibrate Diode
 	 * GPB1 (Pin 2) IN JP11 LED 3/4 RX Level Mode
 	 * GPB2 (Pin 3) OUT ASEL1 Audio Select 1
 	 * GPB3 (Pin 4) OUT ASEL2 Audio Select 2
@@ -2190,10 +2195,10 @@ void SetPTT(BOOL val)
 // 					 		 setting to 0 is PL Filter OUT					//
 //					 ASEL2 = IOExpOutB mask Bit 8 = GPB3,					//
 // 							 setting to 1 is NO de-emphasis,				//
-// 					 		setting to 0 is de-emphazised					//
+// 					 		setting to 0 is de-emphasized					//
 //																			//
 //   				 myflags holds the bitmask								//
-//   				 myflags 0 = de-emphazised,  PL filtered				//
+//   				 myflags 0 = de-emphasized,  PL filtered				//
 //   				 myflags 1 = no de-emphasis, PL filtered				//
 //   				 myflags 4 = de-emphasized,  no PL filter				//
 //   				 myflags 5 = no de-emphasis, no PL filter				//
@@ -2296,6 +2301,12 @@ BOOL HasCOR(void)
 // 		Returns: Ignore (normal), Non-Inverted (qualified), and				//
 // 				 Inverted (qualified) all return 1							//
 // 				 If we are in diagnostic mode, return 0						//
+// 																			//
+// 		Remarks: "Ignore CTCSS" (ExternalCTCSS = 0) forces this function	//
+// 				 to return 1 always, which is interpreted elsewhere as		//
+// 				 CTCSS being qualified always. Not really the best way to	//
+// 				 do it, but because of space constraints, it will have to	//
+// 				 do.														//
 // 				 															//
 //																			//
 /****************************************************************************/
@@ -2577,9 +2588,9 @@ DWORD ntohl(DWORD x)
 //		Read NMEA Packet Subroutine											//
 //																			//
 // 		Description: Read UART2 for NMEA GPS packets. NMEA uses				//
-// 					 $GPRMC, $GPGGA, and $GPGSV								//
+// 					 $GPRMC, $GPGGA											//
 // 																			//
-// 		Returns: 1 if we suceed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf			//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -2615,9 +2626,9 @@ BOOL getGPSStr(void)
 //																			//
 //		Read TSIP Packet Subroutine											//
 //																			//
-// 		Description: Read UART2 for binary Timble TSIP packets				//
+// 		Description: Read UART2 for binary Trimble TSIP packets				//
 // 																			//
-// 		Returns: 1 if we suceed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf		//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -2680,8 +2691,8 @@ static char *logtime_p(VTIME *p)
 {
 	time_t	t;
 	static char str[50];
-	static ROM char notime[] = "<System Time Not Set>",
-	logtemplate[] = "%m/%d/%Y %H:%M:%S";
+	static ROM char notime[] = "\n<No Time Available>",
+	logtemplate[] = "\n%m/%d/%Y %H:%M:%S";
 
 	t = p->vtime_sec;
 	
@@ -2743,14 +2754,15 @@ void process_gps(void)
 	int n;
 	char *strs[30];
 	static ROM char gpgga[] = "$GPGGA",
-				gpgsv[] = "$GPGSV", 
 				gprmc[] = "$GPRMC";
 
 	/* Please see doubleify.c for explanation of this poo-poo */
 	extern float doubleify(BYTE *p);
 	
-	/* Don't process GPS if we're in diagnostic mode. */
-	if (indiag) {
+	/* Don't process GPS if we're in diagnostic mode, or we haven't finished
+	 * printing the main menu (so our status messages don't mess things up).
+	 */
+	if (indiag || !bootdone) {
 		return;
 	}
 
@@ -2771,11 +2783,16 @@ void process_gps(void)
 	 *
 	 * Once we hit this state, we switch to GPS_STATE_SYNCED, which is
 	 * our final state.
+	 *
+	 * BUT, make sure we have a good fix (gps_fix) and there is
+	 * something in system_time.vtime_sec before we proceed. Note, we
+	 * can't use gps_time here, because it may be non-zero due to
+	 * fudge factors.
 	 */
-	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID)) {
+	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID) && (gps_fix) && (system_time.vtime_sec)) {
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime()); /* Print the current timestamp */
-		printf(gpsmsg3); /* Print "Time now synchonized to GPS" */
+		printf(gpsmsg3); /* Print "Time now synchronized to GPS" */
 		main_processing_loop();
 	}
 
@@ -2784,11 +2801,14 @@ void process_gps(void)
 	 * dump our host connection and reset a bunch of other vars to
 	 * get reset to start again.
 	 */
+	 /*! \todo VE7FET maybe we should go back to GPS_STATE_IDLE here? */
 	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED)) {
-		gps_state = GPS_STATE_VALID;
+		//gps_state = GPS_STATE_VALID;
+		gps_state = GPS_STATE_IDLE;
 		printf(logtime()); /* Print the current timestamp */
 		printf(gpsmsg5); /* Print Lost GPS Time synchronization */
 
+		gps_fix = 0;
 		connected = 0;
 		txseqno = 0;
 		txseqno_ptt = 0;
@@ -2809,12 +2829,16 @@ void process_gps(void)
 			return;
 		}
 
-		/* If DebugLevel is set to 32, print the $GPRMC string we
-		 * got from the GPS.
+		/* If DebugLevel is set to 32, print the $GPRMC and $GPGGA
+		 * strings we got from the GPS.
 		 */
-		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc)) {
-			printf("GPS-DEBUG: %s\n",gps_buf);
-		
+		if (AppConfig.DebugLevel & 32) {
+			if (strstr((char *)gps_buf,gprmc)) {
+				printf("GPS-DEBUG: %s\n",gps_buf);
+			}
+			if (strstr((char *)gps_buf,gpgga)) {
+				printf("GPS-DEBUG: %s\n",gps_buf);
+			}
 			/* If PPS is bad (ppsx = 1), and we are expecting to have
 			 * PPS working (PPSPolarity is 0 or 1), throw a message to
 			 * check the PPS config.
@@ -2829,31 +2853,78 @@ void process_gps(void)
 		 */
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 	
-		/* Didn't find any substings in the buffer, so exit. */
+		/* If we didn't find any substrings in the buffer, exit.
+		 * Otherwise, we're getting some data, so move to the next GPS_STATE.
+		 */
 		if (n < 1) {
 			return;
+		} else if (gps_state == GPS_STATE_IDLE) {
+			gps_state = GPS_STATE_RECEIVED;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
 		}
-	
-		/* Is this a $GPGSV NMEA string in the buffer?
-		 * Yes? Did we find more than 4 substrings?
-		 * Yes? Then get the number of satellites in view from field 3 and
-		 * put it in gps_nsat, then exit.
+
+		/* We got a GPS packet, so reset the timeout warning status each time we come through.
+		 * If we stop receiving data that we can decode, this is going to trigger warnings.
 		 */
-		/*! \todo VE7FET this is the wrong thing to use. We don't care
-		 * how many satellites we can see (from $GPGSV), we should be 
-		 * using the number of satellites in use (fom $GPGGA) for our
-		 * fix.
+		gpstimer = 0;
+		gpswarn = 0;
+
+		/* We will start by processing the $GPGGA string. This will tell us whether we
+		 * have a valid GPS fix, how many satellites we are using for the fix, and our
+		 * lat/long and elevation.
+		 *
+		 * Example $GPGGA string:
+		 * $GPGGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh
+		 *
+		 * Is this the $GPGGA NMEA string in the buffer?
+		 * Yes? Did we find more than 14 substrings?
+		 * Yes? Then let's do something with it.
+		 * Get the lat/long and elevation.
+		 * Get the quality of fix from field 6 and set gps_fix if it is non-zero:
+		 * 0 = no fix
+		 * 1 = GPS fix
+		 * 2 = DGPS fix
+		 * Then get the number of satellites being used for our current
+		 * fix from field 7 and put it in gps_nsat, then exit.
 		 */
-		if (!strcmp(strs[0],gpgsv)) {
-			if (n >= 4) gps_nsat = atoi(strs[3]);
-			return;
+		if (!strcmp(strs[0],gpgga)) {
+			/* If we didn't decode 14 fields in the message, exit. */
+			if (n < 14) {
+				return;
+			}
+
+			/* Get the GPS type of fix (quality)
+			 * 0 - No Fix
+			 * 1 - GPS Fix
+			 * 2 - DGPS Fix
+			 * If it is non-zero, we have a good fix, set gps_fix.
+			 */
+			 if (atoi(strs[6])) {
+				gps_fix = 1;
+			 }
+
+			/* If we don't have a valid fix, no point in getting this stuff. */
+			if (gps_fix) {
+				/* Get the lat/long and elevation */
+				memclr(&gps_packet,sizeof(gps_packet));
+				strncpy(gps_packet.lat,strs[2],7);
+				gps_packet.lat[7] = *strs[3];
+				strncpy(gps_packet.lon,strs[4],8);
+				gps_packet.lon[8] = *strs[5];
+				strncpy(gps_packet.elev,strs[9],6);
+
+				/* Get the number of satellites used for the fix */
+				gps_nsat = atoi(strs[7]);
+			}
 		}
-	
+
 		/* Is this a $GPRMC NMEA string in the buffer?
+		 * Do we have a valid fix (no point in looking for time until we do)?
 		 * Yes? Let's process it.
 		 * 
 		 */
-		if (!strcmp(strs[0],gprmc)) {
+		if (!strcmp(strs[0],gprmc) && (gps_fix)) {
 			struct tm tm;
 	
 			/* If we didn't decode all 10 fields in the message, exit. */
@@ -2890,67 +2961,40 @@ void process_gps(void)
 				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 			}
 			/* If DebugLevel is set to 32, print the debug message:
-			 * mon: month
 			 * gps_time: the value of gps_time (time since epoch)
 			 * ctime: human readable format of gps_time
 			 */
 			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+				printf("GPS-DEBUG: gps_time: %ld, %s\n",gps_time,ctime((time_t *)&gps_time));
 			}
-			/* For a mix mode client, set the following vars to gps_time + 1 seconds. */
+			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
+			 * We don't need to qualify PPS (and set gpssync).
+			 */
+			/*! \todo VE7FET why do we add 1 second to gps_time? */
 			if (!USE_PPS) {
 				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
-			return;
-		}
-	
-		/*! \todo VE7FET this is probably unnecessary. So what if we
-		 * have less than 7 elements in the gps_buf? Are we thinking
-		 * we are looking at $GPGGA by default?
-		 */
-		if (n < 7) {
-			return;
-		}
-	
-		/*! \todo VE7FET The $GPGGA string is the GPS Fix Data string. We should
-		 * probably do something with this, as it can tell us whether our fix
-		 * is valid (would be in strs[6], > 0 is a valid fix), and number of
-		 * satellites used for the current fix (strs[7]), which should be put
-		 * in gps_nsat.
-		 */
-		if (strcmp(strs[0],gpgga)) {
-			return;
-		}
-	
-		/* Reset the gpswarn and gpstimer timers. */
-		gpswarn = 0;
-		gpstimer = 0;
-	
-		/* If we entered the process_gps function at GPS_STATE_IDLE (which we should, since
-		* the default is IDLE), move to the next step, GPS_STATE_RECEIVED since we
-		* have received at least one packet from the GPS.
-		*/
-		if (gps_state == GPS_STATE_IDLE) {
-			gps_state = GPS_STATE_RECEIVED;
-			gpstimer = 0;
-			gpswarn = 0;
-			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
 		}
 
-		/* If we are looking at $GPGGA, this would be the type of fix we have:
-		 * 0 = no fix
-		 * 1 = GPS fix
-		 * 2 = DGPS fix
+		/* gps_nsat needs to be > 4. 3 are needed for a 2D fix, and 4 gives
+		 * us a 3D fix, since the 4th gives us time corrections (allowing
+		 * for calculating altitude).
+		 *
+		 * Once we get to GPS_STATE_RECEIVED, see if we have more than 4
+		 * satellites in view, we have a valid fix, and gps_time contains
+		 * something (hopefully a time fix), then we can move to GPS_STATE_VALID.
 		 */
-		n = atoi(strs[6]);
-	
-		/* Check the fix, if it isn't 1 or 2 (see above) then we've lost our fix,
+		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 4) && gps_fix && gps_time) {
+			gps_state = GPS_STATE_VALID;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg2); /* Print GPS signal acquired, number of satellites locked =" */
+			printf("%d",gps_nsat);
+		}
+
+		/* Check the fix, if it isn't valid, then we've lost our fix,
 		 * so go back to GPS_STATE_IDLE, and start again.
 		 */
-		 /*! \todo VE7FET this should be part of the $GPGGA IF that is missing, not
-		  * sure how it functions as it is now.
-		  */
-		if ((n < 1) || (n > 2)) {
+		if (!gps_fix) {
 			/* If we are in GPS_STATE_RECEIVED, we haven't got to GPS_STATE_VALID
 			 * yet, so just exit and we'll try again next time. If, on the other
 			 * hand, we are in any of the other states, and we lost our fix, we
@@ -2980,33 +3024,6 @@ void process_gps(void)
 				SetAudioSrc();
 			}
 		}
-
-		/*! \todo VE7FET we should change gps_nsat to be > 4. 3 are needed
-		 * for a 2D fix, and 4 gives us a 3D fix, since the 4th gives us
-		 * time corections (allowing for calulating altitude). >0 is dumb.
-		 * Remember to update the manual.
-		 */
-		/* Once we get to GPS_STATE_RECEIVED, see if we have more than 0
-		 * satellites in view, and gps_time contains something (hopefully
-		 * a time fix), then we can move to GPS_STATE_VALID.
-		 */
-		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time) {
-			gps_state = GPS_STATE_VALID;
-	
-			printf(gpsmsg2); /* Print GPS signal acquired, number of satellites in view =" */
-			printf("%d\n",gps_nsat);
-		}
-	
-		/*! \todo VE7FET what the heck? This sets the lat/lon/elv, but the
-		 * strs fields it is using are from $GPGGA, which we didn't do anything
-		 * with above? This makes no sense, need to move this into the $GPGGA IF.
-		 */
-		memclr(&gps_packet,sizeof(gps_packet));
-		strncpy(gps_packet.lat,strs[2],7);
-		gps_packet.lat[7] = *strs[3];
-		strncpy(gps_packet.lon,strs[4],8);
-		gps_packet.lon[8] = *strs[5];
-		strncpy(gps_packet.elev,strs[9],6);
 	} else { /* Is a Trimble TSIP Device */
 	/* We are looking for two types of packets from TSIP devices:
 	 * The 0x8f-ab Primary Timing Packet
@@ -3023,13 +3040,126 @@ void process_gps(void)
 			return;
 		}
 
-		/* If we didn't get the 0x8f header, exit. */
+		/* If we didn't find the 0x8f header, exit.
+		 * Otherwise, we're getting some data, so move to the next GPS_STATE.
+		 */
 		if (gps_buf[0] != 0x8f) { /* "Superpacket" Header */
 			return;
+		} else if (gps_state == GPS_STATE_IDLE) {
+			gps_state = GPS_STATE_RECEIVED;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
+		}
+
+		/* We got a GPS packet, so reset the timeout warning status each time we come through.
+		 * If we stop receiving data that we can decode, this is going to trigger warnings.
+		 */
+		gpstimer = 0;
+		gpswarn = 0;
+
+		/* Process the Supplemental Timing Packet to look for status/alarms,
+		 * and get the lat/long and elev.
+		 */
+		if (gps_buf[1] == 0xac) { /* AC is the Supplemental Timing Packet */
+
+			int x,y;
+			float f;
+
+			/* Check Receiver Mode and Discipline Mode
+			 * Field 1 (gps_buf[2]) - Receiver Mode - either want to see:
+			 * 		0 (automatic 2D/3D)
+			 *		4 (full position 3D)
+			 *		5 (DGPS reference)
+			 * 		7 (overdetermined clock)
+			 * Field 2 (gps_buf[3]) - Discipline Mode - want to see 0 = normal
+			 *
+			 * If we see all that, we'll set gps_fix (that's the best we can do with
+			 * Trimble).
+			 */
+			if ((!(gps_buf[2]) || (gps_buf[2] = 4) || (gps_buf[2] = 5) || (gps_buf[2] = 7)) && !(gps_buf[3])) {
+				gps_fix = 1;
+			}
+
+			/* Check status and alarms:
+			 * Field 8-9 (gps_buf[10]) - Critical Alarms - it looks like only the lower byte (9)
+			 * is used for the alarms, so if Field 9 (gps_buf[10]) = 0, all should be well.
+			 *
+			 * Minor alarms are tricky (endianness)! gps_buf[11] is Bits 8-15 (only 8-12 are used),
+			 * gps_buf[12] is Bits 0-7
+			 * ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
+			 * gps_buf[11]=0x08 -> Almanac not complete
+			 * We will mask off bits 8-12 using a mask of 0x1f.
+			 * Regardless, all 0 is all good.
+			 *
+			 * Field 12 (gps_buf[13]) - GPS Decoding Status - 0=doing fixes and all is well
+			 *
+			 * Field 13 (gps_buf[14]) - Discipline Activity - 0=phase locked and all is well
+			 *
+			 * We're going to re-purpose the gps_nsat global variable here (space constraints).
+			 */
+			if ((!gps_buf[10]) && (!(gps_buf[11] & 0x1f) && !(gps_buf[12])) && (!gps_buf[13]) && (!gps_buf[14])) {
+				gps_nsat = 1; /* Everything is happy */
+			}
+
+			/* Determine the latitude (have to convert from radians to degrees) */
+			memclr(&gps_packet,sizeof(gps_packet));
+			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
+			x = (int) f;
+			f -= (float) x;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			f *= 60.0;
+			y = (int) f;
+			f -= (float) y;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			if (x < 0) {
+				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
+			} else {
+				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
+			}
+
+			/* Determine the longitude (have to convert from radians to degrees) */
+			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
+			x = (int) f;
+			f -= (float) x;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			f *= 60.0;
+			y = (int) f;
+			f -= (float) y;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			if (x < 0) {
+				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
+			} else {
+				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
+			}
+
+			/* Determine the elevation */
+			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
+
+			if (AppConfig.DebugLevel & 32) {
+				printf("GPS-DEBUG: TSIP: Alm ok? %s, 2: %i ,3: %i, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
+					gps_nsat ? "yes" : "no",gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+			}
 		}
 
 		/* Is this a Primary Timing Packet we're processing? */
 		if (gps_buf[1] == 0xab) { /* AB is the Primary Timing Packet */
+
 			struct tm tm;
 			WORD w;
 	
@@ -3080,12 +3210,12 @@ void process_gps(void)
 			}
 			
 			/* If DebugLevel is set to 32, print the debug string:
-			 * gps_epoch_time: should be corrected UTC time (gps_time)
+			 * gps_time: should be corrected to UTC time
 			 * ctime: human readable gps_time
-			 * gps_week: the GPS week the Trimble thinks it is
+			 * gps_week: the GPS week the Trimble "thinks" it is
 			 */
 			if (AppConfig.DebugLevel & 32) {
-			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
+				printf("GPS-DEBUG: gps_time: %ld, %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
 				/* If PPS is bad (ppsx = 1), and we are expecting to have
 			 	 * PPS working (PPSPolarity is 0 or 1), throw a message to
 			 	 * check the PPS config.
@@ -3095,169 +3225,57 @@ void process_gps(void)
 				}
 			}
 
-			/*! \todo VE7FET **BUG** there is a bug here somewhere, because in mix mode,
-			 * logtime is returning <System Time Not Set>, when it should be
+			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
+			 * We don't need to qualify PPS (and set gpssync).
 			 */
-			/* For a mix mode client, set the following vars to gps_time + 1 seconds. */
+			/*! \todo VE7FET why do we add 1 second to gps_time? */
 			if (!USE_PPS) {
-				system_time.vtime_sec = timing_time = gps_time + 1;
+				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
-		 	return;
 		}
 
-		/* Are we processing the Supplemental Timing Packet to look for status/alarms? */
-		if (gps_buf[1] == 0xac) { /* AC is the Supplemental Timing Packet */
-			BOOL happy;
-			int x,y;
-			float f;
+		/* We can't get the number of sats used for the fix for a Trimble,
+		 * so we will use the type of fix (determined above and put in
+		 * gps_fix) for our state.
+		 *
+		 * Once we get to GPS_STATE_RECEIVED, see if we have a good fix, and gps_time
+		 * contains something (hopefully a time fix), then we can move to GPS_STATE_VALID.
+		 */
+		if ((gps_state == GPS_STATE_RECEIVED) && gps_fix && gps_time) {
+			gps_state = GPS_STATE_VALID;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg9); /* Print "GPS signal acquired" */
+		}
 
-			/*! \todo VE7FET this logic is backwards... need to fix it to make more sense */
-			happy = 1; /* Set to false if the GPS is happy. */
-
-			if (gps_buf[13]) { /* GPS Decoding Status - 0=doing fixes */
-				happy = 0;
-			}
-
-			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) { /* Discipline Activity, Phase Locked and Recovery Mode? */
-				happy = 0;
-			}
-
-			if (gps_buf[9] || gps_buf[10]) { /* 0=No Critical Alarms */
-				happy = 0;
-			}
-
-			if ((gps_buf[11] & 0x1f) | gps_buf[12]) { /* 0=No Minor Alarms */
-				happy = 0;
-			}
-			/* Minor alarms are tricky! gps_buf[11] is Bits 8-12, gps_buf[12] is Bits 0-7
-			 * ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
-			 * gps_buf[11]=0x08 -> Almanac not complete 
+		if ((!gps_nsat) || !(gps_fix)) {
+			/* If we are in GPS_STATE_RECEIVED, we haven't got to GPS_STATE_VALID
+			 * yet, so just exit and we'll try again next time. If, on the other
+			 * hand, we are in any of the other states, and we lost our fix, or
+			 * the GPS is in alarm, we will continue with stating over.
 			 */
-
-			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-					happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+			if (gps_state == GPS_STATE_RECEIVED) {
+				return;
 			}
 
-			gpswarn = 0;
-			gpstimer = 0;
+			gps_state = GPS_STATE_IDLE; /* Move back to GPS_STATE_IDLE */
+			printf(logtime()); /* Print current timestamp */
+			printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
 
-			/* If we entered the process_gps function at GPS_STATE_IDLE (which we should, since
-			 * the default is IDLE), move to the next step, GPS_STATE_RECEIVED since we
-			 * have received at least one packet from the GPS.
+			/* If this is a VOTER client, disconnect from the host, and reset vars
+			 * to start again.
 			 */
-			if (gps_state == GPS_STATE_IDLE) {
-				gps_state = GPS_STATE_RECEIVED;
-				gpstimer = 0;
-				gpswarn = 0;
-				printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
-			}
-
-			/* !happy is actually good... ugh */
-			if (!happy) {
-				/* If we are in GPS_STATE_RECEIVED, we haven't got to GPS_STATE_VALID
-			 	 * yet, so just exit and we'll try again next time. If, on the other
-			 	 * hand, we are in any of the other states, and we lost our fix, we
-			 	 * will continue with stating over.
-			 	 */
-				if (gps_state == GPS_STATE_RECEIVED) {
-					return;
-				}
-
-				gps_state = GPS_STATE_IDLE; /* Move back to GPS_STATE_IDLE */
-				printf(logtime()); /* Print current timestamp */
-				printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
-
-				/* If this is a VOTER client, disconnect from the host, and reset vars
-			 	 * to start again.
-			 	 */
-				if (USE_PPS) {
-					connected = 0;
-					txseqno = 0;
-					txseqno_ptt = 0;
-					resp_digest = 0;
-					digest = 0;
-					their_challenge[0] = 0;
-					lastrxtimer = 0;
-					SetAudioSrc();
-				}
-
+			if (USE_PPS) {
+				connected = 0;
+				txseqno = 0;
+				txseqno_ptt = 0;
+				resp_digest = 0;
+				digest = 0;
+				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				lastrxtimer = 0;
+				SetAudioSrc();
 			}
-
-			/*! \todo VE7ET Fix this... TSIP doesn't seem to report number of
-			 * sats being used for the fix, so the next best thing would be
-			 * to use gus_buf[2] which should be Receiver Mode:
-			 * 0 - Automatic (2D/3D)
-			 * 4 - Full Position (3D)
-			 * 5 - DGPS Reference
-			 * Make a local var for that and use it below?
-			 */
-			gps_nsat = 3; /* Hah, we're faking the number of received sats. */
-
-			/*! \todo VE7FET we should change gps_nsat to be > 4. 3 are needed
-			 * for a 2D fix, and 4 gives us a 3D fix, since the 4th gives us
-		 	 * time corections (allowing for calulating altitude). >0 is dumb.
-		 	 * Remember to update the manual. Except... see above.
-		 	 */
-			/* Once we get to GPS_STATE_RECEIVED, see if we have more than 0
-		 	 * satellites in view, and gps_time contains something (hopefully
-		 	 * a time fix), then we can move to GPS_STATE_VALID.
-		 	 */
-			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time) {
-				gps_state = GPS_STATE_VALID;
-				printf(gpsmsg9); /* Print "GPS signal acquired" */
-			}
-
-			/* From here to the end of this IF, we get the lat/long (and convert from rads),
-			 * and the elevation, and stuff it in the gps_packet.
-			 */
-			memclr(&gps_packet,sizeof(gps_packet));
-			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
-			x = (int) f;
-			f -= (float) x;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			f *= 60.0;
-			y = (int) f;
-			f -= (float) y;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			if (x < 0) {
-				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
-			} else {
-				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
-			}
-			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
-			x = (int) f;
-			f -= (float) x;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			f *= 60.0;
-			y = (int) f;
-			f -= (float) y;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			if (x < 0) {
-				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
-			} else {
-				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
-			}
-			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
-			return;
 		}
 	}
 	return;
@@ -3447,7 +3465,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		/* Store output samples in bit-reversed order of their addresses */
 		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
 	 
-		/* Compute the square magnitude of the complex FFT output array so we have a real output vetor */
+		/* Compute the square magnitude of the complex FFT output array so we have a real output vector */
 		SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
 	
 		wp = (unsigned int *)&sigCmpx[0];
@@ -3486,7 +3504,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 #endif /* DSPBEW */
 			/* This is our main UDP send routine. We will always send a packet if:
 			 *
-			 * We don't have a host connection establihed yet AND it is time to try again
+			 * We don't have a host connection established yet AND it is time to try again
 			 * OR
 			 * We have something to send anyways (tosend)
 			 * AND
@@ -3557,7 +3575,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 				} else {
-					/* If we're a mix mode client, put the flag in the packe to
+					/* If we're a mix mode client, put the flag in the packet to
 					 * send to the host.
 					 */
 					if (!USE_PPS) {
@@ -3601,7 +3619,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			gps_packet.vph.digest = htonl(resp_digest);
 			gps_packet.vph.payload_type = htons(PAYLOAD_GPS);
 			
-			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+			// Send elements one at a time -- SWINE dsPIC33 architecture!!!
 			cp = (BYTE *) &gps_packet.vph;
 			for (i = 0; i < sizeof(gps_packet.vph); i++) {
 				UDPPut(*cp++);
@@ -3678,7 +3696,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
 				
 					/* If the digest we received matches the digest we got off the wire
-					 * (Host Password maches), we're off to the races, assert that we're
+					 * (Host Password matches), we're off to the races, assert that we're
 					 * now connected to the host, and away we go.
 					 */
 					if (mydigest == ntohl(audio_packet.vph.digest)) {
@@ -3751,7 +3769,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(PAYLOAD_PING);
 
-							 	/* Send elements one at a time -- SWINE dsPIC33 archetecture!!! */
+							 	/* Send elements one at a time -- SWINE dsPIC33 architecture!!! */
 								cp = (BYTE *) &audio_packet.vph;
 								for(i = 0; i < n; i++) {
 									UDPPut(*cp++);
@@ -3763,7 +3781,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 
-					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF? */
+					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF?
+					 *
+					 * When we get an audio packet from the host:
+					 * - set last_rxpacket_time to the time from the HOST (from the packet header)
+					 * - set last_packet_sys_time to OUR current time
+					 */
 					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) || (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM)) {
 						long index,ndiff;
 						short mydiff;
@@ -5903,7 +5926,7 @@ int main(void)
 	BYTE i;
 	long mydiff,mydiff1;
 
-	static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
+	static /*ROM*/ char signon[] = "\nVOTER Client System Version %s, AllStarLink, Inc.\n";
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
@@ -5952,18 +5975,19 @@ int main(void)
 		"VOTER Server IP: %d.%d.%d.%d\n", oprdata6[] = 
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
-		"GPS Lock: %d\n"
+		"GPS Lock: %s\n"
 		"PPS BAD or Wrong Polarity: %d\n"
 		"Connected: %d\n"
-		"COR: %d\n", oprdata7[] = 
-		"EXT CTCSS IN: %d\n"
-		"PTT: %d\n"
+		"COR: %s\n", oprdata7[] = 
+		"EXT CTCSS IN: %s\n"
+		"PTT: %s\n"
 		"RSSI: %d\n"
 		"Current Samples / Sec.: %d\n"
 		"Current Peak Audio Level: %u\n", oprdata8[] = 
 		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL Level %d, Hysteresis %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
+	bootdone = 0;
 	portasave = 0;	
 	filling_buffer = 0;
 	fillindex = 0;
@@ -6289,6 +6313,7 @@ int main(void)
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
 		aborted = 0;
+		bootdone = 1;
 
 		while (!aborted) {
 			printf(entsel);
@@ -6562,10 +6587,11 @@ int main(void)
 				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,ppsx,connected,lastcor);
+				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gps_fix ? "yes" : "no",ppsx,connected,lastcor ? "active" : "inactive");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
+				// printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
+				printf(oprdata7,HasCTCSS() ? "active or ignore" : "inactive",ptt ? "active" : "inactive",rssiheld,last_samplecnt,apeak);
 				main_processing_loop();
 				secondary_processing_loop();
 				if (AppConfig.Sqpot) {
@@ -6576,29 +6602,42 @@ int main(void)
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
-
-				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec)
+				/* If we have a curent system time, print it. */
+				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec) {
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+				}
 
 				main_processing_loop();
 				secondary_processing_loop();
+				/* system_time is OUR time, last_rxpacket_sys_time is OUR time when we last received
+				 * an audio packet to TX from the host.
+				 *
+				 * This prints the last time we received a packet to TX, and how long ago that was from now.
+				 */
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				// printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				printf("Last time pkt rcvd to TX: %s, which was %ld ms ago\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
+				/* last_rxpacket_time is the HOST timestamp sent in the last audio packet header we received to TX
+				 * 
+				 * This prints that timestamp, and the difference between OUR time and the HOST time when that happened.
+				 */
 				mydiff = last_rxpacket_sys_time.vtime_sec - last_rxpacket_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				// printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				printf("Host timestamp of last pkt rcvd to TX: %s, diff from our time: %ld ms\n",logtime_p(&last_rxpacket_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
+				// printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
+				printf("Index of last pkt rcvd to TX: %ld, inbounds: %s\n",last_rxpacket_index,last_rxpacket_inbounds ? "yes" : "no");
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
