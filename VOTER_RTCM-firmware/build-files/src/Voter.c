@@ -58,7 +58,7 @@
  * NOTE: It would have been nicer to (1) use G.726 rather than this
  * ancient version of ADPCM, but G.726 was a bit too computationally
  * complex for this hardware platform, and (2) *not* to have to transcode
- * the TX audio into mulaw before outputting it, but there is no room in
+ * the TX audio into ulaw before outputting it, but there is no room in
  * RAM for signed linear audio of the necessary buffer size; sigh!
  *
  * Debug values:
@@ -742,7 +742,7 @@ ROM static int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-/* Configure CW/Mose tone settings used for ID in Offline Mode */
+/* Configure CW/Morse tone settings used for ID in Offline Mode */
 #define CWTONELEN 10 /* 10 samples of tone? */
 
 /* These should be the ulaw samples to set the pitch of the CW tone */
@@ -989,7 +989,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 			 * reset samplecnt, and exit the ISR. */
 			if ((gps_state == GPS_STATE_VALID) && (!gotpps)) {
 				TMR3 = 0;	/* Reset the Timer 3 register */
-				gotpps = 1;	/* GPS is good, so PPS must be good (that seems presumptious) */
+				gotpps = 1;	/* GPS is good, so PPS must be good (that seems presumptuous) */
 				samplecnt = 0;
 				fillindex = 0;
 			}
@@ -1180,7 +1180,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 			samplecnt = 0;
 		}
 	}
-	IFS1bits.CNIF = 0;	/* Clear the CN interript flag, we're done! */
+	IFS1bits.CNIF = 0;	/* Clear the CN interrupt flag, we're done! */
 }
 
 /*****************************************************************************/
@@ -1922,10 +1922,10 @@ void SetPTT(BOOL val)
 //   				 ASEL1 = RB3 (Pin 24), setting to 1 is PL Filter IN,	//
 // 					 setting to 0 is PL Filter OUT							//
 //					 ASEL2 = RB2 (Pin 23), Setting to 1 is NO de-emphasis,	//
-// 					 setting to 0 is de-emphazised							//
+// 					 setting to 0 is de-emphasized							//
 //																			//
 //   				 myflags holds the bitmask								//
-//   				 myflags 0 = de-emphazised,  PL filtered				//
+//   				 myflags 0 = de-emphasized,  PL filtered				//
 //   				 myflags 1 = no de-emphasis, PL filtered				//
 //   				 myflags 4 = de-emphasized,  no PL filter				//
 //   				 myflags 5 = no de-emphasis, no PL filter				//
@@ -2101,7 +2101,7 @@ void IOExpInit(void)
 	IOExp_Write(IOEXP_IODIRA,0xD0);
 	/* Configure GPB0-GPB7 
 	 * 0xF3 = 1111 0011 (7:0)
-	 * GPB0 (Pin 1) IN JP10 Calibate Diode
+	 * GPB0 (Pin 1) IN JP10 Calibrate Diode
 	 * GPB1 (Pin 2) IN JP11 LED 3/4 RX Level Mode
 	 * GPB2 (Pin 3) OUT ASEL1 Audio Select 1
 	 * GPB3 (Pin 4) OUT ASEL2 Audio Select 2
@@ -2195,10 +2195,10 @@ void SetPTT(BOOL val)
 // 					 		 setting to 0 is PL Filter OUT					//
 //					 ASEL2 = IOExpOutB mask Bit 8 = GPB3,					//
 // 							 setting to 1 is NO de-emphasis,				//
-// 					 		setting to 0 is de-emphazised					//
+// 					 		setting to 0 is de-emphasized					//
 //																			//
 //   				 myflags holds the bitmask								//
-//   				 myflags 0 = de-emphazised,  PL filtered				//
+//   				 myflags 0 = de-emphasized,  PL filtered				//
 //   				 myflags 1 = no de-emphasis, PL filtered				//
 //   				 myflags 4 = de-emphasized,  no PL filter				//
 //   				 myflags 5 = no de-emphasis, no PL filter				//
@@ -2303,7 +2303,7 @@ BOOL HasCOR(void)
 // 				 If we are in diagnostic mode, return 0						//
 // 																			//
 // 		Remarks: "Ignore CTCSS" (ExternalCTCSS = 0) forces this function	//
-// 				 to retun 1 always, which is interpreted elsewhere as		//
+// 				 to return 1 always, which is interpreted elsewhere as		//
 // 				 CTCSS being qualified always. Not really the best way to	//
 // 				 do it, but because of space constraints, it will have to	//
 // 				 do.														//
@@ -2590,7 +2590,7 @@ DWORD ntohl(DWORD x)
 // 		Description: Read UART2 for NMEA GPS packets. NMEA uses				//
 // 					 $GPRMC, $GPGGA											//
 // 																			//
-// 		Returns: 1 if we suceed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf			//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -2626,9 +2626,9 @@ BOOL getGPSStr(void)
 //																			//
 //		Read TSIP Packet Subroutine											//
 //																			//
-// 		Description: Read UART2 for binary Timble TSIP packets				//
+// 		Description: Read UART2 for binary Trimble TSIP packets				//
 // 																			//
-// 		Returns: 1 if we suceed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf		//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -3148,7 +3148,7 @@ void process_gps(void)
 				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
 			}
 
-			/* Detemine the elevation */
+			/* Determine the elevation */
 			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
 
 			if (AppConfig.DebugLevel & 32) {
@@ -3465,7 +3465,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		/* Store output samples in bit-reversed order of their addresses */
 		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
 	 
-		/* Compute the square magnitude of the complex FFT output array so we have a real output vetor */
+		/* Compute the square magnitude of the complex FFT output array so we have a real output vector */
 		SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
 	
 		wp = (unsigned int *)&sigCmpx[0];
@@ -3504,7 +3504,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 #endif /* DSPBEW */
 			/* This is our main UDP send routine. We will always send a packet if:
 			 *
-			 * We don't have a host connection establihed yet AND it is time to try again
+			 * We don't have a host connection established yet AND it is time to try again
 			 * OR
 			 * We have something to send anyways (tosend)
 			 * AND
@@ -3575,7 +3575,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 				} else {
-					/* If we're a mix mode client, put the flag in the packe to
+					/* If we're a mix mode client, put the flag in the packet to
 					 * send to the host.
 					 */
 					if (!USE_PPS) {
@@ -3619,7 +3619,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			gps_packet.vph.digest = htonl(resp_digest);
 			gps_packet.vph.payload_type = htons(PAYLOAD_GPS);
 			
-			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+			// Send elements one at a time -- SWINE dsPIC33 architecture!!!
 			cp = (BYTE *) &gps_packet.vph;
 			for (i = 0; i < sizeof(gps_packet.vph); i++) {
 				UDPPut(*cp++);
@@ -3696,7 +3696,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
 				
 					/* If the digest we received matches the digest we got off the wire
-					 * (Host Password maches), we're off to the races, assert that we're
+					 * (Host Password matches), we're off to the races, assert that we're
 					 * now connected to the host, and away we go.
 					 */
 					if (mydigest == ntohl(audio_packet.vph.digest)) {
@@ -3769,7 +3769,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(PAYLOAD_PING);
 
-							 	/* Send elements one at a time -- SWINE dsPIC33 archetecture!!! */
+							 	/* Send elements one at a time -- SWINE dsPIC33 architecture!!! */
 								cp = (BYTE *) &audio_packet.vph;
 								for(i = 0; i < n; i++) {
 									UDPPut(*cp++);
