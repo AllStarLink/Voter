@@ -388,6 +388,7 @@
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	/* If the launch delay is anything but 0, use simulcast mode */
 #define	memclr(x,y) 		memset(x,0,y)
 #define ARPIsTxReady()		MACIsTxReady()
+#define DISCFACTOR			1000
 
 /* Defines for GPS routines */
 #define	TSIP_FACTOR 57.295779513082320876798154814105 /* radians to degrees, Trimble reports lat/long in rads */
@@ -574,7 +575,6 @@ DWORD mydigest;
 BOOL sendgps;
 BYTE dnsnotify;
 BYTE altdnsnotify;
-long discfactor;
 long discounterl;
 long discounteru;
 short amax;			/* Keep track of the maximum audio peak value (s/b positive?) */
@@ -1458,18 +1458,18 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 				/* Keep track of the maximum audio peak value */
 	            if (accum > amax) {
 	                amax = accum;
-	                discounteru = discfactor;
+	                discounteru = DISCFACTOR;
 	            } else if (--discounteru <= 0) {
-	                discounteru = discfactor;
+	                discounteru = DISCFACTOR;
 	                amax = (long)((amax * 32700) / 32768L);
 	            }
 
 				/* Keep track of the minimum audio peak value */
 				if (accum < amin) {
 	                amin = accum;
-	                discounterl = discfactor;
+	                discounterl = DISCFACTOR;
 	            } else if (--discounterl <= 0) {
-	                discounterl = discfactor;
+	                discounterl = DISCFACTOR;
 	                amin = (long)((amin * 32700) / 32768L);
 				}
 				
@@ -1839,18 +1839,18 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			/* Keep track of the maximum audio peak value */
 			if (accum > amax) {
 				amax = accum;
-				discounteru = discfactor;
+				discounteru = DISCFACTOR;
 			} else if (--discounteru <= 0) {
-				discounteru = discfactor;
+				discounteru = DISCFACTOR;
 				amax = (long)((amax * 32700) / 32768L);
 			}
 			
 			/* Keep track of the minimum audio peak value */
 			if (accum < amin) {
 				amin = accum;
-				discounterl = discfactor;
+				discounterl = DISCFACTOR;
 			} else if (--discounterl <= 0) {
-				discounterl = discfactor;
+				discounterl = DISCFACTOR;
 				amin = (long)((amin * 32700) / 32768L);
 			}
 
@@ -6238,7 +6238,6 @@ int main(void)
 	digest = 0;	
 	resp_digest = 0;
 	mydigest = 0;
-	discfactor = 1000;
 	discounterl = 0;
 	discounteru = 0;
 	amax = 0;				/* Keep track of the maximum audio peak value (s/b positive?) */
