@@ -7030,10 +7030,10 @@ static void InitializeBoard(void)
 	PORTA=0;
 	PORTB=0;
 
-	/*! \todo VE7FET RA1 is not connected on the VOTER, and RA3 is configured 
+	/* RA1 is not connected on the VOTER, and RA3 is configured 
 	 * as an oscillato input... so we shouldn't need to configure TRISA, and 
 	 * this can probably just go away, since all pins default to inputs on
-	 * reset, which would be correct for RA4 (CN0).
+	 * reset, which would be correct for RA4 (CN0). Doesn't hurt to leave it.
 	 */
 	/* Configure PORTA
 	 * 0xFFFD = 1111 1111 1111 1101 (RA4:RA0) 0=OUT, 1=IN(or analog)
