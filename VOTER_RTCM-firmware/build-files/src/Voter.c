@@ -577,9 +577,9 @@ BYTE altdnsnotify;
 long discfactor;
 long discounterl;
 long discounteru;
-short amax;
-short amin;
-WORD apeak;
+short amax;			/* Keep track of the maximum audio peak value (s/b positive?) */
+short amin;			/* Keep track of the maximum audio peak value (s/b negative?)*/
+WORD apeak;			/* Peak un-signed audio value */
 BOOL indisplay;
 BOOL indipsw;
 short enc_valprev;	/* Previous output value */
@@ -803,6 +803,9 @@ ROM BYTE exp_lut[256] = {
 	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
 	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7 };
 
+/* The "decoder ring" to convert ulaw-encoded audio samples back to
+ * plain audio samples we can send out the DAC as "TX audio".
+ */
 ROM short ulawtabletx[] = {
 //-32124,-31100,-30076,-29052,-28028,-27004,-25980,-24956,
 -12000,-12000,-12000,-12000,-12000,-27004,-25980,-24956,
@@ -1319,7 +1322,9 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 //                                                                           //
 /*****************************************************************************/
 /* This ISR is called when the Launch Delay (+1uS) expires.
- * It turns on the DAC for TX output, after the launch delay.
+ * It turns on the DAC for TX output, after the launch delay. Note that for
+ * non-simulcast clients (mix mode or normal voting), we turn on the DAC and
+ * enable the DAC ISR during boot in the main subroutine.
  */
 void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 {
@@ -1346,7 +1351,7 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 */ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
-	WORD index; /* Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff) */
+	WORD index; /* Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff) (0 - 4095) */
 	long accum;
 	short saccum;
 	BYTE i;
@@ -1431,8 +1436,9 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 		last_index = last_index1;	/* Previous sample becomes last_index */
 		last_index1 = index;		/* Current sample becomes last_index1 */
 
-		/* If we're not simulcasting, or we are simulcasting and not using PPS, 
-		 * we're going to encode an RX Audio sample. 
+		/* If we're not simulcasting, and we are a voting client with good GPS fix
+		 * (gotpps is set), or we are a mix mode client (!USE_PPS), we're going
+		 * to encode an RX audio sample. 
 		 * Otherwise, we're just going to skip it.
 		 */
 		if (!(SIMULCAST_ENABLE && USE_PPS)) {
@@ -1449,6 +1455,7 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 				saccum -= 2048;
 				accum = saccum * 16;
 
+				/* Keep track of the maximum audio peak value */
 	            if (accum > amax) {
 	                amax = accum;
 	                discounteru = discfactor;
@@ -1457,6 +1464,7 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 	                amax = (long)((amax * 32700) / 32768L);
 	            }
 
+				/* Keep track of the minimum audio peak value */
 				if (accum < amin) {
 	                amin = accum;
 	                discounterl = discfactor;
@@ -1614,6 +1622,8 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 						last_drainindex = txdrainindex;
 						timing_index = next_index;
 						timing_time = next_time;
+						/* apeak should be the peak un-signed audio value, since
+						 * amin should be a negative value */
 						apeak = (long)(amax - amin) / 2;
 						for (i = NAPEAKS -1; i; i--) {
 							apeaks[i] = apeaks[i - 1];
@@ -1667,13 +1677,17 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	IFS4bits.DAC1LIF = 0; /* Clear the DAC1Left Interrupt Flag */
 
 	s = 0;
-	/* Output TX sample */
+	/* Output TX audio sample. DAC1LDAT is the data to load into the
+	 * left DAC channel to transmit. */
+	/* testp is a test tone sample sent from the Diagnostics Menu. */
+	/*! \todo VE7FET maybe we should qualify (testp && indiag)? */
 	if (testp) {
 		DAC1LDAT = testp[testidx++ + 1];
 		if (testidx >= testp[0]) {
 			testidx = 0;
 		}
 	} else {
+		/* If it is time to send a CWID, load s with the tone samples. */
 		if (cwptr && (!cwtimer1)) {
 			if (--cwtimer) {
 				if ((cwlen > 1) && (!(cwlen & 1))) {
@@ -1733,12 +1747,16 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			}
 		}
 
+		/* If we are in offline mode, load s with an audio sample to repeat.
+		 * last_index should be the last sample we grabbed in the ADC ISR, 
+		 * so we effectively are going to direct copy RX in to TX out. */
 		if (repeatit) {
 			short s1;
 			s1 = last_index << 4;
 			s += s1 - 32768;
 		}
 
+		/* Mix in the CTCSS tone for offline mode (?) into s, if it exists. */
 		if (ptt && (!host_ptt) && tone_fac) {  
 		    tone_v1 = tone_v2;
 		    tone_v2 = tone_v3;
@@ -1748,32 +1766,63 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 
 		if (ptt) {
 #ifdef	DMWDIAG
+			/* If we're using DMWDIAG, replace all the TX audio DAC samples
+			 * with those from ulaw_digital_milliwatt to send a 1kHz sine wave.
+			 * 
+			 * ulawtabletx takes ulaw-encoded audio and decodes it back to plain
+			 * audio samples we can convert to analog audio output via the DAC.
+			 */
 			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
 			if (mwp > 7) mwp = 0;
 #else
+			/* Normally, we're going to get the audio sample from the network,
+			 * and put it in c.
+			 */
 			c = txaudio[txdrainindex];
 
+			/* If we're connected to the host, decode the ulaw audio samples from
+			 * the network, and send it out the DAC. I don't think s shouldn't have
+			 * anything in it?
+			 */
 			if (connected && (!IS_POCSAG_TX(c))) {
 				DAC1LDAT = ulawtabletx[c] + s;
 			} else {
+				/* If we're offline, send our locally-generated audio. This would
+				 * include RX audio copied from the ADC, and CWID/CTCSS (if necessary).
+				 *
+				 * We don't need to run it through the ulaw decoder ring, because it
+				 * never was encoded.
+				 */
 				DAC1LDAT = s;
 			}
 #endif /* DMWDIAG */
 		} else {
+			/* Set the DAC to silence, if we're not keyed. */
 			DAC1LDAT = 0;
 		}
 
+		/* Once we've sent an audio sample, replace it with silence, then increment
+		 * the drainindex.
+		 */
 		txaudio[txdrainindex++] = ULAW_SILENCE;
 
+		/* Reset the TX buffer drain index when we get to the end. */
 		if (txdrainindex >= AppConfig.TxBufferLength) {
 			txdrainindex = 0;
 		}
 	}
 
+	/* This looks like when we're in this ISR, and we are configured for simulcast,
+	 * we're going to take the current ADC sample and stuff it in the audio buffer. Not
+	 * sure why we are doing this in the DAC ISR?
+	 */
 	if (SIMULCAST_ENABLE && USE_PPS) {
 		index = last_index1;
 
-		/*! \todo VE7FET can we ever get here in non-PPS mode? I don't think so. */
+		/*! \todo VE7FET can we ever get here in non-PPS mode (!USE_PPS)? I don't
+		 * think so. That seems like an unnecessary qualifier. The IF above says
+		 * we need USE_PPS.
+		 */
 		if (gotpps || (!USE_PPS)) {
 			if (fillindex == 0) {
 				next_index = samplecnt;
@@ -1787,6 +1836,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			saccum -= 2048;
 			accum = saccum * 16;
 			
+			/* Keep track of the maximum audio peak value */
 			if (accum > amax) {
 				amax = accum;
 				discounteru = discfactor;
@@ -1795,6 +1845,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				amax = (long)((amax * 32700) / 32768L);
 			}
 			
+			/* Keep track of the minimum audio peak value */
 			if (accum < amin) {
 				amin = accum;
 				discounterl = discfactor;
@@ -1949,6 +2000,8 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 					last_drainindex = txdrainindex;
 					timing_index = next_index;
 					timing_time = next_time;
+					/* apeak should be the peak un-signed audio value, since
+					 * amin should be a negative value */
 					apeak = (long)(amax - amin) / 2;
 					for (i = NAPEAKS -1; i; i--) {
 						apeaks[i] = apeaks[i - 1];
@@ -6176,7 +6229,7 @@ int main(void)
 	dnsdone = 0;
 	timing_time = 0;		/* Time (whole secs) at beginning of next packet to be sent out */
 	timing_index = 0;		/* Index at beginning of next packet to be sent out */
-	next_time = 0;			/* Time (whole secs) samppled at begnning of current ADC frame */
+	next_time = 0;			/* Time (whole secs) sampled at begnning of current ADC frame */
 	next_index = 0;			/* Index at beginning of current ADC frame */
 	samplecnt = 0;			/* Index of ADC relative to PPS pulse */
 	last_adcsample = last_index = last_index1 = 2048;	/* Last mulaw sample from ADC (so can be repeated if falls short) */
@@ -6188,9 +6241,9 @@ int main(void)
 	discfactor = 1000;
 	discounterl = 0;
 	discounteru = 0;
-	amax = 0;
-	amin = 0;
-	apeak = 0;
+	amax = 0;				/* Keep track of the maximum audio peak value (s/b positive?) */
+	amin = 0;				/* Keep track of the maximum audio peak value (s/b negative?) */
+	apeak = 0;				/* Peak un-signed audio value */
 	indisplay = 0;
 	indipsw = 0;
 	leddiag = 0;
@@ -6274,8 +6327,13 @@ int main(void)
 	/* Initialize Stack and application related NV variables into AppConfig. */
 	InitAppConfig();
 
+	/* If we are a mix mode (!USE_PPS) client, or a regular (non-simulcasting) voting client,
+	 * enable the (left) DAC and turn on interrupts, so we can transmit audio.
+	 */
 	if ((!USE_PPS) || (!SIMULCAST_ENABLE)) {
+		/* Enable the DAC1 module */
 		DAC1CONbits.DACEN = 1;
+		/* Enable the DAC1L Interrupts (so the DAC ISR will run) */
 		IEC4bits.DAC1LIE = 1;
 	}
 
@@ -6972,8 +7030,10 @@ static void InitializeBoard(void)
 	DAC1STAT = 0x8000;
 	DAC1STATbits.LITYPE = 0;
 	DAC1CON = 0x1100 + 74; /* Divide by 75 for 8K Samples/sec */
+	/* Clear the DAC flags */
 	IFS4bits.DAC1LIF = 0;
 //	IEC4bits.DAC1LIE = 1;
+	/* Set DAC1L Interrupt Priority to 6 */
 	IPC19bits.DAC1LIP = 6;
 
 /* Configure I/O pins */
