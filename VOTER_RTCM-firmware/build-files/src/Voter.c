@@ -95,6 +95,112 @@
  *_GPS_STATE_SYNCED - have gpssync set with good pps or mix mode, valid GPS fix, and good time,
  * print "Time now synchronized to GPS"
  *
+ * How PPS Works
+ * VE7FET: Based on hours of staring at the code, I believe this is how the PPS system works,
+ * and it isn't immediately obvious, so let's document it.
+ *
+ * The PPS ISR is a "CHANGE NOTIFICATION" ISR. So it will execute every time there is a CHANGE.
+ *
+ * KEY CONCEPTS to remember... 
+ * (AppConfig.PPSPolarity == 0) evaluates to *1* when PPSPolarity = 0
+ * (AppConfig.PPSPolarity == 1) evaluates to *1* when PPSPolarity = 1
+ *
+ * If our PPS input is idling high, nothing happens until there is a transition low, causing the ISR to
+ * run, and then it will run again when we transition high.
+ *
+ * If our PPS input is idling low, nothing happens until there is a transition high, causing the ISR to
+ * run, and then it will run again when we transition low.
+ *
+ * If we are idling high, and we transition low, RB4 will evaluate low on the leading edge, and then
+ * high on the trailing edge when we transition high again.
+ *
+ * If we are idling low, and transition high, RB4 will evaluate high on the leading edge, and then
+ * low on the trailing edge when we transition low again.
+ *
+ * ppsx always starts at 0, it is a BOOL, but it never gets explicitly set to 0 (bug?)
+ *
+ * With "inverted" polarity, and an active high pulse, ppsx will evaluate to 0 at the leading edge of
+ * the pulse, remain 0 for the duration of the pulse, and evaluate to 1 at the trailing edge of the
+ * pulse - this is good, we need ppsx = 1 to "do stuff".
+ *
+ * With "inverted" polarity, and an active low pulse, ppsx will evaluate to 1 at the leading edge of
+ * the pulse, remain 1 for the duration of the pulse, and evaluate to 0 again after the pulse - this
+ * is bad, we can't get anything done when ppsx = 0.
+ *
+ * With "non-inverted" polarity, and an active high pulse, ppsx will evaluate to 1 at the leading edge
+ * of the pulse, remain 1 for the duration of the pulse, and evaluate to 0 again after the pulse - this
+ * is bad, we can't get anything done when ppsx = 0.
+ *
+ * With "non-inverted" polarity, and an active low pulse, ppsx will evaluate to 0 at the leading edge
+ * of the pulse, remain 0 for the duration of the pulse, and evaluate to 1 again after the pulse - this
+ * is good, we need ppsx = 1 to "do stuff".
+ *
+ * PPS pulses are VERY narrow (typically in the ns range to MAYBE a few ms), so the time when ppsx is
+ * 0 during the PPS pulse is very short, that is where PPS_MUSTA_TIME comes in, as you will see below.
+ *
+ * To summarize, with "inverted polarity", we need an "active high" pulse. If it is active low, we
+ * can't "do stuff". With "non-inverted polarity", we need an "active low" pulse. If it is active high,
+ * we can't "do stuff".
+ *
+ * If ppsx = 1, all is good. If ppsx = 0, polarity is wrong, PPS is missing, or we are in mix mode.
+ *
+ * ppsx will always be 0 for mix mode clients, so we don't do any of the other "stuff" in the PPS ISR
+ * (and it all relates to transmit/simulcast).
+ *
+ * WHAT HAPPENS IF POLARITY IS "INVERTED" AND THE PPS PIN IS OPEN? That would pull the pin to 0, which 
+ * should evaluate to ppsx = 1 all the time?! Ahh, but since the pin never toggles, we never run the PPS
+ * ISR, so we stop resetting ppstimer, which eventually causes a timeout and loss of GPS. If we boot up
+ * with the PPS pin low, the PPS ISR never runs to evaluate it as high, so ppsx should remain 0, and we
+ * can't "do stuff".
+ * 
+ * ppsx needs to be 1 to allow us to connect to the host (ppsx = 1 allows gpssync to be asserted, which
+ * allows voter clients to connect to the host).
+ *
+ * When ppsx is 1, we can assert gotpps for voter clients and reset ppstimer and ppswarn to 0.
+ *
+ * Once gotpps is asserted, ppstimer will start ticking up every 125uS in the ADC ISR.
+ *
+ * If gotpps is asserted, and we HAVEN'T reset ppstimer to 0, it will eventually tick above PPS_WARN_TIME
+ * and assert ppswarn.
+ *
+ * If gotpps is asserted, and we STILL haven't reset ppstimer to 0, it will eventually tick above
+ * PPS_MAX_TIME, and the GPS signal will be declared lost, our host connection will drop, and we will reset
+ * a bunch of stuff to start again including de-asserting gotpps and gpssync.
+ *
+ * How PPS_MUSTA_TIME factors in to the PPS ISR...
+ *
+ * The PPS ISR runs twice per second, once at the beginning of the PPS pulse, and once at the end of the
+ * PPS pulse, this is the only time ppstimer can be reset.
+ *
+ * In normal operation, in between pulses (the majority of the time), ppsx would have evaluated to true,
+ * allowing ppstimer to be reset, and gotpps to be asserted. This lets ppstimer start counting up in the
+ * ADC ISR, one tick every 125uS (8 ticks/ms).
+ *
+ * With good PPS, gotpps would have been asserted on the trailing edge of the PPS pulse. So, ppstimer has
+ * been counting until the next leading edge (nearly a second later... technically, 1 second - the PPS pulse
+ * width). 
+ *
+ * At the leading edge of the next PPS pulse, the PPS ISR runs, but ppsx will evaluate to 0. This would mean
+ * that we can't enter the IF to clear PPS timer (and keep gotpps set). That is where PPS_MUSTA_TIME comes in.
+ *
+ * ppstimer has been counting up this whole time, and should be getting close to 1000ms (real value of 8000,
+ * since there are 125us/tick). As long as ppstimer >= PPS_MUSTA_TIME (950ms or real value of 7600), we can
+ * enter the IF to continue to clear ppstimer. In other words, as long as gotpps has been valid for >= 950ms,
+ * ppstimer will be >= 950ms, and we can run the IF loop in the PPS ISR at the start of the next PPS pulse
+ * (when ppsx evaluates to 0 on the transition). This should also prevent spurious/noisy PPS pulses from
+ * faking us out.
+ *
+ * Since we SHOULD get a "true" pulse (the trailing edge) every 1000ms to set ppsx back to 1, this gives us a
+ * maximum of 50ms for the PPS pulse width (1000-950)?
+ *
+ * If we don't get that trailing edge of the PPS pulse that should have fired the PPS ISR, set ppsx = 1, and
+ * reset ppstimer, ppstimer is going to still keep counting (since gotpps is also still true), and we are
+ * going to approach the PPS_WARN_TIME, and then PPS_MAX_TIME when we finally abort because PPS is declared
+ * lost at that point, so we must have lost our GPS connection (not necessarily true, depending on the GPS and
+ * whether it has holdover that would continue sending PPS).
+ *
+ * As you can see, the whole PPS system is quite complicated in how it runs, particularly because it involves
+ * the PPS ISR, which only runs on a CHANGE in state of the PPS pin.
  */
 
 #define THIS_IS_STACK_APPLICATION
@@ -110,10 +216,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/1/2026";
+	char	VERSION[] = "3.10 BEW 1/3/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/1/2026";
+	char	VERSION[] = "3.10 1/3/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -245,7 +351,7 @@
 /* Define our timers */
 #define	PPS_WARN_TIME 		(1200 * 8) /* 1200ms PPS warning time */
 #define PPS_MAX_TIME 		(2400 * 8) /* 2400ms PPS timeout */
-#define	PPS_MUSTA_TIME 		(950 * 8) /* 950ms how long PPS must be valid for? */
+#define	PPS_MUSTA_TIME 		(950 * 8) /* 950ms how long PPS must be valid for */
 #define	GPS_NMEA_WARN_TIME 	(1200 * 8) /* 1200ms GPS warning time */
 #define GPS_NMEA_MAX_TIME 	(2400 * 8) /* 2400ms GPS timeout */
 #define	GPS_TSIP_WARN_TIME 	(5000ul * 8ul) /* 5000ms GPS warning time */
@@ -934,8 +1040,10 @@ static BYTE calcrssi(WORD val) {
  * PPS is connected to RA4 (CN0).
  * VOTER Pin 12
  * RTCM Pin 34
- * Every time we get a PPS signal, we mask off RA4 (mask 0x10) and read it. If
- * it is valid, we clear ppsx and continue.
+ * Every time we get a PPS signal, we mask off RA4 (mask 0x10) and read it. 
+ *
+ * See the (lengthy) explanation of how PPS works in this ISR at the top of the
+ * source. We need ppsx = 1 in order to "do stuff" with voter clients.
  */ 
 void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
@@ -951,38 +1059,50 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
-	/* Figure out if PPS is valid, or not?
-	 * portsave is the current status of CN0
-	 * If CN0 & 0x10 = 1, PPS signal is asserted (1) now
-	 * If PPS is asserted and PPSPolarity = 0 (Non-inverted), ppsx = 1
-	 * If !(PPS is asserted) and PPSPolarity = 1 (Inverted), ppsx = 1
-	 * PPS asserted should be 0 if PPSPolarity is 0 (making ppsx = 0)
-	 * PPS asserted should be 1 if PPSPolarity is 1 (making ppsx = 0)
-	 * ppsx should(?) be 0 for mix mode clients by default, since ppsx is defined as a
-	 * global variable, and AppConfig.PPSPolarity == 2 for mix mode clinets.
+	/* This IF is where the PPS magic happens.
+	 *
+	 * ppsx will be 0 for mix mode clients by default, since ppsx is defined as a
+	 * global variable, and AppConfig.PPSPolarity == 2 for mix mode clinets, so it
+	 * never gets used in this IF evaluation.
+	 *
+	 * This IF determines if the incoming PPS signal matches the selected PPSPolarity.
+	 *
+	 * Remember, this ISR only runs when the state of the PPS pin CHANGES, so only
+	 * at the beginning an end of the PPS pulse.
+	 *
+	 * The portasave & 0x10 mask will be true when the PPS pin of the VOTER/RTCM is
+	 * high.
+	 *
+	 * When PPSPolarity is "non-inverted" (0), we expect the PPS pin to idle high and tick
+	 * low on PPS. That will match PPSPolarity = 0 on the tick, and therefore set ppsx = 1. 
+	 *
+	 * When PPSPolarity is "inverted" (1), we expect the PPS pin to idle low, and tick
+	 * high on PPS. 
 	 */
-	 /*! \todo VE7FET see Issue 17, there is a bug in this logic */
 	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) || ((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) { 
-		ppsx = 1; /* PPS not good */
+		ppsx = 1; /* PPS is good */
 	} else {
-		ppsx = 0; /* PPS is good */
+		ppsx = 0; /* PPS is not good */
 	}
 
-	 /* ppstimer is a counter that gets bumped every 125uS in the ADC ISR if gotpps is true
-	 * PPS_MUSTA_TIME (950ms) appears to be how long we must have a valid PPS signal for
+	 /* ppstimer is a counter that gets bumped every 125uS in the ADC ISR if gotpps is true.
 	 *
-	 * This seems odd... we only enter this IF, if our PPS is bad (ppsx = 1), or ppstimer
-	 * (after gotpps as been declared true) has been valid for at least PPS_MUSTA_TIME. So,
-	 * we seem to skip this and exit the ISR if PPS is valid (ppsx = 0) OR PPS has been
-	 * valid less than PPS_MUSTA_TIME. Is that to let things stabilize?
+	 * PPS_MUSTA_TIME (950ms) is used DURING the PPS pulse, when ppsx evaluates to 0 so we can
+	 * continue to execute the code. We "MUSTA" had at least 950ms since the last trailing
+	 * edge of a good PPS pulse (prevents spurious/noisy pulses from faking us out).
 	 *
-	 * ppsx should always be 0 for mix mode clients, right? 
 	 */
 	if (ppsx || (ppstimer >= PPS_MUSTA_TIME)) {
 		/* If we are not a mix mode client (USE_PPS will be 1 for voting clients), and
 		 * we're not in diag mode...
 		 */
 		if (USE_PPS && (!indiag)) {
+			/* ppstimer gets bumped in the ADC ISR, we must keep resetting it, or
+			 * we will throw ppswarn and then eventually declare GPS signal lost.
+			 *
+			 * We also reset ppswarn if it gets set, but we recovered in time before
+			 * PPS_MAX_TIME expires.
+			 */
 			ppstimer = 0;
 			ppswarn = 0;
 			/* If GPS is now VALID, but we haven't qualified PPS yet, do it, 
@@ -1207,12 +1327,12 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 //																			//
 /****************************************************************************/
 /* Every time TMR3 expires (62.5uSec), we service the ADC.
-   On ODD calls of this ISR, we grab an RX Audio value and encode it, 
-   which means, every 125uSec we encode a packet, or 8000 samples/sec (8kHz) 
-   audio.
-   On EVEN calls of this ISR, we rotate between getting values for RXNoise 
-   (RSSI), Squelch Pot position, and Diode Voltage (temp comp).
-   EVERY time through, we bump some counters.
+ * On ODD calls of this ISR, we grab an RX Audio value and encode it,
+ * which means, every 125uSec we encode a packet, or 8000 samples/sec (8kHz)
+ * audio.
+ * On EVEN calls of this ISR, we rotate between getting values for RXNoise
+ * (RSSI), Squelch Pot position, and Diode Voltage (temp comp), and we always
+ * bump some counters.
 */ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
@@ -1248,14 +1368,14 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 
 		/* Bump some timers to make sure everything is okay */
 		if (gotpps) {
-			ppstimer++;
+			ppstimer++; /* Add a tick to the PPS timer, to make sure it stays valid. */
 		}
 		if (gps_state != GPS_STATE_IDLE) {
-			gpstimer++;
+			gpstimer++; /* Add a tick to the GPS timer, to keep track of our valid fix. */
 		}
 
 		if (connected) { /* If we're connected to the host, update some timers. */
-			gpsforcetimer++;
+			gpsforcetimer++; /* Add a tick to the timer that will force a GPS keepalive packet. */
 			elketimer++;
 			if (glasertimer) {
 				glasertimer--;
@@ -2808,6 +2928,8 @@ void process_gps(void)
 		printf(logtime()); /* Print the current timestamp */
 		printf(gpsmsg5); /* Print Lost GPS Time synchronization */
 
+		gotpps = 0;
+		ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 		gps_fix = 0;
 		connected = 0;
 		txseqno = 0;
@@ -2839,11 +2961,11 @@ void process_gps(void)
 			if (strstr((char *)gps_buf,gpgga)) {
 				printf("GPS-DEBUG: %s\n",gps_buf);
 			}
-			/* If PPS is bad (ppsx = 1), and we are expecting to have
+			/* If PPS is bad (ppsx = 0), and we are expecting to have
 			 * PPS working (PPSPolarity is 0 or 1), throw a message to
 			 * check the PPS config.
 			 */
-			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) {
+			if ((!ppsx) && (AppConfig.PPSPolarity <= 1)) {
 				printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
 			}
 		}
@@ -3020,6 +3142,7 @@ void process_gps(void)
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
 				SetAudioSrc();
 			}
@@ -3152,7 +3275,7 @@ void process_gps(void)
 			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
 
 			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: TSIP: Alm ok? %s, 2: %i ,3: %i, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
+				printf("GPS-DEBUG: TSIP: Alm ok? %s, 2: %i,3: %i, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
 					gps_nsat ? "yes" : "no",gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
 			}
 		}
@@ -3216,11 +3339,11 @@ void process_gps(void)
 			 */
 			if (AppConfig.DebugLevel & 32) {
 				printf("GPS-DEBUG: gps_time: %ld, %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
-				/* If PPS is bad (ppsx = 1), and we are expecting to have
+				/* If PPS is bad (ppsx = 0), and we are expecting to have
 			 	 * PPS working (PPSPolarity is 0 or 1), throw a message to
 			 	 * check the PPS config.
 			 	 */
-				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) {
+				if ((!ppsx) && (AppConfig.PPSPolarity <= 1)) {
 					printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
 				}
 			}
@@ -3273,6 +3396,7 @@ void process_gps(void)
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
 				SetAudioSrc();
 			}
@@ -3605,12 +3729,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * It is time to sendgps (set in the PPS ISR about every second when our sample buffer is full) OR
 	 * We are a mix mode client
 	 * AND
-	 * There has been a latitude read from the GPS OR
+	 * We have a valid GPS fix OR
 	 * It has been 1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
 	 * 
 	 */
-	 /*! \todo VE7FET maybe we want to use gpssync instead of relying on a latitude? */
-	if (connected && (sendgps || (!USE_PPS)) && (gps_packet.lat[0] || (gpsforcetimer >= GPS_FORCE_TIME))) {
+	if (connected && (sendgps || (!USE_PPS)) && (gps_fix || (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
@@ -4221,6 +4344,7 @@ void secondary_processing_loop(void)
 
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 			}
 		}
 
@@ -4241,6 +4365,7 @@ void secondary_processing_loop(void)
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
 				SetAudioSrc();
 			}
@@ -5976,8 +6101,8 @@ int main(void)
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
 		"GPS Lock: %s\n"
-		"PPS BAD or Wrong Polarity: %d\n"
-		"Connected: %d\n"
+		"PPS Status: %s\n"
+		"Connected: %s\n"
 		"COR: %s\n", oprdata7[] = 
 		"EXT CTCSS IN: %s\n"
 		"PTT: %s\n"
@@ -6000,6 +6125,7 @@ int main(void)
 	TSIPwasdle = 0;
 	gps_state = GPS_STATE_IDLE;
 	gps_nsat = 0;
+	ppsx = 0;
 	gotpps = 0;
 	gpssync = 0;
 	ppscount = 0;
@@ -6587,7 +6713,7 @@ int main(void)
 				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gps_fix ? "yes" : "no",ppsx,connected,lastcor ? "active" : "inactive");
+				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gps_fix ? "yes" : "no",ppsx ? "good" : "bad (or mix client)",connected ? "yes" : "no",lastcor ? "active" : "inactive");
 				main_processing_loop();
 				secondary_processing_loop();
 				// printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
