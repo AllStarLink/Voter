@@ -326,6 +326,12 @@
 #define	OPTION_FLAG_ADPCM 			16 /* Use ADPCM rather than ulaw (adpcm) */
 #define	OPTION_FLAG_MIX 			32 /* Request "mix" option to host (mixminus) */
 
+/* Define the "offline" modes */
+#define OFFLINE_NONE 		0	/* None, offline mode not in use */
+#define OFFLINE_SPLX 		1	/* Simplex */
+#define OFFLINE_SPLX_TRIG 	2	/* Simplex with Trigger */
+#define OFFLINE_RPTR 		3	/* Repeater */
+
 /* Challenge length for auth packets */
 #define	VOTER_CHALLENGE_LEN 10
 
@@ -4416,11 +4422,11 @@ void secondary_processing_loop(void)
 				}
 
 				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE))) {
-					if (AppConfig.FailMode == 2) {
+					if (AppConfig.FailMode == OFFLINE_SPLX_TRIG) {
 						needburp = 1;
 					}
 
-					if ((AppConfig.FailMode == 3) && (!connfail)) {
+					if ((AppConfig.FailMode == OFFLINE_RPTR) && (!connfail)) {
 						needburp = 1;
 					}
 				}
@@ -4470,7 +4476,7 @@ void secondary_processing_loop(void)
 
 		z = 100000;
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
-		isoffline = ((!connected) && (AppConfig.FailMode == 3));
+		isoffline = ((!connected) && (AppConfig.FailMode == OFFLINE_RPTR));
 
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
 			repeatit = 1;
