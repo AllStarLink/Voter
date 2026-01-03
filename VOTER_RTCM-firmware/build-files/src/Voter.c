@@ -305,9 +305,9 @@
 #define CONNLED 3
 
 /* Define Ports and Speeds */
-#define DEFAULT_VOTER_PORT	667 /* Default UDP port to send on */
+#define DEFAULT_VOTER_PORT	1667 /* Default UDP port to send on (ASL3) */
 #define	BAUD_RATE1 	57600	/* Default serial console speed */
-#define	BAUD_RATE2 	4800	/* Default GPS speed */
+#define	BAUD_RATE2 	9600	/* Default GPS speed */
 #define	DIAG_WAIT_UART 		(TICK_SECOND / 3ul)	
 #define	DIAG_WAIT_MEAS 		(TICK_SECOND * 2)
 
@@ -450,6 +450,10 @@ static struct {
 
 /* Declare AppConfig structure and some other supporting stack variables */
 APP_CONFIG AppConfig;
+/* The current size of the AppConfig array stored in EEPROM, if this doesn't
+ * match sizeof(AppConfig), we keep rebooting the device. So, if you change 
+ * any of the default EEPROM contents, this value needs to be updated! */
+#define APPCONFIGSIZE 1016
 BYTE AN0String[8];
 void SaveAppConfig(void);
 
@@ -3641,6 +3645,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * packet with their challenge and digest, which we process below to determine if we can
 			 * connect to this host (passwords match).
 			 *
+			 * Note: OUR challenge is generated in the main function when we start up.
+			 *
 			 * If we are a mix mode client, we also send mix mode flags in our auth packet to the host.
 			 *
 			 * Once we are connected, tosend becomes true (along with some other qualifiers), so then
@@ -6356,6 +6362,7 @@ int main(void)
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
+	/* Generate our random challenge used for authentication with the host. */
 	sprintf(challenge,"%lu",GenerateRandomDWORD() % 1000000000ul);
 
 	/* Now that all items are initialized, begin the co-operative
@@ -6379,9 +6386,12 @@ int main(void)
 	SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 	printf(signon,VERSION);
 
-	if (sizeof(AppConfig) != 1016) {	
+	/* Check the size of the AppConfig aray, and make sure it is as
+	 * expected, otherwise, throw an error and reboot (forever).
+	 */
+	if (sizeof(AppConfig) != APPCONFIGSIZE) {	
 		DWORD d;
-		printf("??? %d\n",sizeof(AppConfig));
+		printf("AppConfig size %d != %d\n",sizeof(AppConfig), APPCONFIGSIZE);
 		for (d = 0; d < 2000000; d++) {
 			ClrWdt();
 		}
@@ -7136,8 +7146,8 @@ static void InitAppConfig(void)
 	AppConfig.DefaultSecondaryDNSServer.v[3] = 0;
 
 	AppConfig.TxBufferLength = DEFAULT_TX_BUFFER_LENGTH;
-	AppConfig.VoterServerPort = 667;
-	AppConfig.GPSBaudRate = 4800;
+	AppConfig.VoterServerPort = DEFAULT_VOTER_PORT;
+	AppConfig.GPSBaudRate = BAUD_RATE2;
 	strcpy(AppConfig.Password,"radios");
 	strcpy(AppConfig.HostPassword,"BLAH");
 	strcpy(AppConfig.VoterServerFQDN,"voter-demo.allstarlink.org");
