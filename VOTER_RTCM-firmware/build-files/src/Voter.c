@@ -3839,7 +3839,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					UDPPut(*cp++);
 				}
 
-				/* j will be the number of frame we ae going to fill with audio, based on
+				/* j will be the number of frames we are going to fill with audio, based on
 				 * whether we are sending ADPCM or ulaw audio.
 				 * c will be what silence pattern to fill with, for either ADPCM or ulaw
 				 */
