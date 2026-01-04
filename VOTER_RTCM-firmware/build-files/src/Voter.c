@@ -3773,6 +3773,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		}
 #endif /* DSPBEW */
 		if (gpssync || (!USE_PPS)) {
+			/* If we got OPTION_FLAG_SENDALWAYS from the host, we will always send an
+			 * audio packet, regardless of if we have a receive signal to send. This is
+			 * ONLY done by a master voting client. When looking in the debug console on
+			 * the host, this will result in a continuous stream of payload 1 (or 3)
+			 * packets from the master client.
+			 */
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 
 			/* CORType = Ignore COR, so force RSSI to 255 */
@@ -3892,11 +3898,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * It is time to sendgps (set in the PPS ISR about every second when our sample buffer is full) OR
 	 * We are a mix mode client
 	 * AND
-	 * We have a valid GPS fix OR
-	 * It has been 1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
+	 * We have a valid GPS fix
+	 * AND
+	 * It has been >=1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
 	 * 
 	 */
-	if (connected && (sendgps || (!USE_PPS)) && (gps_fix || (gpsforcetimer >= GPS_FORCE_TIME))) {
+	if (connected && (sendgps || (!USE_PPS)) && (gps_fix && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
