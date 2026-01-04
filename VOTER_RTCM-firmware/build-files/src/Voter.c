@@ -31,10 +31,14 @@
  *   All previous versions that use mktime() WILL be broken, not able to tell 
  *   the current time. See https://www.microchip.com/forums/m653169.aspx
  *
+ * ADPCM encode/decode routines are based on the Microchip Application 
+ * Note AN643, "Adaptive Differential Pulse Code Modulation using 
+ * PICmicro Microcontrollers"
+ *
  * For IMA ADPCM Codec:
  *
  * Copyright 1992 by Stichting Mathematisch Centrum, Amsterdam, The
- *Netherlands.
+ * Netherlands.
  *
  *                        All Rights Reserved
  *
@@ -584,7 +588,7 @@ BOOL indisplay;
 BOOL indipsw;
 short enc_valprev;	/* Previous output value */
 char enc_index;		/* Index into stepsize table */
-short enc_prev_valprev;	/* Previous output value */
+short enc_prev_valprev;	/* Previous previous output value */
 char enc_prev_index;	/* Index into stepsize table */
 BYTE enc_lastdelta;
 BYTE dec_buffer[FRAME_SIZE * 2];
@@ -849,6 +853,7 @@ ROM static int indexTable[16] = {
     -1, -1, -1, -1, 2, 4, 6, 8,
 };
 
+/* ADPCM quantizer step size lookup table */
 ROM static int stepsizeTable[89] = {
     7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
     19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
@@ -1062,11 +1067,11 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 {
 	/* Stuff for ADPCM encode */
 	int val;			/* Current input sample value */
-	int sign;			/* Current adpcm sign bit */
-	BYTE delta;			/* Current adpcm output value */
+	int sign;			/* Current ADPCM sign bit */
+	BYTE delta;			/* Current ADPCM output value */
 	int diff;			/* Difference between val and valprev */
-	int step;			/* Stepsize */
-	int vpdiff;			/* Current change to valpred */
+	int step;			/* Quantizer stepsize */
+	int vpdiff;			/* Current change to valpred (dequantized predicted difference) */
 	long valpred;		/* Predicted output value */
 	int adpcm_index;
 	BYTE *cp;
@@ -1158,33 +1163,44 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						 * 8000 samples (1 second) of audio. Only if we're not simulcasting.
 						 */
 						if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) {
-							/* If we ae configured for ADPCM audio, fill the audio
-							 * buffer (audio_buf) with ADPCM audio.
-							 */
-							if (option_flags & OPTION_FLAG_ADPCM) {
-								val = last_adcsample;
+							if (option_flags & OPTION_FLAG_ADPCM) { /* Encode audio in ADPCM */
+								/* Convert the 12-bit ADC value to a 16-bit signed value */
+								val = last_adcsample; /* Current sample from the ADC */
 								val -= 2048;
 								val *= 16;
+
+								/* Restore the previous values of quantizer step index
+								 * and predicted sample.
+								 */
 								adpcm_index = enc_index;
 								valpred = enc_valprev;
+
+								/* Find the quantizer step size from the lookup table,
+								 * using the quantizer step size index.
+								 */
 								step = stepsizeTable[adpcm_index];
 								
-								/* Step 1 - compute difference with previous value */
+								/* Compute the difference between the current and
+								 * previous value, and determine/set the sign.
+								 */
 								diff = val - valpred;
 								sign = (diff < 0) ? 8 : 0;
 
+								/* If necessary, find the absolute difference. */
 								if (sign) {
 									diff = (-diff);
 								}
-								/* Step 2 - Divide and clamp */
-								/* Note:
-								** This code *approximately* computes:
-								**    delta = diff*4/step;
-								**    vpdiff = (delta+0.5)*step/4;
-								** but in shift step bits are dropped. The net result of this is
-								** that even if you have fast mul/div hardware you cannot put it to
-								** good use since the fixup would be too expensive.
-								*/
+
+								/* Quantize the difference into the ADPCM code using
+								 * the quantizer step size.
+								 * Note:
+								 * This code *approximately* computes:
+								 *    delta = diff*4/step;
+								 *    vpdiff = (delta+0.5)*step/4;
+								 * but in shift step bits are dropped. The net result of this is
+								 * that even if you have fast mul/div hardware you cannot put it to
+								 * good use since the fixup would be too expensive.
+								 */
 								delta = 0;
 								vpdiff = (step >> 3);
 								
@@ -1209,25 +1225,34 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 									vpdiff += step;
 								}
 							
-								/* Step 3 - Update previous value */
+								/* Fixed predictor computes new predicted sample by adding
+								 * the old predicted sample to the predicted difference.
+								 */
 								if (sign) {
 									valpred -= vpdiff;
 								} else {
 									valpred += vpdiff;
 								}
 							
-								/* Step 4 - Clamp previous value to 16 bits */
+								/* Check for overflow of the new predicted sample which
+								 * is a signed 16-bit sample, must be in the range of
+								 * 32767 to -32768.
+								 */
 								if (valpred > 32767) {
 									valpred = 32767;
 								} else if (valpred < -32768) {
 									valpred = -32768;
 								}
 							
-								/* Step 5 - Assemble value, update index and step values */
+								/* Add the sign to the current ADPCM value. */
 								delta |= sign;
 								
+								/* Find the new quantizer step size index by adding the
+								 * previous index and a table lookup using the ADPCM value.
+								 */
 								adpcm_index += indexTable[delta];
 								
+								/* Check for overflow of the new quantizer step size index. */
 								if (adpcm_index < 0) { 
 									adpcm_index = 0;
 								}
@@ -1235,15 +1260,20 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 								if (adpcm_index > 88) { 
 									adpcm_index = 88;
 								}
+
+								/* Save the new predicted sample and quantizer step index
+								 * for the next iteration.
+								 */
 								enc_valprev = valpred;
 								enc_index = adpcm_index;
 								
+								/* Put the ADPCM value into the audio buffer, bottom nibble first. */
 								if (fillindex & 1) {
 									audio_buf[filling_buffer][fillindex++ >> 1] = (enc_lastdelta << 4) | delta;
 								} else {
 									enc_lastdelta = delta;
 								}
-							} else  { /* Is ulaw */
+							} else  { /* Encode audio in ulaw */
 								/* We're using ulaw instead of ADPCM, so fill the
 								 * audio buffer (audio_buf) with ulaw audio samples
 								 * instead.
@@ -1251,6 +1281,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						        short sample,sign, exponent, mantissa;
 						        BYTE ulawbyte;
 								
+								/* Convert the 12-bit ADC value to a 16-bit signed value */
 								sample = last_adcsample;
 								sample -= 2048;
 								sample *= 16;
@@ -1358,11 +1389,11 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 
 	/* Stuff for ADPCM encode */
 	int val;		/* Current input sample value */
-	int sign;		/* Current adpcm sign bit */
-	BYTE delta;		/* Current adpcm output value */
+	int sign;		/* Current ADPCM sign bit */
+	BYTE delta;		/* Current ADPCM output value */
 	int diff;		/* Difference between val and valprev */
-	int step;		/* Stepsize */
-	int vpdiff;		/* Current change to valpred */
+	int step;		/* Quantizer stepsize */
+	int vpdiff;		/* Current change to valpred (dequantized predicted difference) */
 	long valpred;	/* Predicted output value */
 	int adpcm_index;
 	BYTE *cp;
@@ -1479,24 +1510,36 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 				}
 	
 				if (samplecnt++ < 8000) {
-					if (option_flags & OPTION_FLAG_ADPCM) {
-						/* Encode audio in ADPCM */
-						val = index;
+					if (option_flags & OPTION_FLAG_ADPCM) { /* Encode audio in ADPCM */
+						/* Convert the 12-bit ADC value to a 16-bit signed value */
+						val = index; /* Current sample from the ADC */
 						val -= 2048;
 						val *= 16;
+
+						/* Restore the previous values of quantizer step index
+						 * and predicted sample.
+						 */
 						adpcm_index = enc_index;
 						valpred = enc_valprev;
+
+						/* Find the quantizer step size from the lookup table,
+						 * using the quantizer step size index.
+						 */
 						step = stepsizeTable[adpcm_index];
 							
-						/* Step 1 - compute difference with previous value */
+						/* Compute the difference between the current and
+						 * previous value, and determine/set the sign.
+						 */
 						diff = val - valpred;
 						sign = (diff < 0) ? 8 : 0;
 
+						/* If necessary, find the absolute difference. */
 						if (sign) {
 							diff = (-diff);
 						}
 
-						/* Step 2 - Divide and clamp
+						/* Quantize the difference into the ADPCM code using
+						 * the quantizer step size.
 						 * Note:
 						 * This code *approximately* computes:
 						 *    delta = diff*4/step;
@@ -1529,25 +1572,34 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 							vpdiff += step;
 						}
 						
-						/* Step 3 - Update previous value */
+						/* Fixed predictor computes new predicted sample by adding
+						 * the old predicted sample to the predicted difference.
+						 */
 						if (sign) {
 							valpred -= vpdiff;
 						} else {
 							valpred += vpdiff;
 						}
 						
-						/* Step 4 - Clamp previous value to 16 bits */
+						/* Check for overflow of the new predicted sample which
+						 * is a signed 16-bit sample, must be in the range of
+						 * 32767 to -32768.
+						 */
 						if (valpred > 32767) {
 							valpred = 32767;
 						} else if (valpred < -32768) {
 							valpred = -32768;
 						}
 						
-						/* Step 5 - Assemble value, update index and step values */
+						/* Add the sign to the current ADPCM value. */
 						delta |= sign;
 						
+						/* Find the new quantizer step size index by adding the
+						 * previous index and a table lookup using the ADPCM value.
+						 */
 						adpcm_index += indexTable[delta];
 
+						/* Check for overflow of the new quantizer step size index. */
 						if (adpcm_index < 0) { 
 							adpcm_index = 0;
 						}
@@ -1555,9 +1607,14 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 						if (adpcm_index > 88) { 
 							adpcm_index = 88;
 						}
+
+						/* Save the new predicted sample and quantizer step index
+						 * for the next iteration.
+						 */
 						enc_valprev = valpred;
 						enc_index = adpcm_index;
 
+						/* Put the ADPCM value into the audio buffer, bottom nibble first. */
 						if (fillindex & 1) {
 							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
 						} else {
@@ -1567,6 +1624,8 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 					} else { /* Encode audio in ulaw */
 						short sample,sign, exponent, mantissa;
 						BYTE ulawbyte;
+
+						/* Convert the 12-bit ADC value to a 16-bit signed value */
 						sample = index;
 						sample -= 2048;
 						sample *= 16;
@@ -1664,11 +1723,11 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 
 	/* Stuff for ADPCM encode */
 	int val;		/* Current input sample value */ 
-	int sign;		/* Current adpcm sign bit */
-	BYTE delta;		/* Current adpcm output value */ 
+	int sign;		/* Current ADPCM sign bit */
+	BYTE delta;		/* Current ADPCM output value */ 
 	int diff;		/* Difference between val and valprev */ 
-	int step;		/* Stepsize */
-	int vpdiff;		/* Current change to valpred */
+	int step;		/* Quantizer stepsize */
+	int vpdiff;		/* Current change to valpred (dequantized predicted difference)*/
 	long valpred;	/* Predicted output value */
 	int adpcm_index;
 	BYTE *cp;
@@ -1860,22 +1919,35 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 		
 			if (samplecnt++ < 8000) {
 				if (option_flags & OPTION_FLAG_ADPCM) {
-					val = index;
+					/* Convert the 12-bit ADC value to a 16-bit signed value */
+					val = index; /* Current sample from the ADC */
 					val -= 2048;
 					val *= 16;
+
+					/* Restore the previous values of quantizer step index
+					 * and predicted sample.
+					 */
 					adpcm_index = enc_index;
 					valpred = enc_valprev;
+
+					/* Find the quantizer step size from the lookup table,
+					 * using the quantizer step size index.
+					 */
 					step = stepsizeTable[adpcm_index];
 					
-					/* Step 1 - compute difference with previous value */
+					/* Compute the difference between the current and
+					 * previous value, and determine/set the sign.
+					 */
 					diff = val - valpred;
 					sign = (diff < 0) ? 8 : 0;
 				
+					/* If necessary, find the absolute difference. */
 					if (sign) {
 						diff = (-diff);
 					}
 				
-					/* Step 2 - Divide and clamp
+					/* Quantize the difference into the ADPCM code using
+					 * the quantizer step size.
 					 * Note:
 					 * This code *approximately* computes:
 					 *    delta = diff*4/step;
@@ -1908,24 +1980,34 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 						vpdiff += step;
 					}
 					
-					/* Step 3 - Update previous value */
+					/* Fixed predictor computes new predicted sample by adding
+					 * the old predicted sample to the predicted difference.
+					 */
 					if (sign) {
 						valpred -= vpdiff;
 					} else {
 						valpred += vpdiff;
 					}
 					
-					/* Step 4 - Clamp previous value to 16 bits */
+					/* Check for overflow of the new predicted sample which
+					 * is a signed 16-bit sample, must be in the range of
+					 * 32767 to -32768
+					 */
 					if (valpred > 32767) {
 						valpred = 32767;
 					} else if (valpred < -32768) {
 						valpred = -32768;
 					}
 				
-					/* Step 5 - Assemble value, update index and step values */
+					/* Add the sign to the current ADPCM value. */
 					delta |= sign;
+
+					/* Find the new quantizer step size index by adding the
+					 * previous index and a table lookup using the ADPCM value.
+					 */
 					adpcm_index += indexTable[delta];
 					
+					/* Check for overflow of the new quantizer step size index. */
 					if (adpcm_index < 0) { 
 						adpcm_index = 0;
 					}
@@ -1934,9 +2016,13 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 						adpcm_index = 88;
 					}
 				
+					/* Save the new predicted sample and quantizer step index
+					 * for the next iteration.
+					 */
 					enc_valprev = valpred;
 					enc_index = adpcm_index;
-						
+					
+					/* Put the ADPCM value into the audio buffer, bottom nibble first. */
 					if (fillindex & 1) {
 						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
 					} else {
@@ -1944,10 +2030,12 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 					}
 
 					fillindex++;
-				} else {  /* Is ulaw */
+				} else {  /* Encode audio in ulaw */
 					short sample,sign, exponent, mantissa;
 					BYTE ulawbyte;
-					sample = index;
+
+					/* Convert the 12-bit ADC value to a 16-bit signed value */
+					sample = index; /* Current sample from the ADC */
 					sample -= 2048;
 					sample *= 16;
 	
@@ -3508,6 +3596,7 @@ void adpcm_decoder(BYTE *indata)
 		/* Step 2 - Find new index value (for later) */
 		index += indexTable[delta];
 		
+		/* Check for overflow of the new quantizer step size index */
 		if (index < 0) {
 			index = 0;
 		}
@@ -3545,19 +3634,24 @@ void adpcm_decoder(BYTE *indata)
 			valpred += vpdiff;
 		}
 	
-		/* Step 5 - clamp output value */
+		/* Step 5 - Check for overflow of the new predicted sample
+		 * which is a signed 16-bit sample, must be in the range of
+		 * 32767 to -32767.
+		 */
 		if (valpred > 32767) {
 			valpred = 32767;
 		} else if (valpred < -32768) {
 			valpred = -32768;
 		}
 	
-		/* Step 6 - Update step value */
+		/* Step 6 - Find the quantizer step size from a table lookup
+		 * using the quantizer step size index.
+		 */
 		step = stepsizeTable[index];
 	
-		/* Step 7 - Output value */
-		/* vout = valpred + 32768; */
-			
+		/* Step 7 - Output value
+		 * vout = valpred + 32768;
+		 */
 		sample = valpred;
         
 		/* Get the sample into sign-magnitude. */
@@ -3579,9 +3673,13 @@ void adpcm_decoder(BYTE *indata)
 		mantissa = (sample >> (exponent + 3)) & 0x0F;
 		ulawbyte = ~(musign | (exponent << 4) | mantissa);
 
+		/* Put the result in the decoded buffer */
 		dec_buffer[i] = ulawbyte;
     }
 
+	/* Save the new predicted sample and quantizer step index
+	 * for the next iteration
+	 */
     dec_valprev = valpred;
     dec_index = index;
 }
@@ -3983,7 +4081,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						last_rxpacket_sys_time = system_time;
 						last_rxpacket_inbounds = 0;
 
-						if (!USE_PPS) {
+						if (!USE_PPS) { /* This is for mix mode clients */
 							mytxseqno = txseqno;
 
 							if (mytxseqno > (txseqno_ptt + 2)) { 
@@ -4002,13 +4100,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							if (AppConfig.TxBufferLength >= 1440) {
 								index -= (FRAME_SIZE * 4);
 							} else if (AppConfig.TxBufferLength >= 1120) {
-									index -= (FRAME_SIZE * 3);
+								index -= (FRAME_SIZE * 3);
 							} else if (AppConfig.TxBufferLength >= 800) {
-									index -= (FRAME_SIZE * 2);
+								index -= (FRAME_SIZE * 2);
 							} else if (AppConfig.TxBufferLength >= 640) {
-									index -= FRAME_SIZE;
+								index -= FRAME_SIZE;
 							} 
-						} else {
+						} else { /* This is for normal voting clients */
 							index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
 							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 							index += (ndiff / 125000);
@@ -4021,11 +4119,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
                         if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))) {	
 							last_rxpacket_inbounds = 1;
 						
-							if (!USE_PPS) {
+							if (!USE_PPS) { /* This is for mix mode clients */
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) { 
 									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
 								}
-							} else {
+							} else { /* This is for normal voting clients */
 								if ((ntohl(audio_packet.vph.curtime.vtime_sec) > lastrxtime.vtime_sec) ||
 									((ntohl(audio_packet.vph.curtime.vtime_sec) == lastrxtime.vtime_sec) &&
 									(ntohl(audio_packet.vph.curtime.vtime_nsec) > lastrxtime.vtime_nsec))) {
