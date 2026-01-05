@@ -642,6 +642,7 @@ WORD misstimer;
 WORD misstimer1;
 BYTE IOExpOutA,IOExpOutB,IODirB;
 char dummy_loc; /* Needed for EEPROM routines */
+WORD saved_rcon; /* Hold the Reset Control Register contents */
 
 #ifdef DSPBEW
 	DWORD fftresult;
@@ -6209,6 +6210,28 @@ int main(void)
 	BYTE i;
 	long mydiff,mydiff1;
 
+	/* Save Reset Control Regiter (RCON) value immediately at startup,
+	 * temorarily disable the software WDT, and clear the reset status
+	 * bits for next time.
+	 *
+	 * Bit 15 -TRAPR - TRAP Reset flag bit
+	 * Bit 14 - IOPUWR - Illegal OPcode or Unitialized W access Reset flag bit
+	 * Bit 13 - 10 - Not implemented
+	 * Bit 9 - CM - Configuration Mismatch
+	 * Bit 8 - VREGS - Voltage REGulator enable during Sleep
+	 * Bit 7 - EXTR - EXTernal Reset
+	 * Bit 6 - SWR - SoftWare Reset
+	 * Bit 5 - SWDTEN - Software Watch Dog Timer ENable
+	 * Bit 4 - WDTO - Watch Dog Time Out
+	 * Bit 3 - SLEEP - was in SLEEP
+	 * Bit 2 - IDLE - was in IDLE
+	 * Bit 1 - BOR - Brown Out Reset
+	 * Bit 0 - POR - Power On Reset
+	 * 0000 0001 0000 0000 = 0x0100
+	 */
+	saved_rcon = RCON;
+	RCON &= 0x0100;
+
 	static /*ROM*/ char signon[] = "\nVOTER Client System Version %s, AllStarLink, Inc.\n";
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
@@ -6247,27 +6270,38 @@ int main(void)
 		"q  - Disconnect Remote Console Session, r - reboot system, d - diagnostics\n\n",
 		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q,d) : ";
 
-	static ROM char oprdata[] = "S/W Version: %s\n"
-		"System Uptime: %lu.%lu Secs\n"
-		"IP Address: %d.%d.%d.%d\n", oprdata1[] = 
-		"Netmask: %d.%d.%d.%d\n", oprdata2[] = 
-		"Gateway: %d.%d.%d.%d\n", oprdata3[] = 
-		"Primary DNS: %d.%d.%d.%d\n", oprdata4[] = 
-		"Secondary DNS: %d.%d.%d.%d\n", oprdata5[] = 
-		"DHCP: %d\n"
-		"VOTER Server IP: %d.%d.%d.%d\n", oprdata6[] = 
+	static ROM char oprdata_sys[] =
+		"S/W Version: %s\n"
+		"System Uptime: %lu.%lu Secs\n",
+		oprdata_rcon[] =
+		"RCON Val=0x%04X\n"
+		"TRAP:%s IO:%s   CM:%s  EXTR:%s SW:%s\n"
+		"WD:%s   SLEP:%s IDL:%s BOR:%s  POR:%s\n",
+		oprdata_net[] =
+		"IP Address: %d.%d.%d.%d\n"
+		"Netmask: %d.%d.%d.%d\n"
+		"Gateway: %d.%d.%d.%d\n"
+		"DHCP: %s\n",
+		oprdata_dns[] =
+		"Primary DNS: %d.%d.%d.%d\n"
+		"Secondary DNS: %d.%d.%d.%d\n",
+		oprdata_svr[] =
+		"VOTER Server IP: %d.%d.%d.%d\n"
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
+		"Connected: %s\n",
+		oprdata_gps[] =
 		"GPS Lock: %s\n"
-		"PPS Status: %s\n"
-		"Connected: %s\n"
-		"COR: %s\n", oprdata7[] = 
+		"PPS Status: %s\n",
+		oprdata_stat[] =
+		"COR: %s\n"
 		"EXT CTCSS IN: %s\n"
 		"PTT: %s\n"
 		"RSSI: %d\n"
 		"Current Samples / Sec.: %d\n"
-		"Current Peak Audio Level: %u\n", oprdata8[] = 
-		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL Level %d, Hysteresis %d\n",
+		"Current Peak Audio Level: %u\n",
+		oprdata_sq[] =
+		"Sql Noise Gain Val: %d, Diode Cal Val: %d, Sql Lvl %d, Hysteresis %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
 	bootdone = 0;
@@ -6406,15 +6440,13 @@ int main(void)
 	/* Initialize application specific hardware */
 	InitializeBoard();
 
-	RCONbits.SWDTEN = 0;
-
 	/* Initialize stack-related hardware components that may be 
 	 * required by the UART configuration routines.
 	 */
 	TickInit();
 
+	/* Turn on the SYSLED */
 	SetLED(SYSLED,1);
-
 
 	/* Initialize Stack and application related NV variables into AppConfig. */
 	InitAppConfig();
@@ -6536,6 +6568,7 @@ int main(void)
 	 */
 	__builtin_nop();
 
+	/* Re-enable the Software Watch Dog Timer */
 	ClrWdt();
 	RCONbits.SWDTEN = 1;
 	ClrWdt();
@@ -6860,36 +6893,64 @@ int main(void)
 
 			case 98:
 				t = system_time.vtime_sec;
-				printf(oprdata,VERSION,uptimer / 10,uptimer % 10,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+				printf(oprdata_sys,
+					VERSION,
+					uptimer / 10,
+					uptimer % 10);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata1,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
+				/* RCON Section */
+				printf(oprdata_rcon,
+					saved_rcon,
+					(saved_rcon & 0x8000) ? "Y" : "N",  // TRAPR(15)
+					(saved_rcon & 0x4000) ? "Y" : "N",  // IOPUWR(14)
+					(saved_rcon & 0x0200) ? "Y" : "N",  // CM(9)
+					(saved_rcon & 0x0080) ? "Y" : "N",  // EXTR(7)
+					(saved_rcon & 0x0040) ? "Y" : "N",  // SWR(6)
+					(saved_rcon & 0x0010) ? "Y" : "N",  // WDTO(4)
+					(saved_rcon & 0x0008) ? "Y" : "N",  // SLEEP(3)
+					(saved_rcon & 0x0004) ? "Y" : "N",  // IDLE(2)
+					(saved_rcon & 0x0002) ? "Y" : "N",  // BOR(1)
+					(saved_rcon & 0x0001) ? "Y" : "N");  // POR(0)
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata2,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+				printf(oprdata_net,
+					AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
+					AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3],
+					AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3],
+					AppConfig.Flags.bIsDHCPReallyEnabled ? "Y" : "N");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata3,AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3]);
+				printf(oprdata_dns,
+					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
+					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata4,AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],
-					AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
+				printf(oprdata_svr,
+					CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
+					AppConfig.VoterServerPort,
+					AppConfig.MyPort,
+					connected ? "Y" : "N");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+				printf(oprdata_gps,
+					gps_fix ? "Y" : "N",
+					ppsx ? "bad" : "good (or mix client)");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gps_fix ? "yes" : "no",ppsx ? "bad" : "good (or mix client)",connected ? "yes" : "no",lastcor ? "active" : "inactive");
-				main_processing_loop();
-				secondary_processing_loop();
-				// printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
-				printf(oprdata7,HasCTCSS() ? "active or ignore" : "inactive",ptt ? "active" : "inactive",rssiheld,last_samplecnt,apeak);
+				printf(oprdata_stat,
+					lastcor ? "active" : "inactive",
+					HasCTCSS() ? "active or ignore" : "inactive",
+					ptt ? "active" : "inactive",
+					rssiheld,
+					last_samplecnt,
+					apeak);
 				main_processing_loop();
 				secondary_processing_loop();
 				if (AppConfig.Sqpot) {
-					printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
+					printf(oprdata_sq,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
 				} else {
-					printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT],AppConfig.Hysteresis);
+					printf(oprdata_sq,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT],AppConfig.Hysteresis);
 				}
 				main_processing_loop();
 				secondary_processing_loop();
