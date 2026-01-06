@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/4/2026";
+	char	VERSION[] = "3.10 BEW 1/5/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/4/2026";
+	char	VERSION[] = "3.10 1/5/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -391,7 +391,7 @@ enum {GPS_NMEA,GPS_TSIP} ; /* GPS protocol types */
 
 /* Defines for ulaw and ADPCM */
 #define BIAS 				0x84 /* Define the add-in bias for 16-bit ulaw samples */
-#define CLIP 				32635
+#define CLIP 				32635 /* Clip ulaw samples to max value */
 #define	ULAW_SILENCE 		0xff /* Clamp audio for ulaw silence */
 #define	ADPCM_SILENCE 		0 /* Clamp audio for ADPCM silence */
 
@@ -481,6 +481,7 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 void init_squelch(void);
 void main_processing_loop(void);
 int myfgets(char *buffer, unsigned int len);
+BYTE ulaw_encode (WORD adc_sample);
 
 /****************************************************************************/
 //																			//
@@ -1267,31 +1268,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 								 * audio buffer (audio_buf) with ulaw audio samples
 								 * instead.
 								 */
-						        short sample,sign, exponent, mantissa;
-						        BYTE ulawbyte;
-								
-								/* Convert the 12-bit ADC value to a 16-bit signed value */
-								sample = last_adcsample;
-								sample -= 2048;
-								sample *= 16;
-
-						        /* Get the sample into sign-magnitude. */
-								sign = (sample >> 8) & 0x80;	/* Set aside the sign */
-								
-								if (sign != 0) {
-									sample = -sample;	/* Get magnitude */
-								}
-							    
-								if (sample > CLIP) {
-									sample = CLIP;		/* Clip the magnitude */
-								}
-						
-								/* Convert from 16-bit linear to ulaw. */
-								sample = sample + BIAS;
-								exponent = exp_lut[(sample >> 7) & 0xFF];
-								mantissa = (sample >> (exponent + 3)) & 0x0F;
-								ulawbyte = ~(sign | (exponent << 4) | mantissa);
-								audio_buf[filling_buffer][fillindex++] = ulawbyte;
+								audio_buf[filling_buffer][fillindex++] = ulaw_encode(last_adcsample);
 							}
 
 							/* Once we have a full packet frame (320 bytes of ADPCM or 160 bytes of ulaw),
@@ -1611,32 +1588,7 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 						}
 						fillindex++;
 					} else { /* Encode audio in ulaw */
-						short sample,sign, exponent, mantissa;
-						BYTE ulawbyte;
-
-						/* Convert the 12-bit ADC value to a 16-bit signed value */
-						sample = index;
-						sample -= 2048;
-						sample *= 16;
-					
-					    /* Get the sample into sign-magnitude. */
-					    sign = (sample >> 8) & 0x80;	/* Set aside the sign */
-
-					    if (sign != 0) {
-					    	sample = -sample;	/* Get magnitude */
-						}
-
-					    if (sample > CLIP) {
-					    	sample = CLIP;		/* Clip the magnitude */
-						}
-					    
-						/* Convert from 16 bit linear to ulaw. */
-					    sample = sample + BIAS;
-					    exponent = exp_lut[(sample >> 7) & 0xFF];
-					    mantissa = (sample >> (exponent + 3)) & 0x0F;
-					    ulawbyte = ~(sign | (exponent << 4) | mantissa);
-					
-						audio_buf[filling_buffer][fillindex++] = ulawbyte;
+						audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
 					}
 					
 					if (txseqno == 0) {
@@ -2020,30 +1972,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 
 					fillindex++;
 				} else {  /* Encode audio in ulaw */
-					short sample,sign, exponent, mantissa;
-					BYTE ulawbyte;
-
-					/* Convert the 12-bit ADC value to a 16-bit signed value */
-					sample = index; /* Current sample from the ADC */
-					sample -= 2048;
-					sample *= 16;
-	
-				    /* Get the sample into sign-magnitude. */
-				    sign = (sample >> 8) & 0x80;	/* Set aside the sign */
-				    if (sign != 0) {
-			            sample = -sample;	/* Get magnitude */
-					}
-					
-					if (sample > CLIP) {
-						sample = CLIP;		/* Clip the magnitude */
-					}
-
-					/* Convert from 16-bit linear to ulaw. */
-					sample = sample + BIAS;
-					exponent = exp_lut[(sample >> 7) & 0xFF];
-					mantissa = (sample >> (exponent + 3)) & 0x0F;
-					ulawbyte = ~(sign | (exponent << 4) | mantissa);
-					audio_buf[filling_buffer][fillindex++] = ulawbyte;
+					audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
 				}
 				
 				if (txseqno == 0) {
@@ -3544,6 +3473,44 @@ void process_gps(void)
 	}
 	return;
 }
+
+/****************************************************************************/
+//																			//
+//		ulaw Encoder Subroutine												//
+// 																			//
+// 		Description: Ingest a 12-bit sample from the ADC, convert			//
+//					 it to a 16-bit signed value, convert it to				//
+//					 a ulaw sample, and return it.							//
+//																			//
+/****************************************************************************/
+BYTE ulaw_encode (WORD adc_sample) {
+
+	short sign, exponent, mantissa;
+	BYTE ulawbyte;
+
+	/* Convert the 12-bit ADC value to a 16-bit signed value */
+	adc_sample -= 2048;
+	adc_sample *= 16;
+
+	/* Get the sample into sign-magnitude. */
+	sign = (adc_sample >> 8) & 0x80; /* Set aside the sign */
+	if (sign != 0) {
+		adc_sample = -adc_sample; /* Get magnitude */
+	}
+					
+	if (adc_sample > CLIP) {
+		adc_sample = CLIP; /* Clip the magnitude */
+	}
+
+	/* Convert from 16-bit linear to ulaw. */
+	adc_sample = adc_sample + BIAS;
+	exponent = exp_lut[(adc_sample >> 7) & 0xFF];
+	mantissa = (adc_sample >> (exponent + 3)) & 0x0F;
+	ulawbyte = ~(sign | (exponent << 4) | mantissa);
+
+	return ulawbyte;
+}
+
 
 /****************************************************************************/
 //																			//
