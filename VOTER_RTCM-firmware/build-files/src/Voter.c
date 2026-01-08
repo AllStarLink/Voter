@@ -1104,7 +1104,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 		/* If we are not a mix mode client (VOTER_CLIENT will be 1 for voting clients), and
 		 * we're not in diag mode...
 		 */
-		if (VOTER_CLIENT && (!indiag)) {
+		if (VOTER_CLIENT) {
 			/* ppstimer gets bumped in the ADC ISR, we must keep resetting it, or
 			 * we will throw ppswarn and then eventually declare GPS signal lost.
 			 *
@@ -1819,11 +1819,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	if (SIMULCAST_ENABLE && VOTER_CLIENT) {
 		index = last_index1;
 
-		/*! \todo VE7FET can we ever get here in non-PPS mode (!VOTER_CLIENT)? I don't
-		 * think so. That seems like an unnecessary qualifier. The IF above says
-		 * we need VOTER_CLIENT.
-		 */
-		if (gotpps || (!VOTER_CLIENT)) {
+		if (gotpps) {
 			if (fillindex == 0) {
 				next_index = samplecnt;
 				next_time = real_time;
