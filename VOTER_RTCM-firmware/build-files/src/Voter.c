@@ -3268,10 +3268,9 @@ void process_gps(void)
 			 * If we see all that, we'll set gps_fix (that's the best we can do with
 			 * Trimble).
 			 */
-			if ((!(gps_buf[2]) || (gps_buf[2] = 4) || (gps_buf[2] = 5) || (gps_buf[2] = 7)) && !(gps_buf[3])) {
+			if ((!(gps_buf[2]) || (gps_buf[2] == 4) || (gps_buf[2] == 5) || (gps_buf[2] == 7)) && !(gps_buf[3])) {
 				gps_fix = 1;
 			}
-
 			/* Check status and alarms:
 			 * Field 8-9 (gps_buf[10]) - Critical Alarms - it looks like only the lower byte (9)
 			 * is used for the alarms, so if Field 9 (gps_buf[10]) = 0, all should be well.
