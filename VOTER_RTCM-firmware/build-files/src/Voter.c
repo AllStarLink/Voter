@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/5/2026";
+	char	VERSION[] = "3.10 BEW 1/7/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/5/2026";
+	char	VERSION[] = "3.10 1/7/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -385,7 +385,7 @@
 /* Defines for GPS routines */
 #define	TSIP_FACTOR 57.295779513082320876798154814105 /* radians to degrees, Trimble reports lat/long in rads */
 #define ADD_1024_WEEKS 		619315200 /* 1024 weeks for Tbolt time fudge */
-#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))	/* 1 if PPS is != ignore (mix mode) and not in diagnostic mode */
+#define	VOTER_CLIENT ((AppConfig.PPSPolarity != 2) && (!indiag))	/* 1 if PPS is != ignore (mix mode) and not in diagnostic mode */
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ; /* GPS acquisition states */
 enum {GPS_NMEA,GPS_TSIP} ; /* GPS protocol types */
 
@@ -1101,10 +1101,10 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 	 *
 	 */
 	if (ppsx || (ppstimer >= PPS_MUSTA_TIME)) {
-		/* If we are not a mix mode client (USE_PPS will be 1 for voting clients), and
+		/* If we are not a mix mode client (VOTER_CLIENT will be 1 for voting clients), and
 		 * we're not in diag mode...
 		 */
-		if (USE_PPS && (!indiag)) {
+		if (VOTER_CLIENT && (!indiag)) {
 			/* ppstimer gets bumped in the ADC ISR, we must keep resetting it, or
 			 * we will throw ppswarn and then eventually declare GPS signal lost.
 			 *
@@ -1434,12 +1434,12 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 		last_index1 = index;		/* Current sample becomes last_index1 */
 
 		/* If we're not simulcasting, and we are a voting client with good GPS fix
-		 * (gotpps is set), or we are a mix mode client (!USE_PPS), we're going
+		 * (gotpps is set), or we are a mix mode client (!VOTER_CLIENT), we're going
 		 * to encode an RX audio sample. 
 		 * Otherwise, we're just going to skip it.
 		 */
-		if (!(SIMULCAST_ENABLE && USE_PPS)) {
-			if (gotpps || (!USE_PPS)) {
+		if (!(SIMULCAST_ENABLE && VOTER_CLIENT)) {
+			if (gotpps || (!VOTER_CLIENT)) {
 				if (fillindex == 0) {
 					next_index = samplecnt;
 					next_time = real_time;
@@ -1471,7 +1471,7 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 				}
 				
 				/* Reset the sample counter when we hit 8000 samples */
-				if ((!USE_PPS) && (samplecnt == 8000)) {
+				if ((!VOTER_CLIENT) && (samplecnt == 8000)) {
 					samplecnt = 0;
 				}
 	
@@ -1816,14 +1816,14 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	 * we're going to take the current ADC sample and stuff it in the audio buffer. Not
 	 * sure why we are doing this in the DAC ISR?
 	 */
-	if (SIMULCAST_ENABLE && USE_PPS) {
+	if (SIMULCAST_ENABLE && VOTER_CLIENT) {
 		index = last_index1;
 
-		/*! \todo VE7FET can we ever get here in non-PPS mode (!USE_PPS)? I don't
+		/*! \todo VE7FET can we ever get here in non-PPS mode (!VOTER_CLIENT)? I don't
 		 * think so. That seems like an unnecessary qualifier. The IF above says
-		 * we need USE_PPS.
+		 * we need VOTER_CLIENT.
 		 */
-		if (gotpps || (!USE_PPS)) {
+		if (gotpps || (!VOTER_CLIENT)) {
 			if (fillindex == 0) {
 				next_index = samplecnt;
 				next_time = real_time;
@@ -1854,7 +1854,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				amin = (long)((amin * 32700) / 32768L);
 			}
 
-			if ((!USE_PPS) && (samplecnt == 8000)) {
+			if ((!VOTER_CLIENT) && (samplecnt == 8000)) {
 				samplecnt = 0;
 			}
 		
@@ -2978,7 +2978,7 @@ void process_gps(void)
 	 * can't use gps_time here, because it may be non-zero due to
 	 * fudge factors.
 	 */
-	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID) && (gps_fix) && (system_time.vtime_sec)) {
+	if ((gpssync || (!VOTER_CLIENT)) && (gps_state == GPS_STATE_VALID) && (gps_fix) && (system_time.vtime_sec)) {
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime()); /* Print the current timestamp */
 		printf(gpsmsg3); /* Print "Time now synchronized to GPS" */
@@ -2991,7 +2991,7 @@ void process_gps(void)
 	 * get reset to start again.
 	 */
 	 /*! \todo VE7FET maybe we should go back to GPS_STATE_IDLE here? */
-	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED)) {
+	if ((!gpssync) && VOTER_CLIENT && (gps_state == GPS_STATE_SYNCED)) {
 		//gps_state = GPS_STATE_VALID;
 		gps_state = GPS_STATE_IDLE;
 		printf(logtime()); /* Print the current timestamp */
@@ -3162,7 +3162,7 @@ void process_gps(void)
 			 * We don't need to qualify PPS (and set gpssync).
 			 */
 			/*! \todo VE7FET why do we add 1 second to gps_time? */
-			if (!USE_PPS) {
+			if (!VOTER_CLIENT) {
 				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
 		}
@@ -3202,7 +3202,7 @@ void process_gps(void)
 			/* If this is a VOTER client, disconnect from the host, and reset vars
 			 * to start again.
 			 */
-			if (USE_PPS) {
+			if (VOTER_CLIENT) {
 				connected = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
@@ -3421,7 +3421,7 @@ void process_gps(void)
 			 * We don't need to qualify PPS (and set gpssync).
 			 */
 			/*! \todo VE7FET why do we add 1 second to gps_time? */
-			if (!USE_PPS) {
+			if (!VOTER_CLIENT) {
 				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
 		}
@@ -3456,7 +3456,7 @@ void process_gps(void)
 			/* If this is a VOTER client, disconnect from the host, and reset vars
 			 * to start again.
 			 */
-			if (USE_PPS) {
+			if (VOTER_CLIENT) {
 				connected = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
@@ -3671,7 +3671,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * If we've got gpssync (VOTER clients) or using mix mode clients,
 	 * and we haven't set time_filled yet, do it and update system_time
 	 */
-	if (filled && (gpssync || (!USE_PPS)) && (!time_filled)) {
+	if (filled && (gpssync || (!VOTER_CLIENT)) && (!time_filled)) {
 		system_time.vtime_sec = timing_time;
 		system_time.vtime_nsec = (timing_index / 160) * 20000000ul; 
 		time_filled = 1;
@@ -3728,7 +3728,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			rssiheld = calcrssi(vnoise32 >> 3);
 		}
 #endif /* DSPBEW */
-		if (gpssync || (!USE_PPS)) {
+		if (gpssync || (!VOTER_CLIENT)) {
 			/* If we got OPTION_FLAG_SENDALWAYS from the host, we will always send an
 			 * audio packet, regardless of if we have a receive signal to send. This is
 			 * ONLY done by a master voting client. When looking in the debug console on
@@ -3778,7 +3778,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
-				audio_packet.vph.curtime.vtime_nsec = (!USE_PPS) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
+				audio_packet.vph.curtime.vtime_nsec = (!VOTER_CLIENT) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
 				
@@ -3806,7 +3806,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 * the packet, then fill the rest with audio samples.
 				 * If we don't have a valid signal to send, put a 0 in for the RSSI, and
 				 * fill the rest of the packet with silence.
-				 * If we don't have anything to send, and this is a mix mode client (!USE_PPS),
+				 * If we don't have anything to send, and this is a mix mode client (!VOTER_CLIENT),
 				 * put the mix mode flag in the RSSI position... is this just a keepalive then
 				 * at that point?
 				 */
@@ -3827,7 +3827,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					/* If we're a mix mode client, put the flag in the packet to
 					 * send to the host.
 					 */
-					if (!USE_PPS) {
+					if (!VOTER_CLIENT) {
 						UDPPut(OPTION_FLAG_MIX);
 					}
 				}
@@ -3859,7 +3859,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * It has been >=1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
 	 * 
 	 */
-	if (connected && (sendgps || (!USE_PPS)) && (gps_fix && (gpsforcetimer >= GPS_FORCE_TIME))) {
+	if (connected && (sendgps || (!VOTER_CLIENT)) && (gps_fix && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
@@ -3897,7 +3897,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	}
 
 	/* Get UDP bytes off the wire and process them before sending on RF */
-	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
+	if (((gpssync || (!VOTER_CLIENT)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
 		n = 0;
 		cp = (BYTE *) &audio_packet;
 		
@@ -3967,7 +3967,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						 * it (it is expecting a voting client) we'll throw the
 						 * "ERROR! Host rejecting connection message."
 						 */
-						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX))) {
+						if ((!VOTER_CLIENT) && (!(option_flags & OPTION_FLAG_MIX))) {
 							if (n > sizeof(VOTER_PACKET_HEADER)) {
 								gotbadmix = 1;
 							} 
@@ -4044,7 +4044,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						last_rxpacket_sys_time = system_time;
 						last_rxpacket_inbounds = 0;
 
-						if (!USE_PPS) { /* This is for mix mode clients */
+						if (!VOTER_CLIENT) { /* This is for mix mode clients */
 							mytxseqno = txseqno;
 
 							if (mytxseqno > (txseqno_ptt + 2)) { 
@@ -4082,7 +4082,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
                         if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))) {	
 							last_rxpacket_inbounds = 1;
 						
-							if (!USE_PPS) { /* This is for mix mode clients */
+							if (!VOTER_CLIENT) { /* This is for mix mode clients */
 								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) { 
 									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
 								}
@@ -4135,7 +4135,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 							misstimer1 = PKT_MISS_TIME;
 
-							if (!USE_PPS) {
+							if (!VOTER_CLIENT) {
 								host_txseqno = 0;
 							}
 						}
@@ -4459,7 +4459,7 @@ void secondary_processing_loop(void)
 				printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
 				gps_state = GPS_STATE_IDLE;
 
-				if (USE_PPS) {
+				if (VOTER_CLIENT) {
 					connected = 0;
 					resp_digest = 0;
 					digest = 0;
@@ -4474,7 +4474,7 @@ void secondary_processing_loop(void)
 			}
 		}
 
-		if (gotpps && USE_PPS) {
+		if (gotpps && VOTER_CLIENT) {
 			if ((!ppswarn) && (ppstimer > PPS_WARN_TIME)) {
 				ppswarn = 1;
 				printf(logtime()); /* Print current timestamp */
@@ -4535,7 +4535,7 @@ void secondary_processing_loop(void)
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
-				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE))) {
+				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!VOTER_CLIENT) || (!SIMULCAST_ENABLE))) {
 					if (AppConfig.FailMode == OFFLINE_SPLX_TRIG) {
 						needburp = 1;
 					}
@@ -4592,7 +4592,7 @@ void secondary_processing_loop(void)
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
 		isoffline = ((!connected) && (AppConfig.FailMode == OFFLINE_RPTR));
 
-		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
+		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			repeatit = 1;
 
 			if (isoffline) {
@@ -4619,7 +4619,7 @@ void secondary_processing_loop(void)
 			qualtx &= (!((AppConfig.Glasers && (AppConfig.Glasers != 0xffff)) && (glasertimer || g1)));
 
 			if (connected) {
-				if (!USE_PPS) {
+				if (!VOTER_CLIENT) {
 					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (!qualtx))) {
 						host_ptt = 0;
 						ptt = 0;
@@ -4659,7 +4659,7 @@ void secondary_processing_loop(void)
 				SetLED(CONNLED,connected);
 			}
 
-			if ((gps_state == GPS_STATE_SYNCED) || ((gps_state == GPS_STATE_VALID) && (!USE_PPS))) {
+			if ((gps_state == GPS_STATE_SYNCED) || ((gps_state == GPS_STATE_VALID) && (!VOTER_CLIENT))) {
 				SetLED(GPSLED,1);
 			} else if (gps_state != GPS_STATE_VALID) {
 				SetLED(GPSLED,0);
@@ -4730,7 +4730,7 @@ void secondary_processing_loop(void)
 			ToggleLED(SYSLED);
 
 			if (LEVDISP) {
-				if ((gps_state == GPS_STATE_VALID) && USE_PPS) {
+				if ((gps_state == GPS_STATE_VALID) && VOTER_CLIENT) {
 					ToggleLED(GPSLED);
 				}
 			}
@@ -5046,7 +5046,7 @@ void secondary_processing_loop(void)
 
 		if (connected && (!connfail)) {
 			connfail = 1;
-		} else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
+		} else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			if (connected) {
 				if ((connfail == 2) && AppConfig.UnFailString[0]) {
 					domorse((char *)AppConfig.UnFailString);
@@ -5070,7 +5070,7 @@ void secondary_processing_loop(void)
 			needburp = 0;
 		}
 
-		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
+		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			needburp = 0;
 			if (!connfail) {
 				connfail = 2;
@@ -5398,7 +5398,7 @@ static void DiagMenu()
 	indiag = 1; 
 	gps_state = GPS_STATE_IDLE;
 
-	if (USE_PPS) {
+	if (VOTER_CLIENT) {
 		connected = 0;
 		resp_digest = 0;
 		digest = 0;
@@ -5562,7 +5562,7 @@ static void DiagMenu()
 	gotpps = 0;
 	ppscount = 0;
 
-	if (USE_PPS) {
+	if (VOTER_CLIENT) {
 		DAC1CONbits.DACEN = 0;
 		while (!DAC1CONbits.DACEN) {
 			ClrWdt();
@@ -6418,10 +6418,10 @@ int main(void)
 	/* Initialize Stack and application related NV variables into AppConfig. */
 	InitAppConfig();
 
-	/* If we are a mix mode (!USE_PPS) client, or a regular (non-simulcasting) voting client,
+	/* If we are a mix mode (!VOTER_CLIENT) client, or a regular (non-simulcasting) voting client,
 	 * enable the (left) DAC and turn on interrupts, so we can transmit audio.
 	 */
-	if ((!USE_PPS) || (!SIMULCAST_ENABLE)) {
+	if ((!VOTER_CLIENT) || (!SIMULCAST_ENABLE)) {
 		/* Enable the DAC1 module */
 		DAC1CONbits.DACEN = 1;
 		/* Enable the DAC1L Interrupts (so the DAC ISR will run) */
@@ -6923,7 +6923,7 @@ int main(void)
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
 				/* If we have a curent system time, print it. */
-				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec) {
+				if (((gps_state == GPS_STATE_SYNCED) || (!VOTER_CLIENT)) && system_time.vtime_sec) {
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
 				}
 
