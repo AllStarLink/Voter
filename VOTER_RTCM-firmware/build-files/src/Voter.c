@@ -3003,7 +3003,7 @@ void process_gps(void)
 		digest = 0;
 		their_challenge[0] = 0;
 		lastrxtimer = 0;
-		SetAudioSrc();
+		SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 	}
 
 	/* What type of GPS do we have connected? NMEA or TSIP? */
@@ -3209,7 +3209,7 @@ void process_gps(void)
 				gotpps = 0;
 				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
 	} else { /* Is a Trimble TSIP Device */
@@ -3462,7 +3462,7 @@ void process_gps(void)
 				gotpps = 0;
 				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
 	}
@@ -3672,8 +3672,15 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		time_filled = 1;
 	}
 
+	/* MASTER_TIMING_DELAY is 6.25ms. OPTION_FLAG_MASTERTIMING means "send immediately, no delay"
+	 * for the master voting client. So, if we are not the master client, we're going to hold off
+	 * for the MASTER_TIMING_DELAY, before we start sending.
+	 */
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING))) {
 	
+	/* Remember, DSPBEW uses in-band audio sampling to determine the RSSI, instead of out of band
+	 * "white noise".
+	 */
 #ifdef DSPBEW
 		/* If we've built with DSPBEW, do some DSP on the audio samples, and use
 		 * them if BEWMode is set.
@@ -3715,14 +3722,24 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
 
+		/* If we are NOT using BEW Mode, ignore what we did above, and just set
+		 * qualnoise to 1.
+		 */
 		if (!AppConfig.BEWMode) {
 			qualnoise = 1;
 		}
+		/*! \todo VE7FET will we ever run this? qualnoise will probably always have
+		 * SOMETHING in it, after running though DSP, it seems unlikely that it
+		 * would EVER be zero? Weird. Need to look at this more. Bug?
+		 */
 		if (!qualnoise) {
 			vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
 			rssiheld = calcrssi(vnoise32 >> 3);
 		}
 #endif /* DSPBEW */
+		/* We'll run this if we are a voter client, and we've got gpssync, OR we are
+		 * a mix mode client.
+		 */
 		if (gpssync || (!VOTER_CLIENT)) {
 			/* If we got OPTION_FLAG_SENDALWAYS from the host, we will always send an
 			 * audio packet, regardless of if we have a receive signal to send. This is
@@ -3762,6 +3779,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * Note: OUR challenge is generated in the main function when we start up.
 			 *
 			 * If we are a mix mode client, we also send mix mode flags in our auth packet to the host.
+			 * This doesn't seem right though.
 			 *
 			 * Once we are connected, tosend becomes true (along with some other qualifiers), so then
 			 * we just idle and send either ulaw or ADPCM empty packets to keep the connection alive (about
@@ -3791,7 +3809,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				}
 
 				/* j will be the number of samples we are going to fill with audio, based on
-				 * whether we are sending ADPCM or ulaw audio.
+				 * whether we are sending ADPCM or ulaw audio. j is going to put 163 samples
+				 * of audio into the payload of the packet for ADPCM, or 160 samples for ulaw
+				 *
 				 * c will be what silence pattern to fill with, for either ADPCM or ulaw
 				 */
 				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
@@ -3803,7 +3823,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 * fill the rest of the packet with silence.
 				 * If we don't have anything to send, and this is a mix mode client (!VOTER_CLIENT),
 				 * put the mix mode flag in the RSSI position... is this just a keepalive then
-				 * at that point?
+				 * at that point? It would appear so.
 				 */
 	            if (tosend) {	
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS()) {
@@ -3820,8 +3840,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					}
 				} else {
 					/* If we're a mix mode client, put the flag in the packet to
-					 * send to the host.
+					 * send to the host. **This appears to just be a keepalive
+					 * for mix mode clients.***
 					 */
+					 /*! \todo VE7FET this appears to be a bug? According to the VOTER Protocol
+					  * Specification, we should only be sending Payload 1 or 3 packets when we
+					  * have audio to send. We need to send the mix mode flags, but that is
+					  * supposed to be done in a Payload 0 packet. A mix mode client is also
+					  * supposed to send a Payload 2 packet as a keepalive, just with no GPS
+					  * information (if it isn't available).
+					  */
 					if (!VOTER_CLIENT) {
 						UDPPut(OPTION_FLAG_MIX);
 					}
@@ -3854,6 +3882,11 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * It has been >=1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
 	 * 
 	 */
+	 /*! \todo VE7FET need to test what happens when we don't have GPS and we are a mix mode
+	  * client. I suspect this is broken. We still need to send a keepalive Payload 2 packet
+	  * always, if we are connected. If we have GPS, send the GPS info, otherwise, send nothing
+	  * in those fields. Also, why are we sending 0 instead of the real nsec?
+	  */
 	if (connected && (sendgps || (!VOTER_CLIENT)) && (gps_fix && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -3868,6 +3901,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			for (i = 0; i < sizeof(gps_packet.vph); i++) {
 				UDPPut(*cp++);
 			}
+			/* If we have a latitude, we're assuming we have longitude and elevation
+			 * to send, so send them all. Per the VOTER Protocol Specification, we
+			 * don't NEED to have a GPS for mix mode clients, so lat/long/elev COULD
+			 * be NULL, so we just skip putting those bytes in the payload (but we still
+			 * need to send the Payload 2 (GPS) packet as a keepalive).
+			 */
 			if (gps_packet.lat[0]) {
 				cp = (BYTE *) gps_packet.lat;
 				for (i = 0; i < sizeof(gps_packet.lat); i++) {
@@ -3884,12 +3923,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 		
 		UDPFlush();
+		/* Reset some flags and timers. */
 		sendgps = 0;
 		gpsforcetimer = 0;
 		}
 
 		memclr(&gps_packet,sizeof(gps_packet));
 	}
+
+	/* We're done SENDING stuff to the host, now let's see if there is stuff for us to
+	* RECEIVE from the host.
+	*/
 
 	/* Get UDP bytes off the wire and process them before sending on RF */
 	if (((gpssync || (!VOTER_CLIENT)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
@@ -3921,6 +3965,21 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * should still be an AUTH packet, this time with a non-zero digest. We
 			 * process that as a normal AUTH.
 			 */
+			 /* Remember, strcmp is going to return 0 when the challenge we receive on
+			  * the wire matches what we updated their_challenge to be (later). So, 
+			  * during the auth process, the first packet we receive from the host will
+			  * contain a challenge (vph.challenge), but their_challenge will still be 
+			  * 0, so strcmp is going to evaluate as true the first time in, causing us
+			  * to create our response digest (resp_digest), and update their_challenge
+			  * to whatever the host sent us (vph.challenge), that way, the next time in,
+			  * strcmp is going to evaluate to false, and we skip to the "else".
+			  *
+			  * Also note, we're not specifically checking for a Payload 0 (auth) packet,
+			  * which means that EVERY packet we receive gets examined. If the challenge
+			  * we receive on the wire (vph.challenge) doesn't match what we have on file
+			  * for the host (their_challange), something is wrong so we dump the host
+			  * connection, and re-generate our digest (resetting the connection).
+			  */
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge)) {
 				connected = 0;
 				txseqno = 0;
@@ -3928,7 +3987,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				lastrxtimer = 0;
 				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
 				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			} else {
 				/* Look for the next AUTH packet (Payload 0) from the host, and figure out
 				 * if the Host Password matches, and we should connect. We also run this
@@ -3937,21 +3996,38 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 */
 				if ((!digest) || (!audio_packet.vph.digest) || (digest != ntohl(audio_packet.vph.digest)) ||
 					(ntohs(audio_packet.vph.payload_type) == PAYLOAD_AUTH)) {
+					
+					/* Generate our digest based on the Host Password that is configured */
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
 				
-					/* If the digest we received matches the digest we got off the wire
+					/* If the digest we generated above matches the digest we got off the wire
 					 * (Host Password matches), we're off to the races, assert that we're
 					 * now connected to the host, and away we go.
 					 */
 					if (mydigest == ntohl(audio_packet.vph.digest)) {
 						digest = mydigest;
 				
+						/* If we're not connected yet, reset the gpsforcetimer (keepalive),
+						 * assert that we've established a host connection, and reset our
+						 * lastrxtimer to keep it valid.
+						 */
 						if (!connected) {
 							gpsforcetimer = 0;
 						}				
 						connected = 1;
 						lastrxtimer = 0;
 				
+						/*! \todo VE7FET this seems odd, if we got a packet, set option_flags,
+						 * but if we didn't get a valid packet, don't? But we can only get here
+						 * if we had a valid packet... so this if seems like it can never fail.
+						 *
+						 * Perhaps we should change the test above to be > VOTER_PACKET_HEADER
+						 * to make sure we got something more than a header? Then this test
+						 * isn't needed?
+						 */
+						/* In an auth packet (Payload 0), the option flags from the host are
+						 * sent in the "RSSI" byte of the packet (octet 24).
+						 */
 						if (n > sizeof(VOTER_PACKET_HEADER)) {
 							option_flags = audio_packet.rssi;
 						} else {
@@ -3960,7 +4036,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				
 						/* If we are a mix mode client, and the host doesn't acknowledge
 						 * it (it is expecting a voting client) we'll throw the
-						 * "ERROR! Host rejecting connection message."
+						 * "ERROR! Host rejecting connection" message, and dump the host
+						 * connection.
+						 */
+						/*! \todo VE7FET again, it seems like this test to see if we have
+						 * a valid packet should not be needed? Just set badmix if we didn't
+						 * get the OPTION_FLAG_MIX in the flags from the host in the auth
+						 * packet.
 						 */
 						if ((!VOTER_CLIENT) && (!(option_flags & OPTION_FLAG_MIX))) {
 							if (n > sizeof(VOTER_PACKET_HEADER)) {
@@ -3972,19 +4054,29 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							txseqno_ptt = 0;
 							digest = 0;
 							lastrxtimer = 0;
-							SetAudioSrc();
+							SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 						} else {
+							/* We FINALLY have option_flags at this point, so reconfigure our audio
+							 * filtering, based on what the host is telling us to use.
+							 */
 							SetAudioSrc();
 						}
-					} else {
+					} else { /* Digest the host sent back to us doesn't match ours, dump the connection */
 						connected = 0;
 						txseqno = 0;
 						txseqno_ptt = 0;
 						digest = 0;
 						lastrxtimer = 0;
-						SetAudioSrc();
+						SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 					}
-				} else {
+				} else { /* If this isn't part of the auth process (something other than Payload 0) */
+
+					/*! \todo VE7FET this seems odd. connected should only be set once we've completed
+					 * authentication, why are we setting it here? We should already be connected? Not
+					 * sure what the purpose of wconnected is supposed to be.. we should only be here
+					 * if we are connected to the host? I can see tickling the lastrxtimer every time
+					 * we receive a packet, that makes sense. Not sure why we do it twice though?
+					 */
 					BYTE wconnected;
 					wconnected = connected;
 
@@ -4030,6 +4122,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					 * When we get an audio packet from the host:
 					 * - set last_rxpacket_time to the time from the HOST (from the packet header)
 					 * - set last_packet_sys_time to OUR current time
+					 * This is used for calculating stuff to display on the Status (98) menu.
 					 */
 					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) || (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM)) {
 						long index,ndiff;
@@ -4037,6 +4130,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
+						
 						last_rxpacket_inbounds = 0;
 
 						if (!VOTER_CLIENT) { /* This is for mix mode clients */
@@ -4168,7 +4262,7 @@ void main_processing_loop(void)
 		digest = 0;
 		their_challenge[0] = 0;
 		lastrxtimer = 0;
-		SetAudioSrc();
+		SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 		
 		/* linkstate = 0 - initial state
 		 * linkstate = 1 - normal Ethernet link
@@ -4300,7 +4394,7 @@ void main_processing_loop(void)
 				digest = 0;
 				their_challenge[0] = 0;
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
 
@@ -4316,7 +4410,7 @@ void main_processing_loop(void)
 			digest = 0;
 			their_challenge[0] = 0;
 			lastrxtimer = 0;
-			SetAudioSrc();
+			SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 		}
 
 		if (udpSocketUser != INVALID_UDP_SOCKET) {
@@ -4460,7 +4554,7 @@ void secondary_processing_loop(void)
 					digest = 0;
 					their_challenge[0] = 0;
 					lastrxtimer = 0;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 				}
 
 				gpssync = 0;
@@ -4488,7 +4582,7 @@ void secondary_processing_loop(void)
 				gotpps = 0;
 				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
 
@@ -4914,7 +5008,7 @@ void secondary_processing_loop(void)
 #endif
 					/* Perform measurement sequence with no filters on audio. */
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 3;
 					measp = (struct meas *)flat_test;
 					measstr = (char *)flat_test_str;
@@ -4928,7 +5022,7 @@ void secondary_processing_loop(void)
 
 				case 3: /* Perform measurement sequence with de-demphasis enabled. */
 					diag_option_flags = OPTION_FLAG_FLATAUDIO;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 4;
 					measp = (struct meas *)plfilt_test;
 					measstr = (char *)plfilt_test_str;
@@ -4942,7 +5036,7 @@ void secondary_processing_loop(void)
 
 				case 4: /* Perform measurement sequence with CTCSS filter enabled. */
 					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 5;
 					measp = (struct meas *)deemp_test;
 					measstr = (char *)deemp_test_str;
@@ -4956,7 +5050,7 @@ void secondary_processing_loop(void)
 
 				case 5: /* Perform measurement sequence of squelch noise detector. */
 					diag_option_flags = 0;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 255;
 					measp = (struct meas *)sql_test;
 					measstr = (char *)sql_test_str;
@@ -5552,7 +5646,7 @@ static void DiagMenu()
 	txseqno_ptt = 0;
 	host_txseqno = 0;
 	digest = 0;
-	SetAudioSrc();
+	SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
 	gpssync = 0;
 	gotpps = 0;
 	ppscount = 0;
@@ -6501,7 +6595,7 @@ int main(void)
 
 	/* Initialize core stack layers (MAC, ARP, TCP, UDP) and application modules (HTTP, SNMP, etc.). */
 	StackInit(AppConfig.EthFullDuplex);
-	SetAudioSrc();
+	SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
 	init_squelch();
 
 #ifdef	DSPBEW
@@ -6580,7 +6674,7 @@ int main(void)
 		}
 
 		indiag = 0;
-		SetAudioSrc();
+		SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
 		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
 			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5]);
 		main_processing_loop();
