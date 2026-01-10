@@ -331,14 +331,17 @@
 #define	FRAME_SIZE 			160
 #define	ADPCM_FRAME_SIZE 	320
 
-/* Define our buffer sizes */
+/* Define our TX buffer sizes */
 #ifdef DSPBEW
-	#define	MAX_BUFLEN 		4800 	/* 0.6 seconds of buffer */
+	#define	MAX_BUFLEN 		4800 	/* 600ms of buffer */
 #else
-	#define	MAX_BUFLEN 		6400 	/* 0.8 seconds of buffer */
+	#define	MAX_BUFLEN 		6400 	/* 800ms of buffer */
 #endif
-
-#define	DEFAULT_TX_BUFFER_LENGTH 3000 	/* Approx. 300ms of buffer */
+/* Set the initial default of the TX buffer size, the minimum is
+ * 480 (60ms), so this sets it to something reasonably below the max
+ * length (above).
+ */
+#define	DEFAULT_TX_BUFFER_LENGTH 3000 	/* 375ms of buffer */
 
 /* Define ADC channels */
 #define	ADCSQNOISE 	0 /* Index for squelch noise (NVOLT) aka RSSI ADC channel */
@@ -3987,6 +3990,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
 								}
 							} else { /* This is for normal voting clients */
+								/* Set lastrxtime.vtime_sec and _nsec to the timestamp from the past
+								 * packet we received from the host.
+								 */
 								if ((ntohl(audio_packet.vph.curtime.vtime_sec) > lastrxtime.vtime_sec) ||
 									((ntohl(audio_packet.vph.curtime.vtime_sec) == lastrxtime.vtime_sec) &&
 									(ntohl(audio_packet.vph.curtime.vtime_nsec) > lastrxtime.vtime_nsec))) {
@@ -4489,7 +4495,12 @@ void secondary_processing_loop(void)
 		}
 
 		z = 100000;
+		/* What is the time difference between NOW and when we last received an audio packet
+		 * from the host?
+		 * x should be the number of whole seconds
+		 */
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
+
 		isoffline = ((!connected) && (AppConfig.FailMode == OFFLINE_RPTR));
 
 		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
@@ -4530,11 +4541,38 @@ void secondary_processing_loop(void)
 						SetPTT(1);
 					}
 				} else {
-					/*! \todo VE7FET what does this do? x, y, and z don't seem to be used anywhere? */
+					/*! \todo VE7FET what does this do? It has something to do with disabling PTT
+					 * if we are using the "Glassers" or "Elketimer" options.
+					 */
+					/* x has been set to the difference between NOW and the last
+					 * time we received and audio packet (in seconds).
+					 *
+					 * z is always 100000 (set above) when we get here, that seems like this test
+					 * is useless.
+					 *
+					 * We enter this IF if we have something in vtime_sec, and the difference
+					 * between NOW and the last time we received and audio packet from the
+					 * host is less than 100 seconds.
+					 */
 					if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000)) {
+						/* Set y to the number of nsec difference between NOW and
+						 * the last time we received an audio packet from the host.
+						 */
 						y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+						/* Convert x (seconds difference) to ms and stuff it in z. */
 						z = x * 1000;
+						/* Add the nsec difference to z (after converting it to nsec). */
 						z += y / 1000000;
+						/* z is in ms (with nsec added).
+						 *
+						 * Subtract (TxBufferLength - FRAMESIZE) /2 /2 /2 from z. This appears to
+						 * effectively take take TxBufferLength, subtract a FRAMESIZE from it, and
+						 * divide by 8 (which should make it time in ms).
+						 *
+						 * So, subtract TxBufferLength - FRAMESIZE (in ms) from z and store
+						 * it in z.
+						 *
+						 */
 						z -= (AppConfig.TxBufferLength - 160) >> 3;
 					}
 
