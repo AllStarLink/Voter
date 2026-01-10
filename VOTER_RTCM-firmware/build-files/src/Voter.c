@@ -3686,21 +3686,23 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * It is time to sendgps (set in the PPS ISR about every second when our sample buffer is full) OR
 	 * We are a mix mode client
 	 * AND
-	 * We have a valid GPS fix
+	 * We have a valid GPS fix OR we are a mix mode client
 	 * AND
-	 * It has been >=1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
+	 * It has been >=1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive).
 	 * 
+	 * Per the VOTER Protocol Specification, we must send periodic keepalive packets, otherwise
+	 * the host will think the connection to the client has timed out, and will drop the connection.
+	 *
+	 * If we have GPS data to send, send it for either voting or mix mode clients. If we don't
+	 * have GPS data to send (no gps_fix or we are a mix mode client), just send an empty Payload 2
+	 * packet as a keepalive if gpsforcetimer has expired (which will happen if we've got a mix mode
+	 * client with no GPS).
 	 */
-	 /*! \todo VE7FET need to test what happens when we don't have GPS and we are a mix mode
-	  * client. I suspect this is broken. We still need to send a keepalive Payload 2 packet
-	  * always, if we are connected. If we have GPS, send the GPS info, otherwise, send nothing
-	  * in those fields. Also, why are we sending 0 instead of the real nsec?
-	  */
-	if (connected && (sendgps || (!VOTER_CLIENT)) && (gps_fix && (gpsforcetimer >= GPS_FORCE_TIME))) {
+	if (connected && (sendgps || (!VOTER_CLIENT)) && ((gps_fix || !VOTER_CLIENT) && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
-			gps_packet.vph.curtime.vtime_nsec = htonl(0);
+			gps_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 			strcpy((char *)gps_packet.vph.challenge,challenge);
 			gps_packet.vph.digest = htonl(resp_digest);
 			gps_packet.vph.payload_type = htons(PAYLOAD_GPS);
@@ -3909,7 +3911,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					        if (UDPIsPutReady(*udpSocketUser)) {
 								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
-								audio_packet.vph.curtime.vtime_nsec = htonl(0);
+								audio_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 								strcpy((char *)audio_packet.vph.challenge,challenge);
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(PAYLOAD_PING);
@@ -4528,6 +4530,7 @@ void secondary_processing_loop(void)
 						SetPTT(1);
 					}
 				} else {
+					/*! \todo VE7FET what does this do? x, y, and z don't seem to be used anywhere? */
 					if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000)) {
 						y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
 						z = x * 1000;
