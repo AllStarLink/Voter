@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/7/2026";
+	char	VERSION[] = "3.10 BEW 1/10/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/7/2026";
+	char	VERSION[] = "3.10 1/10/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -3016,8 +3016,8 @@ void process_gps(void)
 			return;
 		}
 
-		/* If DebugLevel is set to 32, print the $GPRMC and $GPGGA
-		 * strings we got from the GPS.
+		/* If DebugLevel is set to 32, print the $GPRMC and $GPGGA strings we got from the GPS.
+		 * We have to do this before we run through explode_string, as that modifies gps_buf.
 		 */
 		if (AppConfig.DebugLevel & 32) {
 			if (strstr((char *)gps_buf,gprmc)) {
@@ -3040,12 +3040,16 @@ void process_gps(void)
 		 */
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 	
-		/* If we didn't find any substrings in the buffer, exit.
-		 * Otherwise, we're getting some data, so move to the next GPS_STATE.
+		/* If we didn't find any substrings in the buffer, or we didn't get $GPGGA
+		 * or $GPRMC stings, exit. This prevents us from thinking we've received
+		 * valid data if there is just garbage on the serial port (ie. TSIP).
 		 */
-		if (n < 1) {
+		if ((n < 1) || (strcmp(strs[0],gpgga) && strcmp(strs[0],gprmc))) {
 			return;
-		} else if (gps_state == GPS_STATE_IDLE) {
+		}
+		
+		/* Otherwise, we're getting some data, so move to the next GPS_STATE. */
+		if (gps_state == GPS_STATE_IDLE) {
 			gps_state = GPS_STATE_RECEIVED;
 			printf(logtime()); /* Print the current timestamp */
 			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
@@ -3228,12 +3232,13 @@ void process_gps(void)
 			return;
 		}
 
-		/* If we didn't find the 0x8f header, exit.
-		 * Otherwise, we're getting some data, so move to the next GPS_STATE.
-		 */
+		/* If we didn't find the 0x8f header, exit. */
 		if (gps_buf[0] != 0x8f) { /* "Superpacket" Header */
 			return;
-		} else if (gps_state == GPS_STATE_IDLE) {
+		}
+		
+		/* Otherwise, we're getting some data, so move to the next GPS_STATE. */
+		if (gps_state == GPS_STATE_IDLE) {
 			gps_state = GPS_STATE_RECEIVED;
 			printf(logtime()); /* Print the current timestamp */
 			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
@@ -4130,7 +4135,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
-						
+
 						last_rxpacket_inbounds = 0;
 
 						if (!VOTER_CLIENT) { /* This is for mix mode clients */
