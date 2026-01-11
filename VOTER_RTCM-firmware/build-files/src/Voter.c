@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2011-2015
  * Jim Dixon, WB6NIL (SK)
- * Copyright (C) 2016-2025
+ * Copyright (C) 2016-2026
  * AllStarLink Inc.
  * Chuck Henderson, WB9UUS <wb9uus@liandee.com>
  * Lee Woldanski, VE7FET <ve7fet@gmail.com>
@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/10/2026";
+	char	VERSION[] = "3.10 BEW 1/11/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/10/2026";
+	char	VERSION[] = "3.10 1/11/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -1204,7 +1204,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						/* Assert gpssync only once we reach GPS_STATE_VALID */
 						/*! \todo VE7FET why do we add 1 second to gps_time? */
 						if ((!gpssync) && (gps_state == GPS_STATE_VALID)) {
-							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
+							system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 							gpssync = 1;
 						}
 					} else {
@@ -1475,7 +1475,6 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	/* Output TX audio sample. DAC1LDAT is the data to load into the
 	 * left DAC channel to transmit. */
 	/* testp is a test tone sample sent from the Diagnostics Menu. */
-	/*! \todo VE7FET maybe we should qualify (testp && indiag)? */
 	if (testp) {
 		DAC1LDAT = testp[testidx++ + 1];
 		if (testidx >= testp[0]) {
@@ -2687,9 +2686,7 @@ void process_gps(void)
 	 * dump our host connection and reset a bunch of other vars to
 	 * get reset to start again.
 	 */
-	 /*! \todo VE7FET maybe we should go back to GPS_STATE_IDLE here? */
 	if ((!gpssync) && VOTER_CLIENT && (gps_state == GPS_STATE_SYNCED)) {
-		//gps_state = GPS_STATE_VALID;
 		gps_state = GPS_STATE_IDLE;
 		printf(logtime()); /* Print the current timestamp */
 		printf(gpsmsg5); /* Print Lost GPS Time synchronization */
@@ -3500,8 +3497,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		return;
 	}
 
-	/* filled should be set when there are FRAME_SIZE or ADPCM_FRAME_SIZE
-	 * samples in the buffer
+	/* filled should be set when there are ULAW_SAMPLE_SIZE or ADPCM_SAMPLE_SIZE
+	 * samples in the buffer.
 	 * If we've got gpssync (VOTER clients) or using mix mode clients,
 	 * and we haven't set time_filled yet, do it and update system_time
 	 */
@@ -3555,7 +3552,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 		/* Get the total energy above CTCSS and below 2000Hz */
 		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++) {
-			if (i >= 2) fftresult += *wp;
+			if (i >= 2) {
+				fftresult += *wp;
+			}
 			wp++;
 		}
 
@@ -6906,7 +6905,6 @@ int main(void)
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				// printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				printf("Last time pkt rcvd to TX: %s, which was %ld ms ago\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
@@ -6919,11 +6917,9 @@ int main(void)
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				// printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
 				printf("Host timestamp of last pkt rcvd to TX: %s, diff from our time: %ld ms\n",logtime_p(&last_rxpacket_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				// printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
 				printf("Index of last pkt rcvd to TX: %ld, inbounds: %s\n",last_rxpacket_index,last_rxpacket_inbounds ? "yes" : "no");
 				main_processing_loop();
 				secondary_processing_loop();
