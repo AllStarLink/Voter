@@ -3582,22 +3582,28 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * Our UDP socket is ready to accept data
 			 *
 			 * Upon initialization, we are not connected to the host, so every 500ms (ATTEMPT_TIME) we
-			 * send an empty packet that has a random challenge, and a digest of 0. 
-			 * vph.payload_type at this point is 0 (we don't explicitly set that... probably should)
-			 * which means that the host sees this as an AUTH packet. The replies back with an AUTH
-			 * packet with their challenge and digest, which we process below to determine if we can
-			 * connect to this host (passwords match).
+			 * send an empty packet that has a random challenge, and a digest of 0, and the mix mode
+			 * flag, if applicable.
+			 *
+			 * vph.payload_type at this point is 0, if we are not connected, which means that the host
+			 * sees this as an AUTH packet. The host replies back with an AUTH packet with their
+			 * challenge and digest, which we process below to determine if we can connect to this
+			 * host (passwords match).
 			 *
 			 * Note: OUR challenge is generated in the main function when we start up.
 			 *
-			 * If we are a mix mode client, we also send mix mode flags in our auth packet to the host.
-			 * This doesn't seem right though.
+			 * If we are a mix mode client, send the mix mode flag in octet 24 of our auth packet
+			 * to the host (normally the RSSI position of an audio packet). This tells the host we want
+			 * to use mix mode. The host acknowledges by setting the mix mode flag in the auth packet
+			 * it sends back to us, which we read below when we set option_flags.
 			 *
 			 * Once we are connected, tosend becomes true (along with some other qualifiers), so then
-			 * we just idle and send either ulaw or ADPCM empty packets to keep the connection alive (about
-			 * every 20ms... maybe we can slow that down? We don't do it in mix mode, only send GPS
-			 * keepalive packets...). If we have real audio and RSSI to send, we will insert that instead.
-			 *  
+			 * we are ready to send either ulaw or ADPCM audio packets (with RSSI), as needed.
+			 *
+			 * If this is a voter master client, we idle and send either ulaw or ADPCM empty packets
+			 * on a continuous basis (because OPTION_FLAG_SENDALWAYS will be true), about every 20ms.
+			 *
+			 * We also send keepalive packets (with or without GPS), as noted below.
 			 */
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
@@ -3607,15 +3613,21 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
 				
-				/* Set our payload type byte to either ADPCM or ulaw, depending on what the host told us to send */
+				/* If tosend is qualified (so, we are connected), set our payload type byte to either ADPCM or
+				 * ulaw, depending on what the host told us to send.
+				 *
+				 * Otherwise, we're not connected (yet), so we're still doing authentication. Set the payload
+				 * type to 0 (authentication).
+				 */
 				if (tosend) {
 					audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? PAYLOAD_ADPCM : PAYLOAD_ULAW);
+				} else {
+					audio_packet.vph.payload_type = htons(PAYLOAD_AUTH);
 				}
 
+				/* Put header bytes into the UDP buffer to send */
 				i = 0;
 				cp = (BYTE *) &audio_packet;
-
-				/* Put header bytes into the UDP buffer to send */
 				for (i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) {
 					UDPPut(*cp++);
 				}
@@ -3633,9 +3645,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 * the packet, then fill the rest with audio samples.
 				 * If we don't have a valid signal to send, put a 0 in for the RSSI, and
 				 * fill the rest of the packet with silence.
-				 * If we don't have anything to send, and this is a mix mode client (!VOTER_CLIENT),
-				 * put the mix mode flag in the RSSI position... is this just a keepalive then
-				 * at that point? It would appear so.
+				 *
+				 * If tosend isn't true, we're not connected yet, and if this is a mix mode
+				 * client, put the mix mode flag in the RSSI position to tell the host we are.
 				 */
 	            if (tosend) {	
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS()) {
@@ -3651,17 +3663,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 				} else {
-					/* If we're a mix mode client, put the flag in the packet to
-					 * send to the host. **This appears to just be a keepalive
-					 * for mix mode clients.***
-					 */
-					 /*! \todo VE7FET this appears to be a bug? According to the VOTER Protocol
-					  * Specification, we should only be sending Payload 1 or 3 packets when we
-					  * have audio to send. We need to send the mix mode flags, but that is
-					  * supposed to be done in a Payload 0 packet. A mix mode client is also
-					  * supposed to send a Payload 2 packet as a keepalive, just with no GPS
-					  * information (if it isn't available).
-					  */
+					/* If we're a mix mode client, put the flag in the packet to send to the host. */
 					if (!VOTER_CLIENT) {
 						UDPPut(OPTION_FLAG_MIX);
 					}
