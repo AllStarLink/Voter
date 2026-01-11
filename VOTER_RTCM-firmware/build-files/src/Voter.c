@@ -3905,7 +3905,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					 * sure what the purpose of wconnected is supposed to be.. we should only be here
 					 * if we are connected to the host? I can see tickling the lastrxtimer every time
 					 * we receive a packet, that makes sense. Not sure why we do it twice though?
+					 *
+					 * Commenting this code out for potential later removal if no anomolies observed.
 					 */
+					/*
 					BYTE wconnected;
 					wconnected = connected;
 
@@ -3919,7 +3922,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					if (!wconnected) {
 						SetAudioSrc();
 					}
+					*/
 
+					/* We've got a packet, so reset the timer. */
 					lastrxtimer = 0;
 
 					/* Is this a ping packet we received on the wire? */
