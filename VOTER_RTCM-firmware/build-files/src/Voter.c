@@ -328,8 +328,10 @@
 #define	VOTER_CHALLENGE_LEN 10
 
 /* Define our audio frame sizes */
-#define	FRAME_SIZE 			160
-#define	ADPCM_FRAME_SIZE 	320
+#define ULAW_FRAME_SIZE		160 /* Size of a ulaw packet */
+#define ULAW_SAMPLE_SIZE	160 /* How many ulaw audio samples in a ulaw packet */
+#define ADPCM_FRAME_SIZE	163 /* Size of an ADPCM packet */
+#define ADPCM_SAMPLE_SIZE	320 /* How many ADPCM audio samples in a ulaw packet */
 
 /* Define our TX buffer sizes */
 #ifdef DSPBEW
@@ -439,7 +441,7 @@ typedef struct {
 static struct {
 	VOTER_PACKET_HEADER vph;
 	BYTE rssi;
-	BYTE audio[FRAME_SIZE + 3];
+	BYTE audio[ADPCM_FRAME_SIZE]; /* Audio packet will be a max of 163 bytes (when using ADPCM) */
 } audio_packet;
 
 static struct {
@@ -498,7 +500,7 @@ BYTE inputs2;		/* GPB I/O on IO Expander */
 BYTE filling_buffer;
 WORD fillindex;
 BOOL filled;
-BYTE audio_buf[2][FRAME_SIZE + 3];	/* Audio buffer array */
+BYTE audio_buf[2][ADPCM_FRAME_SIZE]; /* Audio buffer array will be max 326 bytes (when using ADPCM) */
 BOOL set_atten(BYTE val);
 BOOL connected;		/* Connected to host */
 BOOL bootdone;		/* Set when main menu prints, so we can start GPS acquisition */
@@ -585,7 +587,7 @@ char enc_index;			/* Index into stepsize table */
 short enc_prev_valprev;	/* Previous previous output value */
 char enc_prev_index;	/* Index into stepsize table */
 BYTE enc_lastdelta;		/* The last ADPCM sample */
-BYTE dec_buffer[FRAME_SIZE * 2];
+BYTE dec_buffer[ADPCM_SAMPLE_SIZE]; /* ADPCM decoded audio buffer translated to ulaw */
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
 /* End ADPCM globals */
@@ -1174,11 +1176,17 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 							/* Once we have a full packet frame (320 bytes of ADPCM or 160 bytes of ulaw),
 							 * set filled = 1...
 							 */
-							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE)) {
+							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
 								if (option_flags & OPTION_FLAG_ADPCM) {
+									/* Put the predictor value into bytes 160 and 161 of the
+									 * payload, high byte first.
+									 */
 									cp = &audio_buf[filling_buffer][fillindex >> 1];
 									*cp++ = (enc_prev_valprev & 0xff00) >> 8;
 									*cp++ = enc_prev_valprev & 0xff;
+									/* Put the stepsizeTable index value into byte 162
+									 * of the payload.
+									 */
 									*cp = enc_index;
 									enc_prev_valprev = enc_valprev;
 									enc_prev_index = enc_index;
@@ -1386,11 +1394,17 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 						txseqno = 3;
 					}
 					
-					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE)) {
+					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
 						if (option_flags & OPTION_FLAG_ADPCM) {
 							cp = &audio_buf[filling_buffer][fillindex >> 1];
+							/* Put the predictor value into bytes 160 and 161 of the
+							 * payload, high byte first.
+							 */
 							*cp++ = (enc_prev_valprev & 0xff00) >> 8;
 							*cp++ = enc_prev_valprev & 0xff;
+							/* Put the stepsizeTable index value into byte 162
+							 * of the payload.
+							 */
 							*cp = enc_prev_index;
 							enc_prev_valprev = enc_valprev;
 							enc_prev_index = enc_index;
@@ -1656,11 +1670,17 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 					txseqno = 3;
 				}
 
-				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE)) {
+				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
 					if (option_flags & OPTION_FLAG_ADPCM) {
 						cp = &audio_buf[filling_buffer][fillindex >> 1];
+						/* Put the predictor value into bytes 160 and 161 of the
+						 * payload, high byte first.
+						 */
 						*cp++ = (enc_prev_valprev & 0xff00) >> 8;
 						*cp++ = enc_prev_valprev & 0xff;
+						/* Put the stepsizeTable index value into byte 162
+						 * of the payload.
+						 */
 						*cp = enc_prev_index;
 						enc_prev_valprev = enc_valprev;
 						enc_prev_index = enc_index;
@@ -2456,7 +2476,7 @@ DWORD ntohl(DWORD x)
 // 		Description: Read UART2 for NMEA GPS packets. NMEA uses				//
 // 					 $GPRMC, $GPGGA											//
 // 																			//
-// 		Returns: 1 if we succeed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf		//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -3322,6 +3342,11 @@ BYTE adpcm_encode (WORD adc_sample) {
 /****************************************************************************/
 //																			//
 //		ADPCM Decoder Subroutine											//
+// 																			//
+// 		Description: Injest the audio_packet.audio buffer, which is 160		//
+// 					 bytes of ADPCM audio (320 samples) + 3 pointer bytes	//
+// 					 and decode the ADPCM and translate it to ulaw.	Put		//
+// 					 the decoded ulaw audio in dec_buffer.				    //
 //																			//
 /****************************************************************************/
 void adpcm_decoder(BYTE *indata)
@@ -3345,7 +3370,7 @@ void adpcm_decoder(BYTE *indata)
 	bufferstep = 0;
 	inputbuffer = 0;
 
-	for ( i = 0; i < ADPCM_FRAME_SIZE; i++) {
+	for ( i = 0; i < ADPCM_SAMPLE_SIZE; i++) {
 		/* Step 1 - get the delta value */
 		if (bufferstep) {
 			delta = inputbuffer & 0xf;
@@ -3436,7 +3461,9 @@ void adpcm_decoder(BYTE *indata)
 		mantissa = (sample >> (exponent + 3)) & 0x0F;
 		ulawbyte = ~(musign | (exponent << 4) | mantissa);
 
-		/* Put the result in the decoded buffer */
+		/* Put the result in the decoded buffer. dec_buffer
+		 * will have 40ms (320 samples) of decoded ulaw audio.
+		 */
 		dec_buffer[i] = ulawbyte;
     }
 
@@ -3632,13 +3659,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					UDPPut(*cp++);
 				}
 
-				/* j will be the number of samples we are going to fill with audio, based on
-				 * whether we are sending ADPCM or ulaw audio. j is going to put 163 samples
-				 * of audio into the payload of the packet for ADPCM, or 160 samples for ulaw
+				/* j will be the number of bytes we are going to fill with audio, based on
+				 * whether we are sending ADPCM or ulaw audio. j is going to put 163 bytes
+				 * of audio into the payload of the packet for ADPCM, or 160 bytes for ulaw
 				 *
 				 * c will be what silence pattern to fill with, for either ADPCM or ulaw
 				 */
-				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
+				j = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : ULAW_FRAME_SIZE;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 
 				/* If we have a valid signal (rssiheld > 0), put the RSSI (rssiheld) into 
@@ -3712,7 +3739,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			gps_packet.vph.digest = htonl(resp_digest);
 			gps_packet.vph.payload_type = htons(PAYLOAD_GPS);
 			
-			// Send elements one at a time -- SWINE dsPIC33 architecture!!!
+			/* Send elements one at a time -- SWINE dsPIC33 architecture!!! */
 			cp = (BYTE *) &gps_packet.vph;
 			for (i = 0; i < sizeof(gps_packet.vph); i++) {
 				UDPPut(*cp++);
@@ -3950,16 +3977,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							}
 
 							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
-							index *= FRAME_SIZE;
+							index *= ULAW_FRAME_SIZE; /* Convert sequence delta to byte offset (160 bytes per packet) */
 
 							if (AppConfig.TxBufferLength >= 1440) {
-								index -= (FRAME_SIZE * 4);
+								index -= (ULAW_FRAME_SIZE * 4);
 							} else if (AppConfig.TxBufferLength >= 1120) {
-								index -= (FRAME_SIZE * 3);
+								index -= (ULAW_FRAME_SIZE * 3);
 							} else if (AppConfig.TxBufferLength >= 800) {
-								index -= (FRAME_SIZE * 2);
+								index -= (ULAW_FRAME_SIZE * 2);
 							} else if (AppConfig.TxBufferLength >= 640) {
-								index -= FRAME_SIZE;
+								index -= ULAW_FRAME_SIZE;
 							} 
 						} else { /* This is for normal voting clients */
 							index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
@@ -3967,16 +3994,24 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							index += (ndiff / 125000);
 						}
 
-						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
+						/* Determine packet size based on payload type */
+						WORD packet_size;
+						if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
+							packet_size = ADPCM_SAMPLE_SIZE;
+						} else {
+							packet_size = ULAW_SAMPLE_SIZE;
+						}
+
+						index += AppConfig.TxBufferLength - packet_size;
 						last_rxpacket_index = index;
 			
 			            /* If in bounds */
-                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))) {	
+                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - packet_size))) {
 							last_rxpacket_inbounds = 1;
 						
 							if (!VOTER_CLIENT) { /* This is for mix mode clients */
-								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) { 
-									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
+								if ((txseqno + (index / ULAW_FRAME_SIZE)) > txseqno_ptt) {
+									txseqno_ptt = (txseqno + (index / ULAW_FRAME_SIZE));
 								}
 							} else { /* This is for normal voting clients */
 								/* Set lastrxtime.vtime_sec and _nsec to the timestamp from the past
@@ -3999,31 +4034,35 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 							/* ADPCM */
 							if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
-					  			mydiff -= ((short)index + (ADPCM_FRAME_SIZE));
+					  			mydiff -= ((short)index + (ADPCM_SAMPLE_SIZE));
+								/* Get the predictor value from bytes 160 and 161 of the payload
+								 * and re-assemble them (they are stored lowest nibble first).
+								 */
 								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
+								/* Get the stepsizeTable index from byte 162 of the payload. */
 								dec_index = audio_packet.audio[162];
 								adpcm_decoder(audio_packet.audio);
 
 								if (mydiff >= 0) {
-									memcpy(txaudio + index,dec_buffer,ADPCM_FRAME_SIZE);
+									memcpy(txaudio + index,dec_buffer,ADPCM_SAMPLE_SIZE);
 								} else {
-									memcpy(txaudio + index,dec_buffer,(ADPCM_FRAME_SIZE) + mydiff);
-									memcpy(txaudio,dec_buffer + ((ADPCM_FRAME_SIZE) + mydiff),-mydiff);
+									memcpy(txaudio + index,dec_buffer,(ADPCM_SAMPLE_SIZE) + mydiff);
+									memcpy(txaudio,dec_buffer + ((ADPCM_SAMPLE_SIZE) + mydiff),-mydiff);
 								}
 							} else { /* ulaw */
-					  			mydiff -= ((short)index + FRAME_SIZE);
+					  			mydiff -= ((short)index + ULAW_SAMPLE_SIZE);
 	                            				
 								if (mydiff >= 0) {	
-									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
+									memcpy(txaudio + index,audio_packet.audio,ULAW_SAMPLE_SIZE);
 								} else {
-									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
-									memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
+									memcpy(txaudio + index,audio_packet.audio,ULAW_SAMPLE_SIZE + mydiff);
+									memcpy(txaudio,audio_packet.audio + (ULAW_SAMPLE_SIZE + mydiff),-mydiff);
 								}
 							}
                         } else {
 							/* Not in bounds */
-							if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2))) {
-								missed = index - (AppConfig.TxBufferLength - (FRAME_SIZE * 2));
+							if (index > (AppConfig.TxBufferLength - packet_size)) {
+								missed = index - (AppConfig.TxBufferLength - packet_size);
 							} else {
 								missed = index;
 							}
@@ -6207,7 +6246,7 @@ int main(void)
 	time_filled = 0;
 	connected = 0;
 	lastrxtimer = 0;
-	memclr((char *)audio_buf,FRAME_SIZE * 2);
+	memclr((char *)audio_buf, 2 * ADPCM_FRAME_SIZE); /* Clear the entire audio buffer (326 bytes) */
 	gps_bufindex = 0;
 	TSIPwasdle = 0;
 	gps_state = GPS_STATE_IDLE;
@@ -6216,6 +6255,11 @@ int main(void)
 	gotpps = 0;
 	gpssync = 0;
 	ppscount = 0;
+	ppstimer = 0;
+	gpstimer = 0;
+	ppswarn = 0;
+	gpswarn = 0;
+	gpsforcetimer = 0;
 	rssi = 0;
 	rssiheld = 0;
 	adcother = 0;
@@ -6226,20 +6270,18 @@ int main(void)
 	wascor = 0;
 	lastcor = 0;
 	vnoise32 = 0;
-	option_flags = 0;
 	txdrainindex = 0;
 	last_drainindex = 0;
 	memset(&lastrxtime,0,sizeof(lastrxtime));
 	ptt = 0;
 	digest = 0;
 	resp_digest = 0;
+	mydigest = 0;
 	their_challenge[0] = 0;
-	ppstimer = 0;
-	gpstimer = 0;
-	gpsforcetimer = 0;
+	option_flags = 0;
+	gotbadmix = 0;
+	diag_option_flags = 0;
 	attempttimer = 0;
-	ppswarn = 0;
-	gpswarn = 0;
 	dwLastIP = 0;
 	inread = 0;
 	memset(&MyVoterAddr,0,sizeof(MyVoterAddr));
@@ -6257,9 +6299,6 @@ int main(void)
 	last_adcsample = last_index = last_index1 = 2048;	/* Last mulaw sample from ADC (so can be repeated if falls short) */
 	real_time = 0;			/* Actual time (whole secs) */
 	last_samplecnt = 0;		/* Last sample count (for display purposes) */
-	digest = 0;	
-	resp_digest = 0;
-	mydigest = 0;
 	discounterl = 0;
 	discounteru = 0;
 	amax = 0;				/* Keep track of the maximum audio peak value (s/b positive?) */
@@ -6269,6 +6308,7 @@ int main(void)
 	indipsw = 0;
 	leddiag = 0;
 	diagstate = 0;
+	/* APCM variables begin */
 	dec_valprev = 0;
 	dec_index = 0;
 	enc_valprev = 0;
@@ -6276,7 +6316,8 @@ int main(void)
 	enc_prev_valprev = 0;
 	enc_prev_index = 0;
 	enc_lastdelta = 0;
-	memset(dec_buffer,0,FRAME_SIZE);
+	memset(dec_buffer,ULAW_SILENCE,(ADPCM_SAMPLE_SIZE)); /* Fill the ADPCM decoder buffer with ulaw silence */
+	/* ADPCM variables end */
 	txseqno = 0;
 	txseqno_ptt = 0;
 	elketimer = 0;
@@ -6287,9 +6328,7 @@ int main(void)
 	measp = 0;
 	measstr = 0;
 	measidx = 0;
-	diag_option_flags = 0;
 	netisup = 0;
-	gotbadmix = 0;
 	telnet_echo = 0;
 	termbuftimer = 0;
 	termbufidx = 0;
