@@ -1,5 +1,38 @@
 ## Firmware Changelog
 
+## 3.10 01/11/2026
+This version is a long overdue code cleanup and optimization.
+
+The biggest change is a refactoring of the GPS routines for both NMEA and TSIP GPS. We only use the $GPGGA and $GPRMC NMEA sentences ($GPGSV provides no added value). Do a better job of validating our GPS fix quality, and responding better when we don't have a suitable GPS signal to use.
+
+Revise the Status Menu (98) for better readability. Change "1" and "0" status to more human-friendly results.
+
+Update other status and debug messages for better descriptions of actual conditions.
+
+Add functionality to the Status Menu to identify what the last reboot cause was of the device.
+
+Update how PPS is qualified, and how the debug messages are interpreted and displayed.
+
+Change the default UDP port to 1667, to match ASL3.
+
+Change the default GPS baud rate to 9600, which is now more common.
+
+Move ulaw and ADPCM encoding into functions, to save code space.
+
+Remove extra/unused variables.
+
+Fix a number of typos, spelling, and grammar.
+
+Change some variable names and defines for better readability.
+
+Better error checking for various conditions and explicitly set some variables to known conditions to prevent issues.
+
+Fix a potential index out of bounds issue by setting index value based on received audio type. 
+
+SIGNIFICANT comments added to the source code to aid in functional understanding of how most things work.
+
+Through hole VOTER board firmware image files are denoted by `VOTER_`. MicroNode RTCM firmware image files are denoted by `RTCM_`. DSPBEW images contain DSP RSSI processing (from in-band audio), and do NOT contain the Diagnostic Menu function.
+
 ## 3.01 12/28/2025
 Un-released version. 
 
