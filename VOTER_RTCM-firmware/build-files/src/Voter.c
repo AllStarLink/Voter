@@ -953,7 +953,7 @@ ROM char 	gpsmsg1[] = "  GPS receiver active, waiting for acquisition",
 
 char 	newvalerror[] = "Invalid Entry, Value Not Changed\n", 
 		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		badmix[] = "  ERROR! Host rejecting connection",
+		badmix[] = "  ERROR! Host rejecting mix mode connection",
 		hosttmomsg[] = "  ERROR! Host response timeout";
 
 /* Configure some of the CLI display strings and put them in ROM */
@@ -3833,16 +3833,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						connected = 1;
 						lastrxtimer = 0;
 				
-						/*! \todo VE7FET this seems odd, if we got a packet, set option_flags,
-						 * but if we didn't get a valid packet, don't? But we can only get here
-						 * if we had a valid packet... so this if seems like it can never fail.
-						 *
-						 * Perhaps we should change the test above to be > VOTER_PACKET_HEADER
-						 * to make sure we got something more than a header? Then this test
-						 * isn't needed?
-						 */
 						/* In an auth packet (Payload 0), the option flags from the host are
-						 * sent in the "RSSI" byte of the packet (octet 24).
+						 * sent in the "RSSI" byte of the packet (octet 24), so set them. In
+						 * an initial auth packet, there is just the VOTER_PACKET_HEADER, (no
+						 * option flags), so set option_flags to 0.
 						 */
 						if (n > sizeof(VOTER_PACKET_HEADER)) {
 							option_flags = audio_packet.rssi;
@@ -3851,20 +3845,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 				
 						/* If we are a mix mode client, and the host doesn't acknowledge
-						 * it (it is expecting a voting client) we'll throw the
-						 * "ERROR! Host rejecting connection" message, and dump the host
-						 * connection.
-						 */
-						/*! \todo VE7FET again, it seems like this test to see if we have
-						 * a valid packet should not be needed? Just set badmix if we didn't
-						 * get the OPTION_FLAG_MIX in the flags from the host in the auth
-						 * packet.
+						 * it by sending the mix mode flag back to us in an auth packet
+						 * (it is expecting a voting client), we'll throw the
+						 * "ERROR! Host rejecting mix mode connection" message, and dump
+						 * the host connection.
 						 */
 						if ((!VOTER_CLIENT) && (!(option_flags & OPTION_FLAG_MIX))) {
-							if (n > sizeof(VOTER_PACKET_HEADER)) {
-								gotbadmix = 1;
-							} 
-
+							gotbadmix = 1;
 							connected = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
@@ -4932,7 +4919,7 @@ void secondary_processing_loop(void)
 
 	if (gotbadmix) {
 		printf(logtime()); /* Print current timestamp */
-		printf(badmix); /* Print "ERROR! Host rejecting connection" */
+		printf(badmix); /* Print "ERROR! Host rejecting mix mode connection" */
 		gotbadmix = 0;
 	}
 
