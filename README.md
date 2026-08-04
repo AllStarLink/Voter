@@ -5,7 +5,7 @@ See the /docs folder for information on what the VOTER protocol is, and how the 
 in conjunction with chan_voter in AllStarLink.
 
 The EBLEX C30 Programmer is the software utility used to load the VOTER/RTCM over ethernet. You 
-MUST have the bootloaded installed in the main PIC, and know the bootloader IP address, in order 
+MUST have the bootloader installed in the main PIC, and know the bootloader IP address, in order 
 to be able to capture the target, and load the firmware.
 
 The /VOTER-bootloader folder contains the MicroChip project files, source code, and .cof binary 
