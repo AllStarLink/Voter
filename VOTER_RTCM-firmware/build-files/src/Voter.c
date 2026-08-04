@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2011-2015
  * Jim Dixon, WB6NIL (SK)
- * Copyright (C) 2016-2025
+ * Copyright (C) 2016-2026
  * AllStarLink Inc.
  * Chuck Henderson, WB9UUS <wb9uus@liandee.com>
  * Lee Woldanski, VE7FET <ve7fet@gmail.com>
@@ -31,10 +31,14 @@
  *   All previous versions that use mktime() WILL be broken, not able to tell 
  *   the current time. See https://www.microchip.com/forums/m653169.aspx
  *
+ * ADPCM encode/decode routines are based on the Microchip Application 
+ * Note AN643, "Adaptive Differential Pulse Code Modulation using 
+ * PICmicro Microcontrollers"
+ *
  * For IMA ADPCM Codec:
  *
  * Copyright 1992 by Stichting Mathematisch Centrum, Amsterdam, The
- *Netherlands.
+ * Netherlands.
  *
  *                        All Rights Reserved
  *
@@ -58,7 +62,7 @@
  * NOTE: It would have been nicer to (1) use G.726 rather than this
  * ancient version of ADPCM, but G.726 was a bit too computationally
  * complex for this hardware platform, and (2) *not* to have to transcode
- * the TX audio into mulaw before outputting it, but there is no room in
+ * the TX audio into ulaw before outputting it, but there is no room in
  * RAM for signed linear audio of the necessary buffer size; sigh!
  *
  * Debug values:
@@ -92,8 +96,103 @@
  * GPS_STATE_IDLE - reset/starting state
  * GPS_STATE_RECEIVED - receiving data on the UART, print "GPS receiver active, waiting for acquisition"
  * GPS_STATE_VALID - see satellites and have set gps_time, print "GPS signal acquired..."
- *_GPS_STATE_SYNCED - have gpssync set, print "Time now synchonized to GPS"
+ *_GPS_STATE_SYNCED - have gpssync set with good pps or mix mode, valid GPS fix, and good time,
+ * print "Time now synchronized to GPS"
  *
+ * How PPS Works
+ * VE7FET: Based on hours of staring at the code, I believe this is how the PPS system works,
+ * and it isn't immediately obvious, so let's document it.
+ *
+ * The PPS ISR is a "CHANGE NOTIFICATION" ISR. So it will execute every time there is a CHANGE
+ * of state.
+ *
+ * KEY CONCEPTS to remember... 
+ * (AppConfig.PPSPolarity == 0) evaluates to *1* when PPSPolarity = 0
+ * (AppConfig.PPSPolarity == 1) evaluates to *1* when PPSPolarity = 1
+ *
+ * If our PPS input is idling high, nothing happens until there is a transition low, causing the ISR to
+ * run, and then it will run again when we transition high.
+ *
+ * If our PPS input is idling low, nothing happens until there is a transition high, causing the ISR to
+ * run, and then it will run again when we transition low.
+ *
+ * If we are idling high, and we transition low, RA4 will evaluate low on the leading edge, and then
+ * high on the trailing edge when we transition high again.
+ *
+ * If we are idling low, and transition high, RA4 will evaluate high on the leading edge, and then
+ * low on the trailing edge when we transition low again.
+ *
+ * ppsx always starts at 0, it is a BOOL.
+ *
+ * With "inverted" polarity, and an active high pulse, ppsx will evaluate to 0 at the leading edge of
+ * the pulse, remain 0 for the duration of the pulse, and evaluate to 1 at the trailing edge of the
+ * pulse - this is bad, we can't get anything done in the ISR when ppsx = 0.
+ *
+ * With "inverted" polarity, and an active low pulse, ppsx will evaluate to 1 at the leading edge of
+ * the pulse, remain 1 for the duration of the pulse, and evaluate to 0 again after the pulse - this
+ * is good, we need ppsx = 1 to "do stuff" in the ISR.
+ *
+ * With "non-inverted" polarity, and an active high pulse, ppsx will evaluate to 1 at the leading edge
+ * of the pulse, remain 1 for the duration of the pulse, and evaluate to 0 again after the pulse - this
+ * is good, we need ppsx = 1 to "do stuff" in the ISR.
+ *
+ * With "non-inverted" polarity, and an active low pulse, ppsx will evaluate to 0 at the leading edge
+ * of the pulse, remain 0 for the duration of the pulse, and evaluate to 1 again after the pulse - this
+ * is bad, we can't get anything done in the ISR when ppsx = 0.
+ *
+ * PPS pulses are VERY narrow (typically in the ns range to MAYBE a few ms), so the time when ppsx is
+ * 1 during the PPS pulse is very short, that is where PPS_MUSTA_TIME comes in, as you will see below.
+ *
+ * To summarize, with "inverted polarity", we need an "active low" pulse. If it is active high, we
+ * can't "do stuff". With "non-inverted polarity", we need an "active high" pulse. If it is active low,
+ * we can't "do stuff".
+ *
+ * If ppsx = 1, we can get gotpps in the ISR, and reset some timers, and count the pulses (up to a
+ * maximum of 3).
+ *
+ * ppsx will always be 0 for mix mode clients because PPSPolarity=2, so we never do anything in the
+ * PPS ISR, even if we have the PPS pin toggling.
+ *
+ * WHAT HAPPENS IF POLARITY IS "INVERTED" AND THE PPS PIN IS OPEN? That would pull the pin to 0, which 
+ * should evaluate to ppsx = 1 all the time?! Ahh, but since the pin never toggles, we never run the PPS
+ * ISR, so we stop resetting ppstimer, which eventually causes a timeout and loss of GPS. If we boot up
+ * with the PPS pin low, the PPS ISR never runs (no change of state), so ppsx always remains 0.
+ * 
+ * ppsx needs to be 1 to allow us to connect to the host (ppsx = 1 allows gpssync to be asserted, which
+ * allows voter clients to connect to the host).
+ *
+ * When ppsx is 1, we can assert gotpps for voter clients and reset ppstimer and ppswarn to 0.
+ *
+ * Once gotpps is asserted, ppstimer will start ticking up every 125uS in the ADC ISR.
+ *
+ * If gotpps is asserted, and we HAVEN'T reset ppstimer to 0, it will eventually tick above PPS_WARN_TIME
+ * and assert ppswarn.
+ *
+ * If gotpps is asserted, and we STILL haven't reset ppstimer to 0, it will eventually tick above
+ * PPS_MAX_TIME, and the GPS signal will be declared lost, our host connection will drop, and we will reset
+ * a bunch of stuff to start again including de-asserting gotpps and gpssync.
+ *
+ * How PPS_MUSTA_TIME factors in to the PPS ISR...
+ *
+ * The PPS ISR runs twice per second, once at the beginning of the PPS pulse, and once at the end of the
+ * PPS pulse. This is the only time ppstimer can be reset, but that will only happen during the change of
+ * state where ppsx = 1... OR PPS_MUSTA_TIME is valid. On one of the changes of state, ppsx = 0.
+ *
+ * With good PPS, gotpps has been asserted, so ppstimer has been counting up in the ADC ISR, one tick every
+ * 125us (8 ticks/ms), and will continue counting until the next pulse, allowing ppstimer to be reset again. 
+ *
+ * ppstimer has been counting up this whole time, and should be getting close to 1000ms (real value of 8000,
+ * since there are 125us/tick). As long as ppstimer >= PPS_MUSTA_TIME (950ms or real value of 7600), we can
+ * enter the IF to continue to clear ppstimer (and do other stuff), even when ppsx = 0. 
+ *
+ * If we don't get a PPS pulse that should have fired the PPS ISR, set ppsx = 1, and reset ppstimer,
+ * ppstimer is going to still keep counting (since gotpps is also still true), and we are going to approach
+ * the PPS_WARN_TIME, and then PPS_MAX_TIME when we finally abort because PPS is declared lost at that point,
+ * so we must have lost our GPS connection (not necessarily true, depending on the GPS and whether it has
+ * holdover that would continue sending PPS).
+ *
+ * As you can see, the whole PPS system is quite complicated in how it runs, particularly because it involves
+ * the PPS ISR, which only runs on a CHANGE in state of the PPS pin.
  */
 
 #define THIS_IS_STACK_APPLICATION
@@ -109,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.02 BEW 12/30/2025";
+	char	VERSION[] = "3.10 BEW 1/11/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.02 12/30/2025";
+	char	VERSION[] = "3.10 1/11/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -198,9 +297,9 @@
 #define CONNLED 3
 
 /* Define Ports and Speeds */
-#define DEFAULT_VOTER_PORT	667 /* Default UDP port to send on */
+#define DEFAULT_VOTER_PORT	1667 /* Default UDP port to send on (ASL3) */
 #define	BAUD_RATE1 	57600	/* Default serial console speed */
-#define	BAUD_RATE2 	4800	/* Default GPS speed */
+#define	BAUD_RATE2 	9600	/* Default GPS speed */
 #define	DIAG_WAIT_UART 		(TICK_SECOND / 3ul)	
 #define	DIAG_WAIT_MEAS 		(TICK_SECOND * 2)
 
@@ -219,21 +318,32 @@
 #define	OPTION_FLAG_ADPCM 			16 /* Use ADPCM rather than ulaw (adpcm) */
 #define	OPTION_FLAG_MIX 			32 /* Request "mix" option to host (mixminus) */
 
+/* Define the "offline" modes */
+#define OFFLINE_NONE 		0	/* None, offline mode not in use */
+#define OFFLINE_SPLX 		1	/* Simplex */
+#define OFFLINE_SPLX_TRIG 	2	/* Simplex with Trigger */
+#define OFFLINE_RPTR 		3	/* Repeater */
+
 /* Challenge length for auth packets */
 #define	VOTER_CHALLENGE_LEN 10
 
 /* Define our audio frame sizes */
-#define	FRAME_SIZE 			160
-#define	ADPCM_FRAME_SIZE 	320
+#define ULAW_FRAME_SIZE		160 /* Size of a ulaw packet */
+#define ULAW_SAMPLE_SIZE	160 /* How many ulaw audio samples in a ulaw packet */
+#define ADPCM_FRAME_SIZE	163 /* Size of an ADPCM packet */
+#define ADPCM_SAMPLE_SIZE	320 /* How many ADPCM audio samples in a ulaw packet */
 
-/* Define our buffer sizes */
+/* Define our TX buffer sizes */
 #ifdef DSPBEW
-	#define	MAX_BUFLEN 		4800 	/* 0.6 seconds of buffer */
+	#define	MAX_BUFLEN 		4800 	/* 600ms of buffer */
 #else
-	#define	MAX_BUFLEN 		6400 	/* 0.8 seconds of buffer */
+	#define	MAX_BUFLEN 		6400 	/* 800ms of buffer */
 #endif
-
-#define	DEFAULT_TX_BUFFER_LENGTH 3000 	/* Approx. 300ms of buffer */
+/* Set the initial default of the TX buffer size, the minimum is
+ * 480 (60ms), so this sets it to something reasonably below the max
+ * length (above).
+ */
+#define	DEFAULT_TX_BUFFER_LENGTH 3000 	/* 375ms of buffer */
 
 /* Define ADC channels */
 #define	ADCSQNOISE 	0 /* Index for squelch noise (NVOLT) aka RSSI ADC channel */
@@ -244,7 +354,7 @@
 /* Define our timers */
 #define	PPS_WARN_TIME 		(1200 * 8) /* 1200ms PPS warning time */
 #define PPS_MAX_TIME 		(2400 * 8) /* 2400ms PPS timeout */
-#define	PPS_MUSTA_TIME 		(950 * 8) /* 950ms how long PPS must be valid for? */
+#define	PPS_MUSTA_TIME 		(950 * 8) /* 950ms how long PPS must be valid for */
 #define	GPS_NMEA_WARN_TIME 	(1200 * 8) /* 1200ms GPS warning time */
 #define GPS_NMEA_MAX_TIME 	(2400 * 8) /* 2400ms GPS timeout */
 #define	GPS_TSIP_WARN_TIME 	(5000ul * 8ul) /* 5000ms GPS warning time */
@@ -273,19 +383,20 @@
 #define	QUALCOUNT 			4
 #define	DUPLEX3 			(AppConfig.Duplex3 != 0) /* Not supported in voting or simulcast configurations */
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	/* If the launch delay is anything but 0, use simulcast mode */
-#define	memclr(x,y)			memset(x,0,y)
-#define ARPIsTxReady()		MACIsTxReady() 
+#define	memclr(x,y) 		memset(x,0,y)
+#define ARPIsTxReady()		MACIsTxReady()
+#define DISCFACTOR			1000
 
 /* Defines for GPS routines */
 #define	TSIP_FACTOR 57.295779513082320876798154814105 /* radians to degrees, Trimble reports lat/long in rads */
 #define ADD_1024_WEEKS 		619315200 /* 1024 weeks for Tbolt time fudge */
-#define	USE_PPS ((AppConfig.PPSPolarity != 2) && (!indiag))	/* 1 if PPS is != ignore (mix mode) and not in diagnostic mode */
+#define	VOTER_CLIENT ((AppConfig.PPSPolarity != 2) && (!indiag))	/* 1 if PPS is != ignore (mix mode) and not in diagnostic mode */
 enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ; /* GPS acquisition states */
 enum {GPS_NMEA,GPS_TSIP} ; /* GPS protocol types */
 
 /* Defines for ulaw and ADPCM */
 #define BIAS 				0x84 /* Define the add-in bias for 16-bit ulaw samples */
-#define CLIP 				32635
+#define CLIP 				32635 /* Clip ulaw samples to max value */
 #define	ULAW_SILENCE 		0xff /* Clamp audio for ulaw silence */
 #define	ADPCM_SILENCE 		0 /* Clamp audio for ADPCM silence */
 
@@ -330,7 +441,7 @@ typedef struct {
 static struct {
 	VOTER_PACKET_HEADER vph;
 	BYTE rssi;
-	BYTE audio[FRAME_SIZE + 3];
+	BYTE audio[ADPCM_FRAME_SIZE]; /* Audio packet will be a max of 163 bytes (when using ADPCM) */
 } audio_packet;
 
 static struct {
@@ -343,6 +454,10 @@ static struct {
 
 /* Declare AppConfig structure and some other supporting stack variables */
 APP_CONFIG AppConfig;
+/* The current size of the AppConfig array stored in EEPROM, if this doesn't
+ * match sizeof(AppConfig), we keep rebooting the device. So, if you change 
+ * any of the default EEPROM contents, this value needs to be updated! */
+#define APPCONFIGSIZE 1016
 BYTE AN0String[8];
 void SaveAppConfig(void);
 
@@ -371,6 +486,8 @@ void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL isc
 void init_squelch(void);
 void main_processing_loop(void);
 int myfgets(char *buffer, unsigned int len);
+BYTE ulaw_encode (WORD adc_sample);
+BYTE adpcm_encode (WORD adc_sample);
 
 /****************************************************************************/
 //																			//
@@ -383,16 +500,18 @@ BYTE inputs2;		/* GPB I/O on IO Expander */
 BYTE filling_buffer;
 WORD fillindex;
 BOOL filled;
-BYTE audio_buf[2][FRAME_SIZE + 3];	/* Audio buffer array */
+BYTE audio_buf[2][ADPCM_FRAME_SIZE]; /* Audio buffer array will be max 326 bytes (when using ADPCM) */
 BOOL set_atten(BYTE val);
 BOOL connected;		/* Connected to host */
+BOOL bootdone;		/* Set when main menu prints, so we can start GPS acquisition */
 BYTE rssi;		
 BYTE rssiheld;		
 BYTE gps_buf[160];	/* GPS receive buffer array */
 BYTE gps_bufindex;	/* GPS receive buffer array index pointer */
 BYTE TSIPwasdle;
 BYTE gps_state;		/* Current GPS state (idle, receiving, valid, synched) */ 
-BYTE gps_nsat;		/* Number of satellites in view (not necessarily locked) */
+BOOL gps_fix;		/* Set when we have a valid GPS fix */
+BYTE gps_nsat;		/* Number of satellites locked and being used for current fix */
 BOOL gpssync;		/* Set only when GPS_STATE_VALID */
 BOOL gotpps;		/* Set only when GPS_STATE_VALID and PPS is valid */
 DWORD gps_time;		/* GPS time in seconds */
@@ -413,8 +532,8 @@ WORD txdrainindex;
 WORD last_drainindex;
 VTIME lastrxtime;
 VTIME system_time;
-VTIME last_rxpacket_time;
-VTIME last_rxpacket_sys_time;
+VTIME last_rxpacket_time; /* Host timestamp (from packet header) for the last audio packet to TX we received from the host */
+VTIME last_rxpacket_sys_time; /* OUR time when we last received an audio packet to TX from the host */
 long last_rxpacket_index;
 char last_rxpacket_inbounds;
 BOOL ptt;
@@ -455,22 +574,23 @@ DWORD mydigest;
 BOOL sendgps;
 BYTE dnsnotify;
 BYTE altdnsnotify;
-long discfactor;
 long discounterl;
 long discounteru;
-short amax;
-short amin;
-WORD apeak;
+short amax;			/* Keep track of the maximum audio peak value (s/b positive?) */
+short amin;			/* Keep track of the maximum audio peak value (s/b negative?)*/
+WORD apeak;			/* Peak un-signed audio value */
 BOOL indisplay;
 BOOL indipsw;
-short enc_valprev;	/* Previous output value */
-char enc_index;		/* Index into stepsize table */
-short enc_prev_valprev;	/* Previous output value */
+/* ADPCM globals, most are used to keep track of previous values for the predictor. */
+short enc_valprev;		/* Previous output value */
+char enc_index;			/* Index into stepsize table */
+short enc_prev_valprev;	/* Previous previous output value */
 char enc_prev_index;	/* Index into stepsize table */
-BYTE enc_lastdelta;
-BYTE dec_buffer[FRAME_SIZE * 2];
+BYTE enc_lastdelta;		/* The last ADPCM sample */
+BYTE dec_buffer[ADPCM_SAMPLE_SIZE]; /* ADPCM decoded audio buffer translated to ulaw */
 short dec_valprev;	/* Previous output value */
 char dec_index;		/* Index into stepsize table */
+/* End ADPCM globals */
 BOOL time_filled;
 long host_txseqno;
 long txseqno_ptt;
@@ -531,6 +651,7 @@ WORD misstimer;
 WORD misstimer1;
 BYTE IOExpOutA,IOExpOutB,IODirB;
 char dummy_loc; /* Needed for EEPROM routines */
+WORD saved_rcon; /* Hold the Reset Control Register contents */
 
 #ifdef DSPBEW
 	DWORD fftresult;
@@ -684,6 +805,9 @@ ROM BYTE exp_lut[256] = {
 	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
 	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7 };
 
+/* The "decoder ring" to convert ulaw-encoded audio samples back to
+ * plain audio samples we can send out the DAC as "TX audio".
+ */
 ROM short ulawtabletx[] = {
 //-32124,-31100,-30076,-29052,-28028,-27004,-25980,-24956,
 -12000,-12000,-12000,-12000,-12000,-27004,-25980,-24956,
@@ -727,6 +851,7 @@ ROM static int indexTable[16] = {
     -1, -1, -1, -1, 2, 4, 6, 8,
 };
 
+/* ADPCM quantizer step size lookup table */
 ROM static int stepsizeTable[89] = {
     7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
     19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
@@ -739,7 +864,7 @@ ROM static int stepsizeTable[89] = {
     15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
 };
 
-/* Configure CW/Mose tone settings used for ID in Offline Mode */
+/* Configure CW/Morse tone settings used for ID in Offline Mode */
 #define CWTONELEN 10 /* 10 samples of tone? */
 
 /* These should be the ulaw samples to set the pitch of the CW tone */
@@ -816,22 +941,22 @@ static ROM struct morse_bits mbits[] = {
 };
 
 /* Define some CLI status messages and responses */
-ROM char 	gpsmsg1[] = "\nGPS receiver active, waiting for acquisition\n", 
-		gpsmsg2[] = "\nGPS signal acquired, number of satellites in view = ",
-		gpsmsg3[] = "  Time now syncronized to GPS\n", 
-		gpsmsg5[] = "  Lost GPS time synchronization\n",
-		gpsmsg6[] = "  GPS signal lost entirely. Starting again...\n",
-		gpsmsg7[] = "  Warning: GPS data time period elapsed\n",
-		gpsmsg8[] = "  Warning: GPS PPS signal time period elapsed\n",
-		gpsmsg9[] = "GPS signal acquired\n",
+ROM char 	gpsmsg1[] = "  GPS receiver active, waiting for acquisition",
+		gpsmsg2[] = "  GPS signal acquired, number of satellites locked = ",
+		gpsmsg3[] = "  Time now synchronized to GPS\n", 
+		gpsmsg5[] = "  Lost GPS time synchronization",
+		gpsmsg6[] = "  GPS signal lost entirely. Starting again...",
+		gpsmsg7[] = "  Warning: GPS data time period elapsed",
+		gpsmsg8[] = "  Warning: GPS PPS signal time period elapsed",
+		gpsmsg9[] = "  GPS signal acquired",
 		entnewval[] = "Enter New Value : ", 
 		newvalchanged[] = "Value Changed Successfully\n",
 		saved[] = "Configuration Settings Written to EEPROM\n";
 
 char 	newvalerror[] = "Invalid Entry, Value Not Changed\n", 
 		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
-		badmix[] = "  ERROR! Host rejecting connection\n",
-		hosttmomsg[] = "  ERROR! Host response timeout\n";
+		badmix[] = "  ERROR! Host rejecting mix mode connection",
+		hosttmomsg[] = "  ERROR! Host response timeout";
 
 /* Configure some of the CLI display strings and put them in ROM */
 static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                                  v -- 3KHz        v -- 5KHz\n",
@@ -931,62 +1056,68 @@ static BYTE calcrssi(WORD val) {
  * PPS is connected to RA4 (CN0).
  * VOTER Pin 12
  * RTCM Pin 34
- * Every time we get a PPS signal, we mask off RA4 (mask 0x10) and read it. If
- * it is valid, we clear ppsx and continue.
+ * Every time we get a PPS signal, we mask off RA4 (mask 0x10) and read it. 
+ *
+ * See the (lengthy) explanation of how PPS works in this ISR at the top of the
+ * source. We need ppsx = 1 in order to "do stuff" with voter clients.
  */ 
 void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
 {
-	/* Stuff for ADPCM encode */
-	int val;			/* Current input sample value */
-	int sign;			/* Current adpcm sign bit */
-	BYTE delta;			/* Current adpcm output value */
-	int diff;			/* Difference between val and valprev */
-	int step;			/* Stepsize */
-	int vpdiff;			/* Current change to valpred */
-	long valpred;		/* Predicted output value */
-	int adpcm_index;
+
 	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
-	/* Figure out if PPS is valid, or not?
-	 * portsave is the current status of CN0
-	 * If CN0 & 0x10 = 1, PPS signal is asserted (1) now
-	 * If PPS is asserted and PPSPolarity = 0 (Non-inverted), ppsx = 1
-	 * If !(PPS is asserted) and PPSPolarity = 1 (Inverted), ppsx = 1
-	 * PPS asserted should be 0 if PPSPolarity is 0 (making ppsx = 0)
-	 * PPS asserted should be 1 if PPSPolarity is 1 (making ppsx = 0)
-	 * ppsx should(?) be 0 for mix mode clients by default, since ppsx is defined as a
-	 * global variable, and AppConfig.PPSPolarity == 2 for mix mode clinets.
+	/* This IF is where the PPS magic happens.
+	 *
+	 * ppsx will be 0 for mix mode clients by default, since ppsx is defined as a
+	 * global variable, and AppConfig.PPSPolarity == 2 for mix mode clinets, so it
+	 * never gets used in this IF evaluation.
+	 *
+	 * This IF determines if the incoming PPS signal matches the selected PPSPolarity.
+	 *
+	 * Remember, this ISR only runs when the state of the PPS pin CHANGES, so only
+	 * at the beginning an end of the PPS pulse.
+	 *
+	 * The portasave & 0x10 mask will be true when the PPS pin of the VOTER/RTCM is
+	 * high.
+	 *
+	 * When PPSPolarity is "non-inverted" (0), we expect the PPS pin to idle low and tick
+	 * high on PPS. That will match PPSPolarity = 0 on the tick, and therefore set ppsx = 1. 
+	 *
+	 * When PPSPolarity is "inverted" (1), we expect the PPS pin to idle high, and tick
+	 * low on PPS. That wil match PPSPolarity = 1 on the tick, and therefore set ppsx = 1. 
 	 */
-	 /*! \todo VE7FET see Issue 17, there is a bug in this logic */
 	if (((portasave & 0x10) && (AppConfig.PPSPolarity == 0)) || ((!(portasave & 0x10)) && (AppConfig.PPSPolarity == 1))) { 
-		ppsx = 1; /* PPS not good */
+		ppsx = 1; /* PPS is good */
 	} else {
-		ppsx = 0; /* PPS is good */
+		ppsx = 0; /* PPS is not good */
 	}
 
-	 /* ppstimer is a counter that gets bumped every 125uS in the ADC ISR if gotpps is true
-	 * PPS_MUSTA_TIME (950ms) appears to be how long we must have a valid PPS signal for
+	 /* ppstimer is a counter that gets bumped every 125uS in the ADC ISR if gotpps is true.
 	 *
-	 * This seems odd... we only enter this IF, if our PPS is bad (ppsx = 1), or ppstimer
-	 * (after gotpps as been declared true) has been valid for at least PPS_MUSTA_TIME. So,
-	 * we seem to skip this and exit the ISR if PPS is valid (ppsx = 0) OR PPS has been
-	 * valid less than PPS_MUSTA_TIME. Is that to let things stabilize?
+	 * PPS_MUSTA_TIME (950ms) is at the end of the PPS pulse, when ppsx evaluates to 0 so we can
+	 * reset the timers again. We "MUSTA" had at least 950ms since the last trailing
+	 * edge of a good PPS pulse.
 	 *
-	 * ppsx should always be 0 for mix mode clients, right? 
 	 */
 	if (ppsx || (ppstimer >= PPS_MUSTA_TIME)) {
-		/* If we are not a mix mode client (USE_PPS will be 1 for voting clients), and
+		/* If we are not a mix mode client (VOTER_CLIENT will be 1 for voting clients), and
 		 * we're not in diag mode...
 		 */
-		if (USE_PPS && (!indiag)) {
+		if (VOTER_CLIENT) {
+			/* ppstimer gets bumped in the ADC ISR, we must keep resetting it, or
+			 * we will throw ppswarn and then eventually declare GPS signal lost.
+			 *
+			 * We also reset ppswarn if it gets set, but we recovered in time before
+			 * PPS_MAX_TIME expires.
+			 */
 			ppstimer = 0;
 			ppswarn = 0;
 			/* If GPS is now VALID, but we haven't qualified PPS yet, do it, 
 			 * reset samplecnt, and exit the ISR. */
 			if ((gps_state == GPS_STATE_VALID) && (!gotpps)) {
 				TMR3 = 0;	/* Reset the Timer 3 register */
-				gotpps = 1;	/* GPS is good, so PPS must be good (that seems presumptious) */
+				gotpps = 1;	/* GPS is good, so PPS must be good (that seems presumptuous) */
 				samplecnt = 0;
 				fillindex = 0;
 			}
@@ -1022,130 +1153,40 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						 * 8000 samples (1 second) of audio. Only if we're not simulcasting.
 						 */
 						if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) {
-							/* If we ae configured for ADPCM audio, fill the audio
-							 * buffer (audio_buf) with ADPCM audio.
-							 */
-							if (option_flags & OPTION_FLAG_ADPCM) {
-								val = last_adcsample;
-								val -= 2048;
-								val *= 16;
-								adpcm_index = enc_index;
-								valpred = enc_valprev;
-								step = stepsizeTable[adpcm_index];
-								
-								/* Step 1 - compute difference with previous value */
-								diff = val - valpred;
-								sign = (diff < 0) ? 8 : 0;
+							if (option_flags & OPTION_FLAG_ADPCM) { /* Encode audio in ADPCM */
+								BYTE adpcm_sample;
 
-								if (sign) {
-									diff = (-diff);
-								}
-								/* Step 2 - Divide and clamp */
-								/* Note:
-								** This code *approximately* computes:
-								**    delta = diff*4/step;
-								**    vpdiff = (delta+0.5)*step/4;
-								** but in shift step bits are dropped. The net result of this is
-								** that even if you have fast mul/div hardware you cannot put it to
-								** good use since the fixup would be too expensive.
-								*/
-								delta = 0;
-								vpdiff = (step >> 3);
+								adpcm_sample = adpcm_encode(last_adcsample);
 								
-								if (diff >= step) {
-									delta = 4;
-									diff -= step;
-									vpdiff += step;
-								}
-								
-								step >>= 1;
-								
-								if (diff >= step) {
-									delta |= 2;
-									diff -= step;
-									vpdiff += step;
-								}
-								
-								step >>= 1;
-								
-								if (diff >= step) {
-									delta |= 1;
-									vpdiff += step;
-								}
-							
-								/* Step 3 - Update previous value */
-								if (sign) {
-									valpred -= vpdiff;
-								} else {
-									valpred += vpdiff;
-								}
-							
-								/* Step 4 - Clamp previous value to 16 bits */
-								if (valpred > 32767) {
-									valpred = 32767;
-								} else if (valpred < -32768) {
-									valpred = -32768;
-								}
-							
-								/* Step 5 - Assemble value, update index and step values */
-								delta |= sign;
-								
-								adpcm_index += indexTable[delta];
-								
-								if (adpcm_index < 0) { 
-									adpcm_index = 0;
-								}
-								
-								if (adpcm_index > 88) { 
-									adpcm_index = 88;
-								}
-								enc_valprev = valpred;
-								enc_index = adpcm_index;
-								
+								/* Put the ADPCM value into the audio buffer, bottom nibble first. */
 								if (fillindex & 1) {
-									audio_buf[filling_buffer][fillindex++ >> 1] = (enc_lastdelta << 4) | delta;
+									audio_buf[filling_buffer][fillindex >> 1] = (enc_lastdelta << 4) | adpcm_sample;
 								} else {
-									enc_lastdelta = delta;
+									enc_lastdelta = adpcm_sample;
 								}
-							} else  { /* Is ulaw */
+								fillindex++;
+							} else  { /* Encode audio in ulaw */
 								/* We're using ulaw instead of ADPCM, so fill the
 								 * audio buffer (audio_buf) with ulaw audio samples
 								 * instead.
 								 */
-						        short sample,sign, exponent, mantissa;
-						        BYTE ulawbyte;
-								
-								sample = last_adcsample;
-								sample -= 2048;
-								sample *= 16;
-
-						        /* Get the sample into sign-magnitude. */
-								sign = (sample >> 8) & 0x80;	/* Set aside the sign */
-								
-								if (sign != 0) {
-									sample = -sample;	/* Get magnitude */
-								}
-							    
-								if (sample > CLIP) {
-									sample = CLIP;		/* Clip the magnitude */
-								}
-						
-								/* Convert from 16-bit linear to ulaw. */
-								sample = sample + BIAS;
-								exponent = exp_lut[(sample >> 7) & 0xFF];
-								mantissa = (sample >> (exponent + 3)) & 0x0F;
-								ulawbyte = ~(sign | (exponent << 4) | mantissa);
-								audio_buf[filling_buffer][fillindex++] = ulawbyte;
+								audio_buf[filling_buffer][fillindex++] = ulaw_encode(last_adcsample);
 							}
 
 							/* Once we have a full packet frame (320 bytes of ADPCM or 160 bytes of ulaw),
 							 * set filled = 1...
 							 */
-							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE)) {
+							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
 								if (option_flags & OPTION_FLAG_ADPCM) {
+									/* Put the predictor value into bytes 160 and 161 of the
+									 * payload, high byte first.
+									 */
 									cp = &audio_buf[filling_buffer][fillindex >> 1];
 									*cp++ = (enc_prev_valprev & 0xff00) >> 8;
 									*cp++ = enc_prev_valprev & 0xff;
+									/* Put the stepsizeTable index value into byte 162
+									 * of the payload.
+									 */
 									*cp = enc_index;
 									enc_prev_valprev = enc_valprev;
 									enc_prev_index = enc_index;
@@ -1161,8 +1202,9 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 						}
 
 						/* Assert gpssync only once we reach GPS_STATE_VALID */
+						/*! \todo VE7FET why do we add 1 second to gps_time? */
 						if ((!gpssync) && (gps_state == GPS_STATE_VALID)) {
-							system_time.vtime_sec = timing_time = real_time = gps_time + 1; 
+							system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 							gpssync = 1;
 						}
 					} else {
@@ -1176,7 +1218,7 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 			samplecnt = 0;
 		}
 	}
-	IFS1bits.CNIF = 0;	/* Clear the CN interript flag, we're done! */
+	IFS1bits.CNIF = 0;	/* Clear the CN interrupt flag, we're done! */
 }
 
 /*****************************************************************************/
@@ -1185,7 +1227,9 @@ void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA
 //                                                                           //
 /*****************************************************************************/
 /* This ISR is called when the Launch Delay (+1uS) expires.
- * It turns on the DAC for TX output, after the launch delay.
+ * It turns on the DAC for TX output, after the launch delay. Note that for
+ * non-simulcast clients (mix mode or normal voting), we turn on the DAC and
+ * enable the DAC ISR during boot in the main subroutine.
  */
 void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 {
@@ -1203,29 +1247,19 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
 //																			//
 /****************************************************************************/
 /* Every time TMR3 expires (62.5uSec), we service the ADC.
-   On ODD calls of this ISR, we grab an RX Audio value and encode it, 
-   which means, every 125uSec we encode a packet, or 8000 samples/sec (8kHz) 
-   audio.
-   On EVEN calls of this ISR, we rotate between getting values for RXNoise 
-   (RSSI), Squelch Pot position, and Diode Voltage (temp comp).
-   EVERY time through, we bump some counters.
+ * On ODD calls of this ISR, we grab an RX Audio value and encode it,
+ * which means, every 125uSec we encode a packet, or 8000 samples/sec (8kHz)
+ * audio.
+ * On EVEN calls of this ISR, we rotate between getting values for RXNoise
+ * (RSSI), Squelch Pot position, and Diode Voltage (temp comp), and we always
+ * bump some counters.
 */ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
-	WORD index; /* Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff) */
+	WORD index; /* Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff) (0 - 4095) */
 	long accum;
 	short saccum;
 	BYTE i;
-
-	/* Stuff for ADPCM encode */
-	int val;		/* Current input sample value */
-	int sign;		/* Current adpcm sign bit */
-	BYTE delta;		/* Current adpcm output value */
-	int diff;		/* Difference between val and valprev */
-	int step;		/* Stepsize */
-	int vpdiff;		/* Current change to valpred */
-	long valpred;	/* Predicted output value */
-	int adpcm_index;
 	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
@@ -1244,14 +1278,14 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 
 		/* Bump some timers to make sure everything is okay */
 		if (gotpps) {
-			ppstimer++;
+			ppstimer++; /* Add a tick to the PPS timer, to make sure it stays valid. */
 		}
 		if (gps_state != GPS_STATE_IDLE) {
-			gpstimer++;
+			gpstimer++; /* Add a tick to the GPS timer, to keep track of our valid fix. */
 		}
 
 		if (connected) { /* If we're connected to the host, update some timers. */
-			gpsforcetimer++;
+			gpsforcetimer++; /* Add a tick to the timer that will force a GPS keepalive packet. */
 			elketimer++;
 			if (glasertimer) {
 				glasertimer--;
@@ -1297,12 +1331,13 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 		last_index = last_index1;	/* Previous sample becomes last_index */
 		last_index1 = index;		/* Current sample becomes last_index1 */
 
-		/* If we're not simulcasting, or we are simulcasting and not using PPS, 
-		 * we're going to encode an RX Audio sample. 
+		/* If we're not simulcasting, and we are a voting client with good GPS fix
+		 * (gotpps is set), or we are a mix mode client (!VOTER_CLIENT), we're going
+		 * to encode an RX audio sample. 
 		 * Otherwise, we're just going to skip it.
 		 */
-		if (!(SIMULCAST_ENABLE && USE_PPS)) {
-			if (gotpps || (!USE_PPS)) {
+		if (!(SIMULCAST_ENABLE && VOTER_CLIENT)) {
+			if (gotpps || (!VOTER_CLIENT)) {
 				if (fillindex == 0) {
 					next_index = samplecnt;
 					next_time = real_time;
@@ -1315,149 +1350,61 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 				saccum -= 2048;
 				accum = saccum * 16;
 
+				/* Keep track of the maximum audio peak value */
 	            if (accum > amax) {
 	                amax = accum;
-	                discounteru = discfactor;
+	                discounteru = DISCFACTOR;
 	            } else if (--discounteru <= 0) {
-	                discounteru = discfactor;
+	                discounteru = DISCFACTOR;
 	                amax = (long)((amax * 32700) / 32768L);
 	            }
 
+				/* Keep track of the minimum audio peak value */
 				if (accum < amin) {
 	                amin = accum;
-	                discounterl = discfactor;
+	                discounterl = DISCFACTOR;
 	            } else if (--discounterl <= 0) {
-	                discounterl = discfactor;
+	                discounterl = DISCFACTOR;
 	                amin = (long)((amin * 32700) / 32768L);
 				}
 				
 				/* Reset the sample counter when we hit 8000 samples */
-				if ((!USE_PPS) && (samplecnt == 8000)) {
+				if ((!VOTER_CLIENT) && (samplecnt == 8000)) {
 					samplecnt = 0;
 				}
 	
 				if (samplecnt++ < 8000) {
-					if (option_flags & OPTION_FLAG_ADPCM) {
-						/* Encode audio in ADPCM */
-						val = index;
-						val -= 2048;
-						val *= 16;
-						adpcm_index = enc_index;
-						valpred = enc_valprev;
-						step = stepsizeTable[adpcm_index];
-							
-						/* Step 1 - compute difference with previous value */
-						diff = val - valpred;
-						sign = (diff < 0) ? 8 : 0;
+					if (option_flags & OPTION_FLAG_ADPCM) { /* Encode audio in ADPCM */
+						BYTE adpcm_sample;
 
-						if (sign) {
-							diff = (-diff);
-						}
+						adpcm_sample = adpcm_encode(index);
 
-						/* Step 2 - Divide and clamp
-						 * Note:
-						 * This code *approximately* computes:
-						 *    delta = diff*4/step;
-						 *    vpdiff = (delta+0.5)*step/4;
-						 * but in shift step bits are dropped. The net result of this is
-						 * that even if you have fast mul/div hardware you cannot put it to
-						 * good use since the fixup would be too expensive.
-						 */
-						delta = 0;
-						vpdiff = (step >> 3);
-						
-						if (diff >= step) {
-							delta = 4;
-							diff -= step;
-							vpdiff += step;
-						}
-
-						step >>= 1;
-
-						if (diff >= step) {
-							delta |= 2;
-							diff -= step;
-							vpdiff += step;
-						}
-
-						step >>= 1;
-
-						if (diff >= step) {
-							delta |= 1;
-							vpdiff += step;
-						}
-						
-						/* Step 3 - Update previous value */
-						if (sign) {
-							valpred -= vpdiff;
-						} else {
-							valpred += vpdiff;
-						}
-						
-						/* Step 4 - Clamp previous value to 16 bits */
-						if (valpred > 32767) {
-							valpred = 32767;
-						} else if (valpred < -32768) {
-							valpred = -32768;
-						}
-						
-						/* Step 5 - Assemble value, update index and step values */
-						delta |= sign;
-						
-						adpcm_index += indexTable[delta];
-
-						if (adpcm_index < 0) { 
-							adpcm_index = 0;
-						}
-
-						if (adpcm_index > 88) { 
-							adpcm_index = 88;
-						}
-						enc_valprev = valpred;
-						enc_index = adpcm_index;
-
+						/* Put the ADPCM value into the audio buffer, bottom nibble first. */
 						if (fillindex & 1) {
-							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
+							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | adpcm_sample;
 						} else {
-							enc_lastdelta = delta;
+							enc_lastdelta = adpcm_sample;
 						}
 						fillindex++;
 					} else { /* Encode audio in ulaw */
-						short sample,sign, exponent, mantissa;
-						BYTE ulawbyte;
-						sample = index;
-						sample -= 2048;
-						sample *= 16;
-					
-					    /* Get the sample into sign-magnitude. */
-					    sign = (sample >> 8) & 0x80;	/* Set aside the sign */
-
-					    if (sign != 0) {
-					    	sample = -sample;	/* Get magnitude */
-						}
-
-					    if (sample > CLIP) {
-					    	sample = CLIP;		/* Clip the magnitude */
-						}
-					    
-						/* Convert from 16 bit linear to ulaw. */
-					    sample = sample + BIAS;
-					    exponent = exp_lut[(sample >> 7) & 0xFF];
-					    mantissa = (sample >> (exponent + 3)) & 0x0F;
-					    ulawbyte = ~(sign | (exponent << 4) | mantissa);
-					
-						audio_buf[filling_buffer][fillindex++] = ulawbyte;
+						audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
 					}
 					
 					if (txseqno == 0) {
 						txseqno = 3;
 					}
 					
-					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE)) {
+					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
 						if (option_flags & OPTION_FLAG_ADPCM) {
 							cp = &audio_buf[filling_buffer][fillindex >> 1];
+							/* Put the predictor value into bytes 160 and 161 of the
+							 * payload, high byte first.
+							 */
 							*cp++ = (enc_prev_valprev & 0xff00) >> 8;
 							*cp++ = enc_prev_valprev & 0xff;
+							/* Put the stepsizeTable index value into byte 162
+							 * of the payload.
+							 */
 							*cp = enc_prev_index;
 							enc_prev_valprev = enc_valprev;
 							enc_prev_index = enc_index;
@@ -1480,6 +1427,8 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 						last_drainindex = txdrainindex;
 						timing_index = next_index;
 						timing_time = next_time;
+						/* apeak should be the peak un-signed audio value, since
+						 * amin should be a negative value */
 						apeak = (long)(amax - amin) / 2;
 						for (i = NAPEAKS -1; i; i--) {
 							apeaks[i] = apeaks[i - 1];
@@ -1517,29 +1466,22 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	long accum;
 	short saccum;
 	BYTE i;
-
-	/* Stuff for ADPCM encode */
-	int val;		/* Current input sample value */ 
-	int sign;		/* Current adpcm sign bit */
-	BYTE delta;		/* Current adpcm output value */ 
-	int diff;		/* Difference between val and valprev */ 
-	int step;		/* Stepsize */
-	int vpdiff;		/* Current change to valpred */
-	long valpred;	/* Predicted output value */
-	int adpcm_index;
 	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
 	IFS4bits.DAC1LIF = 0; /* Clear the DAC1Left Interrupt Flag */
 
 	s = 0;
-	/* Output TX sample */
+	/* Output TX audio sample. DAC1LDAT is the data to load into the
+	 * left DAC channel to transmit. */
+	/* testp is a test tone sample sent from the Diagnostics Menu. */
 	if (testp) {
 		DAC1LDAT = testp[testidx++ + 1];
 		if (testidx >= testp[0]) {
 			testidx = 0;
 		}
 	} else {
+		/* If it is time to send a CWID, load s with the tone samples. */
 		if (cwptr && (!cwtimer1)) {
 			if (--cwtimer) {
 				if ((cwlen > 1) && (!(cwlen & 1))) {
@@ -1599,12 +1541,16 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			}
 		}
 
+		/* If we are in offline mode, load s with an audio sample to repeat.
+		 * last_index should be the last sample we grabbed in the ADC ISR, 
+		 * so we effectively are going to direct copy RX in to TX out. */
 		if (repeatit) {
 			short s1;
 			s1 = last_index << 4;
 			s += s1 - 32768;
 		}
 
+		/* Mix in the CTCSS tone for offline mode (?) into s, if it exists. */
 		if (ptt && (!host_ptt) && tone_fac) {  
 		    tone_v1 = tone_v2;
 		    tone_v2 = tone_v3;
@@ -1614,32 +1560,60 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 
 		if (ptt) {
 #ifdef	DMWDIAG
+			/* If we're using DMWDIAG, replace all the TX audio DAC samples
+			 * with those from ulaw_digital_milliwatt to send a 1kHz sine wave.
+			 * 
+			 * ulawtabletx takes ulaw-encoded audio and decodes it back to plain
+			 * audio samples we can convert to analog audio output via the DAC.
+			 */
 			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
 			if (mwp > 7) mwp = 0;
 #else
+			/* Normally, we're going to get the audio sample from the network,
+			 * and put it in c.
+			 */
 			c = txaudio[txdrainindex];
 
+			/* If we're connected to the host, decode the ulaw audio samples from
+			 * the network, and send it out the DAC. I don't think s shouldn't have
+			 * anything in it?
+			 */
 			if (connected && (!IS_POCSAG_TX(c))) {
 				DAC1LDAT = ulawtabletx[c] + s;
 			} else {
+				/* If we're offline, send our locally-generated audio. This would
+				 * include RX audio copied from the ADC, and CWID/CTCSS (if necessary).
+				 *
+				 * We don't need to run it through the ulaw decoder ring, because it
+				 * never was encoded.
+				 */
 				DAC1LDAT = s;
 			}
 #endif /* DMWDIAG */
 		} else {
+			/* Set the DAC to silence, if we're not keyed. */
 			DAC1LDAT = 0;
 		}
 
+		/* Once we've sent an audio sample, replace it with silence, then increment
+		 * the drainindex.
+		 */
 		txaudio[txdrainindex++] = ULAW_SILENCE;
 
+		/* Reset the TX buffer drain index when we get to the end. */
 		if (txdrainindex >= AppConfig.TxBufferLength) {
 			txdrainindex = 0;
 		}
 	}
 
-	if (SIMULCAST_ENABLE && USE_PPS) {
+	/* This looks like when we're in this ISR, and we are configured for simulcast,
+	 * we're going to take the current ADC sample and stuff it in the audio buffer. Not
+	 * sure why we are doing this in the DAC ISR?
+	 */
+	if (SIMULCAST_ENABLE && VOTER_CLIENT) {
 		index = last_index1;
 
-		if (gotpps || (!USE_PPS)) {
+		if (gotpps) {
 			if (fillindex == 0) {
 				next_index = samplecnt;
 				next_time = real_time;
@@ -1652,146 +1626,60 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			saccum -= 2048;
 			accum = saccum * 16;
 			
+			/* Keep track of the maximum audio peak value */
 			if (accum > amax) {
 				amax = accum;
-				discounteru = discfactor;
+				discounteru = DISCFACTOR;
 			} else if (--discounteru <= 0) {
-				discounteru = discfactor;
+				discounteru = DISCFACTOR;
 				amax = (long)((amax * 32700) / 32768L);
 			}
 			
+			/* Keep track of the minimum audio peak value */
 			if (accum < amin) {
 				amin = accum;
-				discounterl = discfactor;
+				discounterl = DISCFACTOR;
 			} else if (--discounterl <= 0) {
-				discounterl = discfactor;
+				discounterl = DISCFACTOR;
 				amin = (long)((amin * 32700) / 32768L);
 			}
 
-			if ((!USE_PPS) && (samplecnt == 8000)) {
+			if ((!VOTER_CLIENT) && (samplecnt == 8000)) {
 				samplecnt = 0;
 			}
 		
 			if (samplecnt++ < 8000) {
 				if (option_flags & OPTION_FLAG_ADPCM) {
-					val = index;
-					val -= 2048;
-					val *= 16;
-					adpcm_index = enc_index;
-					valpred = enc_valprev;
-					step = stepsizeTable[adpcm_index];
-					
-					/* Step 1 - compute difference with previous value */
-					diff = val - valpred;
-					sign = (diff < 0) ? 8 : 0;
-				
-					if (sign) {
-						diff = (-diff);
-					}
-				
-					/* Step 2 - Divide and clamp
-					 * Note:
-					 * This code *approximately* computes:
-					 *    delta = diff*4/step;
-					 *    vpdiff = (delta+0.5)*step/4;
-					 * but in shift step bits are dropped. The net result of this is
-					 * that even if you have fast mul/div hardware you cannot put it to
-					 * good use since the fixup would be too expensive.
-					 */
-					delta = 0;
-					vpdiff = (step >> 3);
-						
-					if (diff >= step) {
-						delta = 4;
-						diff -= step;
-						vpdiff += step;
-					}
-					
-					step >>= 1;
-					
-					if (diff >= step) {
-						delta |= 2;
-						diff -= step;
-						vpdiff += step;
-					}
-					
-					step >>= 1;
-					
-					if (diff >= step) {
-						delta |= 1;
-						vpdiff += step;
-					}
-					
-					/* Step 3 - Update previous value */
-					if (sign) {
-						valpred -= vpdiff;
-					} else {
-						valpred += vpdiff;
-					}
-					
-					/* Step 4 - Clamp previous value to 16 bits */
-					if (valpred > 32767) {
-						valpred = 32767;
-					} else if (valpred < -32768) {
-						valpred = -32768;
-					}
-				
-					/* Step 5 - Assemble value, update index and step values */
-					delta |= sign;
-					adpcm_index += indexTable[delta];
-					
-					if (adpcm_index < 0) { 
-						adpcm_index = 0;
-					}
-						
-					if (adpcm_index > 88) { 
-						adpcm_index = 88;
-					}
-				
-					enc_valprev = valpred;
-					enc_index = adpcm_index;
-						
+					BYTE adpcm_sample;
+
+					adpcm_sample = adpcm_encode(last_adcsample);
+
+					/* Put the ADPCM value into the audio buffer, bottom nibble first. */
 					if (fillindex & 1) {
-						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | delta;
+						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | adpcm_sample;
 					} else {
-						enc_lastdelta = delta;
+						enc_lastdelta = adpcm_sample;
 					}
-
 					fillindex++;
-				} else {  /* Is ulaw */
-					short sample,sign, exponent, mantissa;
-					BYTE ulawbyte;
-					sample = index;
-					sample -= 2048;
-					sample *= 16;
-	
-				    /* Get the sample into sign-magnitude. */
-				    sign = (sample >> 8) & 0x80;	/* Set aside the sign */
-				    if (sign != 0) {
-			            sample = -sample;	/* Get magnitude */
-					}
-					
-					if (sample > CLIP) {
-						sample = CLIP;		/* Clip the magnitude */
-					}
-
-					/* Convert from 16-bit linear to ulaw. */
-					sample = sample + BIAS;
-					exponent = exp_lut[(sample >> 7) & 0xFF];
-					mantissa = (sample >> (exponent + 3)) & 0x0F;
-					ulawbyte = ~(sign | (exponent << 4) | mantissa);
-					audio_buf[filling_buffer][fillindex++] = ulawbyte;
+				} else {  /* Encode audio in ulaw */
+					audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
 				}
 				
 				if (txseqno == 0) {
 					txseqno = 3;
 				}
 
-				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : FRAME_SIZE)) {
+				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
 					if (option_flags & OPTION_FLAG_ADPCM) {
 						cp = &audio_buf[filling_buffer][fillindex >> 1];
+						/* Put the predictor value into bytes 160 and 161 of the
+						 * payload, high byte first.
+						 */
 						*cp++ = (enc_prev_valprev & 0xff00) >> 8;
 						*cp++ = enc_prev_valprev & 0xff;
+						/* Put the stepsizeTable index value into byte 162
+						 * of the payload.
+						 */
 						*cp = enc_prev_index;
 						enc_prev_valprev = enc_valprev;
 						enc_prev_index = enc_index;
@@ -1814,6 +1702,8 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 					last_drainindex = txdrainindex;
 					timing_index = next_index;
 					timing_time = next_time;
+					/* apeak should be the peak un-signed audio value, since
+					 * amin should be a negative value */
 					apeak = (long)(amax - amin) / 2;
 					for (i = NAPEAKS -1; i; i--) {
 						apeaks[i] = apeaks[i - 1];
@@ -1917,10 +1807,10 @@ void SetPTT(BOOL val)
 //   				 ASEL1 = RB3 (Pin 24), setting to 1 is PL Filter IN,	//
 // 					 setting to 0 is PL Filter OUT							//
 //					 ASEL2 = RB2 (Pin 23), Setting to 1 is NO de-emphasis,	//
-// 					 setting to 0 is de-emphazised							//
+// 					 setting to 0 is de-emphasized							//
 //																			//
 //   				 myflags holds the bitmask								//
-//   				 myflags 0 = de-emphazised,  PL filtered				//
+//   				 myflags 0 = de-emphasized,  PL filtered				//
 //   				 myflags 1 = no de-emphasis, PL filtered				//
 //   				 myflags 4 = de-emphasized,  no PL filter				//
 //   				 myflags 5 = no de-emphasis, no PL filter				//
@@ -2096,7 +1986,7 @@ void IOExpInit(void)
 	IOExp_Write(IOEXP_IODIRA,0xD0);
 	/* Configure GPB0-GPB7 
 	 * 0xF3 = 1111 0011 (7:0)
-	 * GPB0 (Pin 1) IN JP10 Calibate Diode
+	 * GPB0 (Pin 1) IN JP10 Calibrate Diode
 	 * GPB1 (Pin 2) IN JP11 LED 3/4 RX Level Mode
 	 * GPB2 (Pin 3) OUT ASEL1 Audio Select 1
 	 * GPB3 (Pin 4) OUT ASEL2 Audio Select 2
@@ -2190,10 +2080,10 @@ void SetPTT(BOOL val)
 // 					 		 setting to 0 is PL Filter OUT					//
 //					 ASEL2 = IOExpOutB mask Bit 8 = GPB3,					//
 // 							 setting to 1 is NO de-emphasis,				//
-// 					 		setting to 0 is de-emphazised					//
+// 					 		setting to 0 is de-emphasized					//
 //																			//
 //   				 myflags holds the bitmask								//
-//   				 myflags 0 = de-emphazised,  PL filtered				//
+//   				 myflags 0 = de-emphasized,  PL filtered				//
 //   				 myflags 1 = no de-emphasis, PL filtered				//
 //   				 myflags 4 = de-emphasized,  no PL filter				//
 //   				 myflags 5 = no de-emphasis, no PL filter				//
@@ -2296,6 +2186,12 @@ BOOL HasCOR(void)
 // 		Returns: Ignore (normal), Non-Inverted (qualified), and				//
 // 				 Inverted (qualified) all return 1							//
 // 				 If we are in diagnostic mode, return 0						//
+// 																			//
+// 		Remarks: "Ignore CTCSS" (ExternalCTCSS = 0) forces this function	//
+// 				 to return 1 always, which is interpreted elsewhere as		//
+// 				 CTCSS being qualified always. Not really the best way to	//
+// 				 do it, but because of space constraints, it will have to	//
+// 				 do.														//
 // 				 															//
 //																			//
 /****************************************************************************/
@@ -2577,9 +2473,9 @@ DWORD ntohl(DWORD x)
 //		Read NMEA Packet Subroutine											//
 //																			//
 // 		Description: Read UART2 for NMEA GPS packets. NMEA uses				//
-// 					 $GPRMC, $GPGGA, and $GPGSV								//
+// 					 $GPRMC, $GPGGA											//
 // 																			//
-// 		Returns: 1 if we suceed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf		//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -2615,9 +2511,9 @@ BOOL getGPSStr(void)
 //																			//
 //		Read TSIP Packet Subroutine											//
 //																			//
-// 		Description: Read UART2 for binary Timble TSIP packets				//
+// 		Description: Read UART2 for binary Trimble TSIP packets				//
 // 																			//
-// 		Returns: 1 if we suceed in putting something in the gps_buf			//
+// 		Returns: 1 if we succeed in putting something in the gps_buf		//
 // 				 0 on fail													//
 //																			//
 /****************************************************************************/
@@ -2680,8 +2576,8 @@ static char *logtime_p(VTIME *p)
 {
 	time_t	t;
 	static char str[50];
-	static ROM char notime[] = "<System Time Not Set>",
-	logtemplate[] = "%m/%d/%Y %H:%M:%S";
+	static ROM char notime[] = "\n<No Time Available>",
+	logtemplate[] = "\n%m/%d/%Y %H:%M:%S";
 
 	t = p->vtime_sec;
 	
@@ -2743,14 +2639,15 @@ void process_gps(void)
 	int n;
 	char *strs[30];
 	static ROM char gpgga[] = "$GPGGA",
-				gpgsv[] = "$GPGSV", 
 				gprmc[] = "$GPRMC";
 
 	/* Please see doubleify.c for explanation of this poo-poo */
 	extern float doubleify(BYTE *p);
 	
-	/* Don't process GPS if we're in diagnostic mode. */
-	if (indiag) {
+	/* Don't process GPS if we're in diagnostic mode, or we haven't finished
+	 * printing the main menu (so our status messages don't mess things up).
+	 */
+	if (indiag || !bootdone) {
 		return;
 	}
 
@@ -2771,11 +2668,16 @@ void process_gps(void)
 	 *
 	 * Once we hit this state, we switch to GPS_STATE_SYNCED, which is
 	 * our final state.
+	 *
+	 * BUT, make sure we have a good fix (gps_fix) and there is
+	 * something in system_time.vtime_sec before we proceed. Note, we
+	 * can't use gps_time here, because it may be non-zero due to
+	 * fudge factors.
 	 */
-	if ((gpssync || (!USE_PPS)) && (gps_state == GPS_STATE_VALID)) {
+	if ((gpssync || (!VOTER_CLIENT)) && (gps_state == GPS_STATE_VALID) && (gps_fix) && (system_time.vtime_sec)) {
 		gps_state = GPS_STATE_SYNCED;
 		printf(logtime()); /* Print the current timestamp */
-		printf(gpsmsg3); /* Print "Time now synchonized to GPS" */
+		printf(gpsmsg3); /* Print "Time now synchronized to GPS" */
 		main_processing_loop();
 	}
 
@@ -2784,11 +2686,14 @@ void process_gps(void)
 	 * dump our host connection and reset a bunch of other vars to
 	 * get reset to start again.
 	 */
-	if ((!gpssync) && USE_PPS && (gps_state == GPS_STATE_SYNCED)) {
-		gps_state = GPS_STATE_VALID;
+	if ((!gpssync) && VOTER_CLIENT && (gps_state == GPS_STATE_SYNCED)) {
+		gps_state = GPS_STATE_IDLE;
 		printf(logtime()); /* Print the current timestamp */
 		printf(gpsmsg5); /* Print Lost GPS Time synchronization */
 
+		gotpps = 0;
+		ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
+		gps_fix = 0;
 		connected = 0;
 		txseqno = 0;
 		txseqno_ptt = 0;
@@ -2796,7 +2701,7 @@ void process_gps(void)
 		digest = 0;
 		their_challenge[0] = 0;
 		lastrxtimer = 0;
-		SetAudioSrc();
+		SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 	}
 
 	/* What type of GPS do we have connected? NMEA or TSIP? */
@@ -2809,15 +2714,19 @@ void process_gps(void)
 			return;
 		}
 
-		/* If DebugLevel is set to 32, print the $GPRMC string we
-		 * got from the GPS.
+		/* If DebugLevel is set to 32, print the $GPRMC and $GPGGA strings we got from the GPS.
+		 * We have to do this before we run through explode_string, as that modifies gps_buf.
 		 */
-		if ((AppConfig.DebugLevel & 32) && strstr((char *)gps_buf,gprmc)) {
-			printf("GPS-DEBUG: %s\n",gps_buf);
-		
-			/* If PPS is bad (ppsx = 1), and we are expecting to have
-			 * PPS working (PPSPolarity is 0 or 1), throw a message to
-			 * check the PPS config.
+		if (AppConfig.DebugLevel & 32) {
+			if (strstr((char *)gps_buf,gprmc)) {
+				printf("GPS-DEBUG: %s\n",gps_buf);
+			}
+			if (strstr((char *)gps_buf,gpgga)) {
+				printf("GPS-DEBUG: %s\n",gps_buf);
+			}
+			/* If PPS is bad if ppsx is idling at 1. The only time it should be 1
+			 * is during an actual PPS pulse (which is VERY small). If we
+			 * consistently have ppsx = 1, throw a message to check the PPS config.
 			 */
 			if ((ppsx) && (AppConfig.PPSPolarity <= 1)) {
 				printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
@@ -2829,31 +2738,82 @@ void process_gps(void)
 		 */
 		n = explode_string((char *)gps_buf,strs,30,',','\"');
 	
-		/* Didn't find any substings in the buffer, so exit. */
-		if (n < 1) {
+		/* If we didn't find any substrings in the buffer, or we didn't get $GPGGA
+		 * or $GPRMC stings, exit. This prevents us from thinking we've received
+		 * valid data if there is just garbage on the serial port (ie. TSIP).
+		 */
+		if ((n < 1) || (strcmp(strs[0],gpgga) && strcmp(strs[0],gprmc))) {
 			return;
 		}
-	
-		/* Is this a $GPGSV NMEA string in the buffer?
-		 * Yes? Did we find more than 4 substrings?
-		 * Yes? Then get the number of satellites in view from field 3 and
-		 * put it in gps_nsat, then exit.
-		 */
-		/*! \todo VE7FET this is the wrong thing to use. We don't care
-		 * how many satellites we can see (from $GPGSV), we should be 
-		 * using the number of satellites in use (fom $GPGGA) for our
-		 * fix.
-		 */
-		if (!strcmp(strs[0],gpgsv)) {
-			if (n >= 4) gps_nsat = atoi(strs[3]);
-			return;
+		
+		/* Otherwise, we're getting some data, so move to the next GPS_STATE. */
+		if (gps_state == GPS_STATE_IDLE) {
+			gps_state = GPS_STATE_RECEIVED;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
 		}
-	
+
+		/* We got a GPS packet, so reset the timeout warning status each time we come through.
+		 * If we stop receiving data that we can decode, this is going to trigger warnings.
+		 */
+		gpstimer = 0;
+		gpswarn = 0;
+
+		/* We will start by processing the $GPGGA string. This will tell us whether we
+		 * have a valid GPS fix, how many satellites we are using for the fix, and our
+		 * lat/long and elevation.
+		 *
+		 * Example $GPGGA string:
+		 * $GPGGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh
+		 *
+		 * Is this the $GPGGA NMEA string in the buffer?
+		 * Yes? Did we find more than 14 substrings?
+		 * Yes? Then let's do something with it.
+		 * Get the lat/long and elevation.
+		 * Get the quality of fix from field 6 and set gps_fix if it is non-zero:
+		 * 0 = no fix
+		 * 1 = GPS fix
+		 * 2 = DGPS fix
+		 * Then get the number of satellites being used for our current
+		 * fix from field 7 and put it in gps_nsat, then exit.
+		 */
+		if (!strcmp(strs[0],gpgga)) {
+			/* If we didn't decode 14 fields in the message, exit. */
+			if (n < 14) {
+				return;
+			}
+
+			/* Get the GPS type of fix (quality)
+			 * 0 - No Fix
+			 * 1 - GPS Fix
+			 * 2 - DGPS Fix
+			 * If it is non-zero, we have a good fix, set gps_fix.
+			 */
+			 if (atoi(strs[6])) {
+				gps_fix = 1;
+			 }
+
+			/* If we don't have a valid fix, no point in getting this stuff. */
+			if (gps_fix) {
+				/* Get the lat/long and elevation */
+				memclr(&gps_packet,sizeof(gps_packet));
+				strncpy(gps_packet.lat,strs[2],7);
+				gps_packet.lat[7] = *strs[3];
+				strncpy(gps_packet.lon,strs[4],8);
+				gps_packet.lon[8] = *strs[5];
+				strncpy(gps_packet.elev,strs[9],6);
+
+				/* Get the number of satellites used for the fix */
+				gps_nsat = atoi(strs[7]);
+			}
+		}
+
 		/* Is this a $GPRMC NMEA string in the buffer?
+		 * Do we have a valid fix (no point in looking for time until we do)?
 		 * Yes? Let's process it.
 		 * 
 		 */
-		if (!strcmp(strs[0],gprmc)) {
+		if (!strcmp(strs[0],gprmc) && (gps_fix)) {
 			struct tm tm;
 	
 			/* If we didn't decode all 10 fields in the message, exit. */
@@ -2890,67 +2850,40 @@ void process_gps(void)
 				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
 			}
 			/* If DebugLevel is set to 32, print the debug message:
-			 * mon: month
 			 * gps_time: the value of gps_time (time since epoch)
 			 * ctime: human readable format of gps_time
 			 */
 			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: mon: %d, gps_time: %ld, ctime: %s\n",tm.tm_mon,gps_time,ctime((time_t *)&gps_time));
+				printf("GPS-DEBUG: gps_time: %ld, %s\n",gps_time,ctime((time_t *)&gps_time));
 			}
-			/* For a mix mode client, set the following vars to gps_time + 1 seconds. */
-			if (!USE_PPS) {
+			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
+			 * We don't need to qualify PPS (and set gpssync).
+			 */
+			/*! \todo VE7FET why do we add 1 second to gps_time? */
+			if (!VOTER_CLIENT) {
 				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
-			return;
-		}
-	
-		/*! \todo VE7FET this is probably unnecessary. So what if we
-		 * have less than 7 elements in the gps_buf? Are we thinking
-		 * we are looking at $GPGGA by default?
-		 */
-		if (n < 7) {
-			return;
-		}
-	
-		/*! \todo VE7FET The $GPGGA string is the GPS Fix Data string. We should
-		 * probably do something with this, as it can tell us whether our fix
-		 * is valid (would be in strs[6], > 0 is a valid fix), and number of
-		 * satellites used for the current fix (strs[7]), which should be put
-		 * in gps_nsat.
-		 */
-		if (strcmp(strs[0],gpgga)) {
-			return;
-		}
-	
-		/* Reset the gpswarn and gpstimer timers. */
-		gpswarn = 0;
-		gpstimer = 0;
-	
-		/* If we entered the process_gps function at GPS_STATE_IDLE (which we should, since
-		* the default is IDLE), move to the next step, GPS_STATE_RECEIVED since we
-		* have received at least one packet from the GPS.
-		*/
-		if (gps_state == GPS_STATE_IDLE) {
-			gps_state = GPS_STATE_RECEIVED;
-			gpstimer = 0;
-			gpswarn = 0;
-			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
 		}
 
-		/* If we are looking at $GPGGA, this would be the type of fix we have:
-		 * 0 = no fix
-		 * 1 = GPS fix
-		 * 2 = DGPS fix
+		/* gps_nsat needs to be > 4. 3 are needed for a 2D fix, and 4 gives
+		 * us a 3D fix, since the 4th gives us time corrections (allowing
+		 * for calculating altitude).
+		 *
+		 * Once we get to GPS_STATE_RECEIVED, see if we have more than 4
+		 * satellites in view, we have a valid fix, and gps_time contains
+		 * something (hopefully a time fix), then we can move to GPS_STATE_VALID.
 		 */
-		n = atoi(strs[6]);
-	
-		/* Check the fix, if it isn't 1 or 2 (see above) then we've lost our fix,
+		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 4) && gps_fix && gps_time) {
+			gps_state = GPS_STATE_VALID;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg2); /* Print GPS signal acquired, number of satellites locked =" */
+			printf("%d",gps_nsat);
+		}
+
+		/* Check the fix, if it isn't valid, then we've lost our fix,
 		 * so go back to GPS_STATE_IDLE, and start again.
 		 */
-		 /*! \todo VE7FET this should be part of the $GPGGA IF that is missing, not
-		  * sure how it functions as it is now.
-		  */
-		if ((n < 1) || (n > 2)) {
+		if (!gps_fix) {
 			/* If we are in GPS_STATE_RECEIVED, we haven't got to GPS_STATE_VALID
 			 * yet, so just exit and we'll try again next time. If, on the other
 			 * hand, we are in any of the other states, and we lost our fix, we
@@ -2967,7 +2900,7 @@ void process_gps(void)
 			/* If this is a VOTER client, disconnect from the host, and reset vars
 			 * to start again.
 			 */
-			if (USE_PPS) {
+			if (VOTER_CLIENT) {
 				connected = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
@@ -2976,37 +2909,11 @@ void process_gps(void)
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
-
-		/*! \todo VE7FET we should change gps_nsat to be > 4. 3 are needed
-		 * for a 2D fix, and 4 gives us a 3D fix, since the 4th gives us
-		 * time corections (allowing for calulating altitude). >0 is dumb.
-		 * Remember to update the manual.
-		 */
-		/* Once we get to GPS_STATE_RECEIVED, see if we have more than 0
-		 * satellites in view, and gps_time contains something (hopefully
-		 * a time fix), then we can move to GPS_STATE_VALID.
-		 */
-		if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time) {
-			gps_state = GPS_STATE_VALID;
-	
-			printf(gpsmsg2); /* Print GPS signal acquired, number of satellites in view =" */
-			printf("%d\n",gps_nsat);
-		}
-	
-		/*! \todo VE7FET what the heck? This sets the lat/lon/elv, but the
-		 * strs fields it is using are from $GPGGA, which we didn't do anything
-		 * with above? This makes no sense, need to move this into the $GPGGA IF.
-		 */
-		memclr(&gps_packet,sizeof(gps_packet));
-		strncpy(gps_packet.lat,strs[2],7);
-		gps_packet.lat[7] = *strs[3];
-		strncpy(gps_packet.lon,strs[4],8);
-		gps_packet.lon[8] = *strs[5];
-		strncpy(gps_packet.elev,strs[9],6);
 	} else { /* Is a Trimble TSIP Device */
 	/* We are looking for two types of packets from TSIP devices:
 	 * The 0x8f-ab Primary Timing Packet
@@ -3023,13 +2930,126 @@ void process_gps(void)
 			return;
 		}
 
-		/* If we didn't get the 0x8f header, exit. */
+		/* If we didn't find the 0x8f header, exit. */
 		if (gps_buf[0] != 0x8f) { /* "Superpacket" Header */
 			return;
+		}
+		
+		/* Otherwise, we're getting some data, so move to the next GPS_STATE. */
+		if (gps_state == GPS_STATE_IDLE) {
+			gps_state = GPS_STATE_RECEIVED;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
+		}
+
+		/* We got a GPS packet, so reset the timeout warning status each time we come through.
+		 * If we stop receiving data that we can decode, this is going to trigger warnings.
+		 */
+		gpstimer = 0;
+		gpswarn = 0;
+
+		/* Process the Supplemental Timing Packet to look for status/alarms,
+		 * and get the lat/long and elev.
+		 */
+		if (gps_buf[1] == 0xac) { /* AC is the Supplemental Timing Packet */
+
+			int x,y;
+			float f;
+
+			/* Check Receiver Mode and Discipline Mode
+			 * Field 1 (gps_buf[2]) - Receiver Mode - either want to see:
+			 * 		0 (automatic 2D/3D)
+			 *		4 (full position 3D)
+			 *		5 (DGPS reference)
+			 * 		7 (overdetermined clock)
+			 * Field 2 (gps_buf[3]) - Discipline Mode - want to see 0 = normal
+			 *
+			 * If we see all that, we'll set gps_fix (that's the best we can do with
+			 * Trimble).
+			 */
+			if ((!(gps_buf[2]) || (gps_buf[2] == 4) || (gps_buf[2] == 5) || (gps_buf[2] == 7)) && !(gps_buf[3])) {
+				gps_fix = 1;
+			}
+			/* Check status and alarms:
+			 * Field 8-9 (gps_buf[10]) - Critical Alarms - it looks like only the lower byte (9)
+			 * is used for the alarms, so if Field 9 (gps_buf[10]) = 0, all should be well.
+			 *
+			 * Minor alarms are tricky (endianness)! gps_buf[11] is Bits 8-15 (only 8-12 are used),
+			 * gps_buf[12] is Bits 0-7
+			 * ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
+			 * gps_buf[11]=0x08 -> Almanac not complete
+			 * We will mask off bits 8-12 using a mask of 0x1f.
+			 * Regardless, all 0 is all good.
+			 *
+			 * Field 12 (gps_buf[13]) - GPS Decoding Status - 0=doing fixes and all is well
+			 *
+			 * Field 13 (gps_buf[14]) - Discipline Activity - 0=phase locked and all is well
+			 *
+			 * We're going to re-purpose the gps_nsat global variable here (space constraints).
+			 */
+			if ((!gps_buf[10]) && (!(gps_buf[11] & 0x1f) && !(gps_buf[12])) && (!gps_buf[13]) && (!gps_buf[14])) {
+				gps_nsat = 1; /* Everything is happy */
+			}
+
+			/* Determine the latitude (have to convert from radians to degrees) */
+			memclr(&gps_packet,sizeof(gps_packet));
+			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
+			x = (int) f;
+			f -= (float) x;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			f *= 60.0;
+			y = (int) f;
+			f -= (float) y;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			if (x < 0) {
+				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
+			} else {
+				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
+			}
+
+			/* Determine the longitude (have to convert from radians to degrees) */
+			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
+			x = (int) f;
+			f -= (float) x;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			f *= 60.0;
+			y = (int) f;
+			f -= (float) y;
+
+			if (f < 0.0) {
+				f = -f;
+			}
+
+			if (x < 0) {
+				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
+			} else {
+				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
+			}
+
+			/* Determine the elevation */
+			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
+
+			if (AppConfig.DebugLevel & 32) {
+				printf("GPS-DEBUG: TSIP: Alm ok? %s, 2: %i,3: %i, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
+					gps_nsat ? "yes" : "no",gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+			}
 		}
 
 		/* Is this a Primary Timing Packet we're processing? */
 		if (gps_buf[1] == 0xab) { /* AB is the Primary Timing Packet */
+
 			struct tm tm;
 			WORD w;
 	
@@ -3080,184 +3100,73 @@ void process_gps(void)
 			}
 			
 			/* If DebugLevel is set to 32, print the debug string:
-			 * gps_epoch_time: should be corrected UTC time (gps_time)
+			 * gps_time: should be corrected to UTC time
 			 * ctime: human readable gps_time
-			 * gps_week: the GPS week the Trimble thinks it is
+			 * gps_week: the GPS week the Trimble "thinks" it is
 			 */
 			if (AppConfig.DebugLevel & 32) {
-			 	printf("GPS-DEBUG: gps_epoch_time: %ld, ctime: %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
-				/* If PPS is bad (ppsx = 1), and we are expecting to have
-			 	 * PPS working (PPSPolarity is 0 or 1), throw a message to
-			 	 * check the PPS config.
-			 	 */
+				printf("GPS-DEBUG: gps_time: %ld, %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
+				/* If PPS is bad if ppsx is idling at 1. The only time it should be 1
+				 * is during an actual PPS pulse (which is VERY small). If we
+				 * consistently have ppsx = 1, throw a message to check the PPS config.
+				 */
 				if ((ppsx) && (AppConfig.PPSPolarity <= 1)) {
 					printf("GPS-DEBUG: PPS Configured but no pulse found, check polarity?\n");
 				}
 			}
 
-			/*! \todo VE7FET **BUG** there is a bug here somewhere, because in mix mode,
-			 * logtime is returning <System Time Not Set>, when it should be
+			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
+			 * We don't need to qualify PPS (and set gpssync).
 			 */
-			/* For a mix mode client, set the following vars to gps_time + 1 seconds. */
-			if (!USE_PPS) {
-				system_time.vtime_sec = timing_time = gps_time + 1;
+			/*! \todo VE7FET why do we add 1 second to gps_time? */
+			if (!VOTER_CLIENT) {
+				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
-		 	return;
 		}
 
-		/* Are we processing the Supplemental Timing Packet to look for status/alarms? */
-		if (gps_buf[1] == 0xac) { /* AC is the Supplemental Timing Packet */
-			BOOL happy;
-			int x,y;
-			float f;
+		/* We can't get the number of sats used for the fix for a Trimble,
+		 * so we will use the type of fix (determined above and put in
+		 * gps_fix) for our state.
+		 *
+		 * Once we get to GPS_STATE_RECEIVED, see if we have a good fix, and gps_time
+		 * contains something (hopefully a time fix), then we can move to GPS_STATE_VALID.
+		 */
+		if ((gps_state == GPS_STATE_RECEIVED) && gps_fix && gps_time) {
+			gps_state = GPS_STATE_VALID;
+			printf(logtime()); /* Print the current timestamp */
+			printf(gpsmsg9); /* Print "GPS signal acquired" */
+		}
 
-			/*! \todo VE7FET this logic is backwards... need to fix it to make more sense */
-			happy = 1; /* Set to false if the GPS is happy. */
-
-			if (gps_buf[13]) { /* GPS Decoding Status - 0=doing fixes */
-				happy = 0;
-			}
-
-			if ((gps_buf[14] != 0) && (gps_buf[14] != 8)) { /* Discipline Activity, Phase Locked and Recovery Mode? */
-				happy = 0;
-			}
-
-			if (gps_buf[9] || gps_buf[10]) { /* 0=No Critical Alarms */
-				happy = 0;
-			}
-
-			if ((gps_buf[11] & 0x1f) | gps_buf[12]) { /* 0=No Minor Alarms */
-				happy = 0;
-			}
-			/* Minor alarms are tricky! gps_buf[11] is Bits 8-12, gps_buf[12] is Bits 0-7
-			 * ie gps_buf[12]=0x0a -> Antenna Open, Not Tracking Satellites
-			 * gps_buf[11]=0x08 -> Almanac not complete 
+		if ((!gps_nsat) || !(gps_fix)) {
+			/* If we are in GPS_STATE_RECEIVED, we haven't got to GPS_STATE_VALID
+			 * yet, so just exit and we'll try again next time. If, on the other
+			 * hand, we are in any of the other states, and we lost our fix, or
+			 * the GPS is in alarm, we will continue with stating over.
 			 */
-
-			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: TSIP: ok %d, 2,3,9 - 14: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-					happy,gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+			if (gps_state == GPS_STATE_RECEIVED) {
+				return;
 			}
 
-			gpswarn = 0;
-			gpstimer = 0;
+			gps_state = GPS_STATE_IDLE; /* Move back to GPS_STATE_IDLE */
+			printf(logtime()); /* Print current timestamp */
+			printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
 
-			/* If we entered the process_gps function at GPS_STATE_IDLE (which we should, since
-			 * the default is IDLE), move to the next step, GPS_STATE_RECEIVED since we
-			 * have received at least one packet from the GPS.
+			/* If this is a VOTER client, disconnect from the host, and reset vars
+			 * to start again.
 			 */
-			if (gps_state == GPS_STATE_IDLE) {
-				gps_state = GPS_STATE_RECEIVED;
-				gpstimer = 0;
-				gpswarn = 0;
-				printf(gpsmsg1); /* Print "GPS receiver active, waiting for acquisition" */
-			}
-
-			/* !happy is actually good... ugh */
-			if (!happy) {
-				/* If we are in GPS_STATE_RECEIVED, we haven't got to GPS_STATE_VALID
-			 	 * yet, so just exit and we'll try again next time. If, on the other
-			 	 * hand, we are in any of the other states, and we lost our fix, we
-			 	 * will continue with stating over.
-			 	 */
-				if (gps_state == GPS_STATE_RECEIVED) {
-					return;
-				}
-
-				gps_state = GPS_STATE_IDLE; /* Move back to GPS_STATE_IDLE */
-				printf(logtime()); /* Print current timestamp */
-				printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
-
-				/* If this is a VOTER client, disconnect from the host, and reset vars
-			 	 * to start again.
-			 	 */
-				if (USE_PPS) {
-					connected = 0;
-					txseqno = 0;
-					txseqno_ptt = 0;
-					resp_digest = 0;
-					digest = 0;
-					their_challenge[0] = 0;
-					lastrxtimer = 0;
-					SetAudioSrc();
-				}
-
+			if (VOTER_CLIENT) {
+				connected = 0;
+				txseqno = 0;
+				txseqno_ptt = 0;
+				resp_digest = 0;
+				digest = 0;
+				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
+				lastrxtimer = 0;
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
-
-			/*! \todo VE7ET Fix this... TSIP doesn't seem to report number of
-			 * sats being used for the fix, so the next best thing would be
-			 * to use gus_buf[2] which should be Receiver Mode:
-			 * 0 - Automatic (2D/3D)
-			 * 4 - Full Position (3D)
-			 * 5 - DGPS Reference
-			 * Make a local var for that and use it below?
-			 */
-			gps_nsat = 3; /* Hah, we're faking the number of received sats. */
-
-			/*! \todo VE7FET we should change gps_nsat to be > 4. 3 are needed
-			 * for a 2D fix, and 4 gives us a 3D fix, since the 4th gives us
-		 	 * time corections (allowing for calulating altitude). >0 is dumb.
-		 	 * Remember to update the manual. Except... see above.
-		 	 */
-			/* Once we get to GPS_STATE_RECEIVED, see if we have more than 0
-		 	 * satellites in view, and gps_time contains something (hopefully
-		 	 * a time fix), then we can move to GPS_STATE_VALID.
-		 	 */
-			if ((gps_state == GPS_STATE_RECEIVED) && (gps_nsat > 0) && gps_time) {
-				gps_state = GPS_STATE_VALID;
-				printf(gpsmsg9); /* Print "GPS signal acquired" */
-			}
-
-			/* From here to the end of this IF, we get the lat/long (and convert from rads),
-			 * and the elevation, and stuff it in the gps_packet.
-			 */
-			memclr(&gps_packet,sizeof(gps_packet));
-			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
-			x = (int) f;
-			f -= (float) x;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			f *= 60.0;
-			y = (int) f;
-			f -= (float) y;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			if (x < 0) {
-				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
-			} else {
-				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
-			}
-			f = doubleify(gps_buf + 45) * TSIP_FACTOR;
-			x = (int) f;
-			f -= (float) x;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			f *= 60.0;
-			y = (int) f;
-			f -= (float) y;
-
-			if (f < 0.0) {
-				f = -f;
-			}
-
-			if (x < 0) {
-				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
-			} else {
-				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
-			}
-			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
-			return;
 		}
 	}
 	return;
@@ -3265,7 +3174,176 @@ void process_gps(void)
 
 /****************************************************************************/
 //																			//
+//		ulaw Encoder Subroutine												//
+// 																			//
+// 		Description: Ingest a 12-bit sample from the ADC, convert			//
+//					 it to a 16-bit signed value, convert it to				//
+//					 a ulaw sample, and return it.							//
+//																			//
+/****************************************************************************/
+BYTE ulaw_encode (WORD adc_sample) {
+
+	short sign, exponent, mantissa;
+	BYTE ulawbyte;
+
+	/* Convert the 12-bit ADC value to a 16-bit signed value */
+	adc_sample -= 2048;
+	adc_sample *= 16;
+
+	/* Get the sample into sign-magnitude. */
+	sign = (adc_sample >> 8) & 0x80; /* Set aside the sign */
+	if (sign != 0) {
+		adc_sample = -adc_sample; /* Get magnitude */
+	}
+					
+	if (adc_sample > CLIP) {
+		adc_sample = CLIP; /* Clip the magnitude */
+	}
+
+	/* Convert from 16-bit linear to ulaw. */
+	adc_sample = adc_sample + BIAS;
+	exponent = exp_lut[(adc_sample >> 7) & 0xFF];
+	mantissa = (adc_sample >> (exponent + 3)) & 0x0F;
+	ulawbyte = ~(sign | (exponent << 4) | mantissa);
+
+	return ulawbyte;
+}
+
+/****************************************************************************/
+//																			//
+//		ADPCM Encoder Subroutine											//
+// 																			//
+// 		Description: Ingest a 12-bit sample from the ADC, convert			//
+//					 it to a 16-bit signed value, convert it to				//
+//					 an ADPCM sample, and return it.						//
+//																			//
+/****************************************************************************/
+BYTE adpcm_encode (WORD adc_sample) {
+
+	short sign;		/* Current ADPCM sign bit */
+	long valpred;	/* Predicted output value */
+	int adpcm_index; /* Quantizer step size index from indexTable */
+	int diff;		/* Difference between adc_sample and valpred */
+	int vpdiff;		/* Current change to valpred (de-quantized predicted difference) */
+	int step;		/* Quantizer stepsize */
+
+	BYTE delta;		/* Current ADPCM output value */
+
+	/* Convert the 12-bit unsigned (0-4095) ADC value to a 16-bit signed value */
+	adc_sample -= 2048;
+	adc_sample *= 16;
+
+	/* Restore the previous values of quantizer step index
+	 * and predicted sample.
+	 */
+	adpcm_index = enc_index;
+	valpred = enc_valprev;
+
+	/* Find the quantizer step size from the lookup table,
+	 * using the quantizer step size index.
+	 */
+	step = stepsizeTable[adpcm_index];
+								
+	/* Compute the difference between the current and
+	 * previous value, and determine/set the sign.
+	 */
+	diff = adc_sample - valpred;
+	sign = (diff < 0) ? 8 : 0;
+
+	/* If necessary, find the absolute difference. */
+	if (sign) {
+		diff = (-diff);
+	}
+
+	/* Quantize the difference into the ADPCM code using
+	 * the quantizer step size.
+	 * Note:
+	 * This code *approximately* computes:
+	 *    delta = diff*4/step;
+	 *    vpdiff = (delta+0.5)*step/4;
+	 * but in shift step bits are dropped. The net result of this is
+	 * that even if you have fast mul/div hardware you cannot put it to
+	 * good use since the fixup would be too expensive.
+	 */
+	delta = 0;
+	vpdiff = (step >> 3);
+								
+	if (diff >= step) {
+		delta = 4;
+		diff -= step;
+		vpdiff += step;
+	}
+								
+	step >>= 1;
+								
+	if (diff >= step) {
+		delta |= 2;
+		diff -= step;
+		vpdiff += step;
+	}
+								
+	step >>= 1;
+								
+	if (diff >= step) {
+		delta |= 1;
+		vpdiff += step;
+	}
+							
+	/* Fixed predictor computes new predicted sample by adding
+	 * the old predicted sample to the predicted difference.
+	 */
+	if (sign) {
+		valpred -= vpdiff;
+		} else {
+		valpred += vpdiff;
+	}
+							
+	/* Check for overflow of the new predicted sample which
+	 * is a signed 16-bit sample, must be in the range of
+	 * 32767 to -32768.
+	 */
+	if (valpred > 32767) {
+		valpred = 32767;
+	} else if (valpred < -32768) {
+		valpred = -32768;
+	}
+							
+	/* Add the sign to the current ADPCM value. */
+	delta |= sign;
+								
+	/* Find the new quantizer step size index by adding the
+	 * previous index and a table lookup using the ADPCM value.
+	 */
+	adpcm_index += indexTable[delta];
+								
+	/* Check for overflow of the new quantizer step size index. */
+	if (adpcm_index < 0) { 
+		adpcm_index = 0;
+	}
+								
+	if (adpcm_index > 88) { 
+		adpcm_index = 88;
+	}
+
+	/* Save the new predicted sample and quantizer step index
+	 * for the next iteration via global vars.
+	 */
+	enc_valprev = valpred;
+	enc_index = adpcm_index;
+
+	/* Output a 4-bit ADPCM encoded sample (0-15). */
+	return delta;
+
+}
+
+/****************************************************************************/
+//																			//
 //		ADPCM Decoder Subroutine											//
+// 																			//
+// 		Description: Injest the audio_packet.audio buffer, which is 160		//
+// 					 bytes of ADPCM audio (320 samples) + 3 pointer bytes	//
+// 					 and decode the ADPCM and translate it to ulaw.	Put		//
+// 					 the decoded ulaw audio in dec_buffer.				    //
 //																			//
 /****************************************************************************/
 void adpcm_decoder(BYTE *indata)
@@ -3289,7 +3367,7 @@ void adpcm_decoder(BYTE *indata)
 	bufferstep = 0;
 	inputbuffer = 0;
 
-	for ( i = 0; i < ADPCM_FRAME_SIZE; i++) {
+	for ( i = 0; i < ADPCM_SAMPLE_SIZE; i++) {
 		/* Step 1 - get the delta value */
 		if (bufferstep) {
 			delta = inputbuffer & 0xf;
@@ -3303,6 +3381,7 @@ void adpcm_decoder(BYTE *indata)
 		/* Step 2 - Find new index value (for later) */
 		index += indexTable[delta];
 		
+		/* Check for overflow of the new quantizer step size index */
 		if (index < 0) {
 			index = 0;
 		}
@@ -3340,19 +3419,24 @@ void adpcm_decoder(BYTE *indata)
 			valpred += vpdiff;
 		}
 	
-		/* Step 5 - clamp output value */
+		/* Step 5 - Check for overflow of the new predicted sample
+		 * which is a signed 16-bit sample, must be in the range of
+		 * 32767 to -32767.
+		 */
 		if (valpred > 32767) {
 			valpred = 32767;
 		} else if (valpred < -32768) {
 			valpred = -32768;
 		}
 	
-		/* Step 6 - Update step value */
+		/* Step 6 - Find the quantizer step size from a table lookup
+		 * using the quantizer step size index.
+		 */
 		step = stepsizeTable[index];
 	
-		/* Step 7 - Output value */
-		/* vout = valpred + 32768; */
-			
+		/* Step 7 - Output value
+		 * vout = valpred + 32768;
+		 */
 		sample = valpred;
         
 		/* Get the sample into sign-magnitude. */
@@ -3374,9 +3458,15 @@ void adpcm_decoder(BYTE *indata)
 		mantissa = (sample >> (exponent + 3)) & 0x0F;
 		ulawbyte = ~(musign | (exponent << 4) | mantissa);
 
+		/* Put the result in the decoded buffer. dec_buffer
+		 * will have 40ms (320 samples) of decoded ulaw audio.
+		 */
 		dec_buffer[i] = ulawbyte;
     }
 
+	/* Save the new predicted sample and quantizer step index
+	 * for the next iteration
+	 */
     dec_valprev = valpred;
     dec_index = index;
 }
@@ -3407,19 +3497,26 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		return;
 	}
 
-	/* filled should be set when there are FRAME_SIZE or ADPCM_FRAME_SIZE
-	 * samples in the buffer
+	/* filled should be set when there are ULAW_SAMPLE_SIZE or ADPCM_SAMPLE_SIZE
+	 * samples in the buffer.
 	 * If we've got gpssync (VOTER clients) or using mix mode clients,
 	 * and we haven't set time_filled yet, do it and update system_time
 	 */
-	if (filled && (gpssync || (!USE_PPS)) && (!time_filled)) {
+	if (filled && (gpssync || (!VOTER_CLIENT)) && (!time_filled)) {
 		system_time.vtime_sec = timing_time;
 		system_time.vtime_nsec = (timing_index / 160) * 20000000ul; 
 		time_filled = 1;
 	}
 
+	/* MASTER_TIMING_DELAY is 6.25ms. OPTION_FLAG_MASTERTIMING means "send immediately, no delay"
+	 * for the master voting client. So, if we are not the master client, we're going to hold off
+	 * for the MASTER_TIMING_DELAY, before we start sending.
+	 */
 	if (filled && ((fillindex > MASTER_TIMING_DELAY) || (option_flags & OPTION_FLAG_MASTERTIMING))) {
 	
+	/* Remember, DSPBEW uses in-band audio sampling to determine the RSSI, instead of out of band
+	 * "white noise".
+	 */
 #ifdef DSPBEW
 		/* If we've built with DSPBEW, do some DSP on the audio samples, and use
 		 * them if BEWMode is set.
@@ -3447,7 +3544,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		/* Store output samples in bit-reversed order of their addresses */
 		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
 	 
-		/* Compute the square magnitude of the complex FFT output array so we have a real output vetor */
+		/* Compute the square magnitude of the complex FFT output array so we have a real output vector */
 		SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
 	
 		wp = (unsigned int *)&sigCmpx[0];
@@ -3455,21 +3552,39 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 		/* Get the total energy above CTCSS and below 2000Hz */
 		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++) {
-			if (i >= 2) fftresult += *wp;
+			if (i >= 2) {
+				fftresult += *wp;
+			}
 			wp++;
 		}
 
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
 
+		/* If we are NOT using BEW Mode, ignore what we did above, and just set
+		 * qualnoise to 1.
+		 */
 		if (!AppConfig.BEWMode) {
 			qualnoise = 1;
 		}
+		/*! \todo VE7FET will we ever run this? qualnoise will probably always have
+		 * SOMETHING in it, after running though DSP, it seems unlikely that it
+		 * would EVER be zero? Weird. Need to look at this more. Bug?
+		 */
 		if (!qualnoise) {
 			vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
 			rssiheld = calcrssi(vnoise32 >> 3);
 		}
 #endif /* DSPBEW */
-		if (gpssync || (!USE_PPS)) {
+		/* We'll run this if we are a voter client, and we've got gpssync, OR we are
+		 * a mix mode client.
+		 */
+		if (gpssync || (!VOTER_CLIENT)) {
+			/* If we got OPTION_FLAG_SENDALWAYS from the host, we will always send an
+			 * audio packet, regardless of if we have a receive signal to send. This is
+			 * ONLY done by a master voting client. When looking in the debug console on
+			 * the host, this will result in a continuous stream of payload 1 (or 3)
+			 * packets from the master client.
+			 */
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 
 			/* CORType = Ignore COR, so force RSSI to 255 */
@@ -3486,62 +3601,79 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 #endif /* DSPBEW */
 			/* This is our main UDP send routine. We will always send a packet if:
 			 *
-			 * We don't have a host connection establihed yet AND it is time to try again
+			 * We don't have a host connection established yet AND it is time to try again
 			 * OR
 			 * We have something to send anyways (tosend)
 			 * AND
 			 * Our UDP socket is ready to accept data
 			 *
 			 * Upon initialization, we are not connected to the host, so every 500ms (ATTEMPT_TIME) we
-			 * send an empty packet that has a random challenge, and a digest of 0. 
-			 * vph.payload_type at this point is 0 (we don't explicitly set that... probably should)
-			 * which means that the host sees this as an AUTH packet. The replies back with an AUTH
-			 * packet with their challenge and digest, which we process below to determine if we can
-			 * connect to this host (passwords match).
+			 * send an empty packet that has a random challenge, and a digest of 0, and the mix mode
+			 * flag, if applicable.
 			 *
-			 * If we are a mix mode client, we also send mix mode flags in our auth packet to the host.
+			 * vph.payload_type at this point is 0, if we are not connected, which means that the host
+			 * sees this as an AUTH packet. The host replies back with an AUTH packet with their
+			 * challenge and digest, which we process below to determine if we can connect to this
+			 * host (passwords match).
+			 *
+			 * Note: OUR challenge is generated in the main function when we start up.
+			 *
+			 * If we are a mix mode client, send the mix mode flag in octet 24 of our auth packet
+			 * to the host (normally the RSSI position of an audio packet). This tells the host we want
+			 * to use mix mode. The host acknowledges by setting the mix mode flag in the auth packet
+			 * it sends back to us, which we read below when we set option_flags.
 			 *
 			 * Once we are connected, tosend becomes true (along with some other qualifiers), so then
-			 * we just idle and send either ulaw or ADPCM empty packets to keep the connection alive (about
-			 * every 20ms... maybe we can slow that down? We don't do it in mix mode, only send GPS
-			 * keepalive packets...). If we have real audio and RSSI to send, we will insert that instead.
-			 *  
+			 * we are ready to send either ulaw or ADPCM audio packets (with RSSI), as needed.
+			 *
+			 * If this is a voter master client, we idle and send either ulaw or ADPCM empty packets
+			 * on a continuous basis (because OPTION_FLAG_SENDALWAYS will be true), about every 20ms.
+			 *
+			 * We also send keepalive packets (with or without GPS), as noted below.
 			 */
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
-				audio_packet.vph.curtime.vtime_nsec = (!USE_PPS) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
+				audio_packet.vph.curtime.vtime_nsec = (!VOTER_CLIENT) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
 				strcpy((char *)audio_packet.vph.challenge,challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
 				
-				/* Set our payload type byte to either ADPCM or ulaw, depending on what the host told us to send */
+				/* If tosend is qualified (so, we are connected), set our payload type byte to either ADPCM or
+				 * ulaw, depending on what the host told us to send.
+				 *
+				 * Otherwise, we're not connected (yet), so we're still doing authentication. Set the payload
+				 * type to 0 (authentication).
+				 */
 				if (tosend) {
 					audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? PAYLOAD_ADPCM : PAYLOAD_ULAW);
+				} else {
+					audio_packet.vph.payload_type = htons(PAYLOAD_AUTH);
 				}
 
+				/* Put header bytes into the UDP buffer to send */
 				i = 0;
 				cp = (BYTE *) &audio_packet;
-
-				/* Put header bytes into the UDP buffer to send */
 				for (i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) {
 					UDPPut(*cp++);
 				}
 
-				/* j will be the number of frame we ae going to fill with audio, based on
-				 * whether we are sending ADPCM or ulaw audio.
+				/* j will be the number of bytes we are going to fill with audio, based on
+				 * whether we are sending ADPCM or ulaw audio. j is going to put 163 bytes
+				 * of audio into the payload of the packet for ADPCM, or 160 bytes for ulaw
+				 *
 				 * c will be what silence pattern to fill with, for either ADPCM or ulaw
 				 */
-				j = (option_flags & OPTION_FLAG_ADPCM) ? FRAME_SIZE + 3 : FRAME_SIZE;
+				j = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : ULAW_FRAME_SIZE;
 				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 
 				/* If we have a valid signal (rssiheld > 0), put the RSSI (rssiheld) into 
 				 * the packet, then fill the rest with audio samples.
 				 * If we don't have a valid signal to send, put a 0 in for the RSSI, and
 				 * fill the rest of the packet with silence.
-				 * If we don't have anything to send, and this is a mix mode client (!USE_PPS),
-				 * put the mix mode flag in the RSSI position... is this just a keepalive then
-				 * at that point?
+				 *
+				 * If tosend isn't true, we're not connected yet, and if this is a mix mode
+				 * client, put the mix mode flag in the RSSI position to tell the host we are.
 				 */
 	            if (tosend) {	
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS()) {
@@ -3557,10 +3689,8 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 				} else {
-					/* If we're a mix mode client, put the flag in the packe to
-					 * send to the host.
-					 */
-					if (!USE_PPS) {
+					/* If we're a mix mode client, put the flag in the packet to send to the host. */
+					if (!VOTER_CLIENT) {
 						UDPPut(OPTION_FLAG_MIX);
 					}
 				}
@@ -3587,25 +3717,38 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 	 * It is time to sendgps (set in the PPS ISR about every second when our sample buffer is full) OR
 	 * We are a mix mode client
 	 * AND
-	 * There has been a latitude read from the GPS OR
-	 * It has been 1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive)
+	 * We have a valid GPS fix OR we are a mix mode client
+	 * AND
+	 * It has been >=1.5 seconds (GPS_FORCE_TIME) since our last info packet (keepalive).
 	 * 
+	 * Per the VOTER Protocol Specification, we must send periodic keepalive packets, otherwise
+	 * the host will think the connection to the client has timed out, and will drop the connection.
+	 *
+	 * If we have GPS data to send, send it for either voting or mix mode clients. If we don't
+	 * have GPS data to send (no gps_fix or we are a mix mode client), just send an empty Payload 2
+	 * packet as a keepalive if gpsforcetimer has expired (which will happen if we've got a mix mode
+	 * client with no GPS).
 	 */
-	 /*! \todo VE7FET maybe we want to use gpssync instead of relying on a latitude? */
-	if (connected && (sendgps || (!USE_PPS)) && (gps_packet.lat[0] || (gpsforcetimer >= GPS_FORCE_TIME))) {
+	if (connected && (sendgps || (!VOTER_CLIENT)) && ((gps_fix || !VOTER_CLIENT) && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
-			gps_packet.vph.curtime.vtime_nsec = htonl(0);
+			gps_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 			strcpy((char *)gps_packet.vph.challenge,challenge);
 			gps_packet.vph.digest = htonl(resp_digest);
 			gps_packet.vph.payload_type = htons(PAYLOAD_GPS);
 			
-			// Send elements one at a time -- SWINE dsPIC33 archetecture!!!
+			/* Send elements one at a time -- SWINE dsPIC33 architecture!!! */
 			cp = (BYTE *) &gps_packet.vph;
 			for (i = 0; i < sizeof(gps_packet.vph); i++) {
 				UDPPut(*cp++);
 			}
+			/* If we have a latitude, we're assuming we have longitude and elevation
+			 * to send, so send them all. Per the VOTER Protocol Specification, we
+			 * don't NEED to have a GPS for mix mode clients, so lat/long/elev COULD
+			 * be NULL, so we just skip putting those bytes in the payload (but we still
+			 * need to send the Payload 2 (GPS) packet as a keepalive).
+			 */
 			if (gps_packet.lat[0]) {
 				cp = (BYTE *) gps_packet.lat;
 				for (i = 0; i < sizeof(gps_packet.lat); i++) {
@@ -3622,6 +3765,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 		
 		UDPFlush();
+		/* Reset some flags and timers. */
 		sendgps = 0;
 		gpsforcetimer = 0;
 		}
@@ -3629,8 +3773,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		memclr(&gps_packet,sizeof(gps_packet));
 	}
 
+	/* We're done SENDING stuff to the host, now let's see if there is stuff for us to
+	* RECEIVE from the host.
+	*/
+
 	/* Get UDP bytes off the wire and process them before sending on RF */
-	if (((gpssync || (!USE_PPS)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
+	if (((gpssync || (!VOTER_CLIENT)) && UDPIsGetReady(*udpSocketUser)) && DAC1CONbits.DACEN) {
 		n = 0;
 		cp = (BYTE *) &audio_packet;
 		
@@ -3659,6 +3807,21 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * should still be an AUTH packet, this time with a non-zero digest. We
 			 * process that as a normal AUTH.
 			 */
+			 /* Remember, strcmp is going to return 0 when the challenge we receive on
+			  * the wire matches what we updated their_challenge to be (later). So, 
+			  * during the auth process, the first packet we receive from the host will
+			  * contain a challenge (vph.challenge), but their_challenge will still be 
+			  * 0, so strcmp is going to evaluate as true the first time in, causing us
+			  * to create our response digest (resp_digest), and update their_challenge
+			  * to whatever the host sent us (vph.challenge), that way, the next time in,
+			  * strcmp is going to evaluate to false, and we skip to the "else".
+			  *
+			  * Also note, we're not specifically checking for a Payload 0 (auth) packet,
+			  * which means that EVERY packet we receive gets examined. If the challenge
+			  * we receive on the wire (vph.challenge) doesn't match what we have on file
+			  * for the host (their_challange), something is wrong so we dump the host
+			  * connection, and re-generate our digest (resetting the connection).
+			  */
 			if (strcmp((char *)audio_packet.vph.challenge,their_challenge)) {
 				connected = 0;
 				txseqno = 0;
@@ -3666,7 +3829,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				lastrxtimer = 0;
 				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
 				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			} else {
 				/* Look for the next AUTH packet (Payload 0) from the host, and figure out
 				 * if the Host Password matches, and we should connect. We also run this
@@ -3675,21 +3838,32 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 */
 				if ((!digest) || (!audio_packet.vph.digest) || (digest != ntohl(audio_packet.vph.digest)) ||
 					(ntohs(audio_packet.vph.payload_type) == PAYLOAD_AUTH)) {
+					
+					/* Generate our digest based on the Host Password that is configured */
 					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
 				
-					/* If the digest we received matches the digest we got off the wire
-					 * (Host Password maches), we're off to the races, assert that we're
+					/* If the digest we generated above matches the digest we got off the wire
+					 * (Host Password matches), we're off to the races, assert that we're
 					 * now connected to the host, and away we go.
 					 */
 					if (mydigest == ntohl(audio_packet.vph.digest)) {
 						digest = mydigest;
 				
+						/* If we're not connected yet, reset the gpsforcetimer (keepalive),
+						 * assert that we've established a host connection, and reset our
+						 * lastrxtimer to keep it valid.
+						 */
 						if (!connected) {
 							gpsforcetimer = 0;
 						}				
 						connected = 1;
 						lastrxtimer = 0;
 				
+						/* In an auth packet (Payload 0), the option flags from the host are
+						 * sent in the "RSSI" byte of the packet (octet 24), so set them. In
+						 * an initial auth packet, there is just the VOTER_PACKET_HEADER, (no
+						 * option flags), so set option_flags to 0.
+						 */
 						if (n > sizeof(VOTER_PACKET_HEADER)) {
 							option_flags = audio_packet.rssi;
 						} else {
@@ -3697,32 +3871,44 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 				
 						/* If we are a mix mode client, and the host doesn't acknowledge
-						 * it (it is expecting a voting client) we'll throw the
-						 * "ERROR! Host rejecting connection message."
+						 * it by sending the mix mode flag back to us in an auth packet
+						 * (it is expecting a voting client), we'll throw the
+						 * "ERROR! Host rejecting mix mode connection" message, and dump
+						 * the host connection.
 						 */
-						if ((!USE_PPS) && (!(option_flags & OPTION_FLAG_MIX))) {
-							if (n > sizeof(VOTER_PACKET_HEADER)) {
-								gotbadmix = 1;
-							} 
-
+						if ((!VOTER_CLIENT) && (!(option_flags & OPTION_FLAG_MIX))) {
+							gotbadmix = 1;
 							connected = 0;
 							txseqno = 0;
 							txseqno_ptt = 0;
 							digest = 0;
 							lastrxtimer = 0;
-							SetAudioSrc();
+							SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 						} else {
+							/* We FINALLY have option_flags at this point, so reconfigure our audio
+							 * filtering, based on what the host is telling us to use.
+							 */
 							SetAudioSrc();
 						}
-					} else {
+					} else { /* Digest the host sent back to us doesn't match ours, dump the connection */
 						connected = 0;
 						txseqno = 0;
 						txseqno_ptt = 0;
 						digest = 0;
 						lastrxtimer = 0;
-						SetAudioSrc();
+						SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 					}
-				} else {
+				} else { /* If this isn't part of the auth process (something other than Payload 0) */
+
+					/*! \todo VE7FET this seems odd. connected should only be set once we've completed
+					 * authentication, why are we setting it here? We should already be connected? Not
+					 * sure what the purpose of wconnected is supposed to be.. we should only be here
+					 * if we are connected to the host? I can see tickling the lastrxtimer every time
+					 * we receive a packet, that makes sense. Not sure why we do it twice though?
+					 *
+					 * Commenting this code out for potential later removal if no anomolies observed.
+					 */
+					/*
 					BYTE wconnected;
 					wconnected = connected;
 
@@ -3736,7 +3922,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					if (!wconnected) {
 						SetAudioSrc();
 					}
+					*/
 
+					/* We've got a packet, so reset the timer. */
 					lastrxtimer = 0;
 
 					/* Is this a ping packet we received on the wire? */
@@ -3746,12 +3934,12 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					        if (UDPIsPutReady(*udpSocketUser)) {
 								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
-								audio_packet.vph.curtime.vtime_nsec = htonl(0);
+								audio_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 								strcpy((char *)audio_packet.vph.challenge,challenge);
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(PAYLOAD_PING);
 
-							 	/* Send elements one at a time -- SWINE dsPIC33 archetecture!!! */
+							 	/* Send elements one at a time -- SWINE dsPIC33 architecture!!! */
 								cp = (BYTE *) &audio_packet.vph;
 								for(i = 0; i < n; i++) {
 									UDPPut(*cp++);
@@ -3763,16 +3951,23 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 					}
 
-					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF? */
+					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF?
+					 *
+					 * When we get an audio packet from the host:
+					 * - set last_rxpacket_time to the time from the HOST (from the packet header)
+					 * - set last_packet_sys_time to OUR current time
+					 * This is used for calculating stuff to display on the Status (98) menu.
+					 */
 					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) || (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM)) {
 						long index,ndiff;
 						short mydiff;
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
 						last_rxpacket_sys_time = system_time;
+
 						last_rxpacket_inbounds = 0;
 
-						if (!USE_PPS) {
+						if (!VOTER_CLIENT) { /* This is for mix mode clients */
 							mytxseqno = txseqno;
 
 							if (mytxseqno > (txseqno_ptt + 2)) { 
@@ -3786,35 +3981,46 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 							}
 
 							index = (ntohl(audio_packet.vph.curtime.vtime_nsec) - myhost_txseqno);
-							index *= FRAME_SIZE;
+							index *= ULAW_FRAME_SIZE; /* Convert sequence delta to byte offset (160 bytes per packet) */
 
 							if (AppConfig.TxBufferLength >= 1440) {
-								index -= (FRAME_SIZE * 4);
+								index -= (ULAW_FRAME_SIZE * 4);
 							} else if (AppConfig.TxBufferLength >= 1120) {
-									index -= (FRAME_SIZE * 3);
+								index -= (ULAW_FRAME_SIZE * 3);
 							} else if (AppConfig.TxBufferLength >= 800) {
-									index -= (FRAME_SIZE * 2);
+								index -= (ULAW_FRAME_SIZE * 2);
 							} else if (AppConfig.TxBufferLength >= 640) {
-									index -= FRAME_SIZE;
+								index -= ULAW_FRAME_SIZE;
 							} 
-						} else {
+						} else { /* This is for normal voting clients */
 							index = (ntohl(audio_packet.vph.curtime.vtime_sec) - system_time.vtime_sec) * 8000;
 							ndiff = ntohl(audio_packet.vph.curtime.vtime_nsec) - system_time.vtime_nsec;
 							index += (ndiff / 125000);
 						}
 
-						index += AppConfig.TxBufferLength - (FRAME_SIZE * 2);
+						/* Determine packet size based on payload type */
+						WORD packet_size;
+						if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
+							packet_size = ADPCM_SAMPLE_SIZE;
+						} else {
+							packet_size = ULAW_SAMPLE_SIZE;
+						}
+
+						index += AppConfig.TxBufferLength - packet_size;
 						last_rxpacket_index = index;
 			
 			            /* If in bounds */
-                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - (FRAME_SIZE * 2)))) {	
+                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - packet_size))) {
 							last_rxpacket_inbounds = 1;
 						
-							if (!USE_PPS) {
-								if ((txseqno + (index / FRAME_SIZE)) > txseqno_ptt) { 
-									txseqno_ptt = (txseqno + (index / FRAME_SIZE));
+							if (!VOTER_CLIENT) { /* This is for mix mode clients */
+								if ((txseqno + (index / ULAW_FRAME_SIZE)) > txseqno_ptt) {
+									txseqno_ptt = (txseqno + (index / ULAW_FRAME_SIZE));
 								}
-							} else {
+							} else { /* This is for normal voting clients */
+								/* Set lastrxtime.vtime_sec and _nsec to the timestamp from the past
+								 * packet we received from the host.
+								 */
 								if ((ntohl(audio_packet.vph.curtime.vtime_sec) > lastrxtime.vtime_sec) ||
 									((ntohl(audio_packet.vph.curtime.vtime_sec) == lastrxtime.vtime_sec) &&
 									(ntohl(audio_packet.vph.curtime.vtime_nsec) > lastrxtime.vtime_nsec))) {
@@ -3832,38 +4038,42 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 							/* ADPCM */
 							if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
-					  			mydiff -= ((short)index + (ADPCM_FRAME_SIZE));
+					  			mydiff -= ((short)index + (ADPCM_SAMPLE_SIZE));
+								/* Get the predictor value from bytes 160 and 161 of the payload
+								 * and re-assemble them (they are stored lowest nibble first).
+								 */
 								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
+								/* Get the stepsizeTable index from byte 162 of the payload. */
 								dec_index = audio_packet.audio[162];
 								adpcm_decoder(audio_packet.audio);
 
 								if (mydiff >= 0) {
-									memcpy(txaudio + index,dec_buffer,ADPCM_FRAME_SIZE);
+									memcpy(txaudio + index,dec_buffer,ADPCM_SAMPLE_SIZE);
 								} else {
-									memcpy(txaudio + index,dec_buffer,(ADPCM_FRAME_SIZE) + mydiff);
-									memcpy(txaudio,dec_buffer + ((ADPCM_FRAME_SIZE) + mydiff),-mydiff);
+									memcpy(txaudio + index,dec_buffer,(ADPCM_SAMPLE_SIZE) + mydiff);
+									memcpy(txaudio,dec_buffer + ((ADPCM_SAMPLE_SIZE) + mydiff),-mydiff);
 								}
 							} else { /* ulaw */
-					  			mydiff -= ((short)index + FRAME_SIZE);
+					  			mydiff -= ((short)index + ULAW_SAMPLE_SIZE);
 	                            				
 								if (mydiff >= 0) {	
-									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE);
+									memcpy(txaudio + index,audio_packet.audio,ULAW_SAMPLE_SIZE);
 								} else {
-									memcpy(txaudio + index,audio_packet.audio,FRAME_SIZE + mydiff);
-									memcpy(txaudio,audio_packet.audio + (FRAME_SIZE + mydiff),-mydiff);
+									memcpy(txaudio + index,audio_packet.audio,ULAW_SAMPLE_SIZE + mydiff);
+									memcpy(txaudio,audio_packet.audio + (ULAW_SAMPLE_SIZE + mydiff),-mydiff);
 								}
 							}
                         } else {
 							/* Not in bounds */
-							if (index > (AppConfig.TxBufferLength - (FRAME_SIZE * 2))) {
-								missed = index - (AppConfig.TxBufferLength - (FRAME_SIZE * 2));
+							if (index > (AppConfig.TxBufferLength - packet_size)) {
+								missed = index - (AppConfig.TxBufferLength - packet_size);
 							} else {
 								missed = index;
 							}
 
 							misstimer1 = PKT_MISS_TIME;
 
-							if (!USE_PPS) {
+							if (!VOTER_CLIENT) {
 								host_txseqno = 0;
 							}
 						}
@@ -3901,7 +4111,7 @@ void main_processing_loop(void)
 		digest = 0;
 		their_challenge[0] = 0;
 		lastrxtimer = 0;
-		SetAudioSrc();
+		SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 		
 		/* linkstate = 0 - initial state
 		 * linkstate = 1 - normal Ethernet link
@@ -4033,7 +4243,7 @@ void main_processing_loop(void)
 				digest = 0;
 				their_challenge[0] = 0;
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
 
@@ -4049,7 +4259,7 @@ void main_processing_loop(void)
 			digest = 0;
 			their_challenge[0] = 0;
 			lastrxtimer = 0;
-			SetAudioSrc();
+			SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 		}
 
 		if (udpSocketUser != INVALID_UDP_SOCKET) {
@@ -4187,21 +4397,22 @@ void secondary_processing_loop(void)
 				printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
 				gps_state = GPS_STATE_IDLE;
 
-				if (USE_PPS) {
+				if (VOTER_CLIENT) {
 					connected = 0;
 					resp_digest = 0;
 					digest = 0;
 					their_challenge[0] = 0;
 					lastrxtimer = 0;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 				}
 
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 			}
 		}
 
-		if (gotpps && USE_PPS) {
+		if (gotpps && VOTER_CLIENT) {
 			if ((!ppswarn) && (ppstimer > PPS_WARN_TIME)) {
 				ppswarn = 1;
 				printf(logtime()); /* Print current timestamp */
@@ -4218,8 +4429,9 @@ void secondary_processing_loop(void)
 				their_challenge[0] = 0;
 				gpssync = 0;
 				gotpps = 0;
+				ppsx = 0; /* Make sure we also clear ppsx, since PPS should be invalid too */
 				lastrxtimer = 0;
-				SetAudioSrc();
+				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			}
 		}
 
@@ -4261,12 +4473,12 @@ void secondary_processing_loop(void)
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
-				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!USE_PPS) || (!SIMULCAST_ENABLE))) {
-					if (AppConfig.FailMode == 2) {
+				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!VOTER_CLIENT) || (!SIMULCAST_ENABLE))) {
+					if (AppConfig.FailMode == OFFLINE_SPLX_TRIG) {
 						needburp = 1;
 					}
 
-					if ((AppConfig.FailMode == 3) && (!connfail)) {
+					if ((AppConfig.FailMode == OFFLINE_RPTR) && (!connfail)) {
 						needburp = 1;
 					}
 				}
@@ -4315,10 +4527,15 @@ void secondary_processing_loop(void)
 		}
 
 		z = 100000;
+		/* What is the time difference between NOW and when we last received an audio packet
+		 * from the host?
+		 * x should be the number of whole seconds
+		 */
 		x = system_time.vtime_sec - lastrxtime.vtime_sec;
-		isoffline = ((!connected) && (AppConfig.FailMode == 3));
 
-		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
+		isoffline = ((!connected) && (AppConfig.FailMode == OFFLINE_RPTR));
+
+		if ((isoffline || DUPLEX3) && HasCOR() && HasCTCSS() && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			repeatit = 1;
 
 			if (isoffline) {
@@ -4345,7 +4562,7 @@ void secondary_processing_loop(void)
 			qualtx &= (!((AppConfig.Glasers && (AppConfig.Glasers != 0xffff)) && (glasertimer || g1)));
 
 			if (connected) {
-				if (!USE_PPS) {
+				if (!VOTER_CLIENT) {
 					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (!qualtx))) {
 						host_ptt = 0;
 						ptt = 0;
@@ -4356,10 +4573,38 @@ void secondary_processing_loop(void)
 						SetPTT(1);
 					}
 				} else {
+					/*! \todo VE7FET what does this do? It has something to do with disabling PTT
+					 * if we are using the "Glassers" or "Elketimer" options.
+					 */
+					/* x has been set to the difference between NOW and the last
+					 * time we received and audio packet (in seconds).
+					 *
+					 * z is always 100000 (set above) when we get here, that seems like this test
+					 * is useless.
+					 *
+					 * We enter this IF if we have something in vtime_sec, and the difference
+					 * between NOW and the last time we received and audio packet from the
+					 * host is less than 100 seconds.
+					 */
 					if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000)) {
+						/* Set y to the number of nsec difference between NOW and
+						 * the last time we received an audio packet from the host.
+						 */
 						y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
+						/* Convert x (seconds difference) to ms and stuff it in z. */
 						z = x * 1000;
+						/* Add the nsec difference to z (after converting it to nsec). */
 						z += y / 1000000;
+						/* z is in ms (with nsec added).
+						 *
+						 * Subtract (TxBufferLength - FRAMESIZE) /2 /2 /2 from z. This appears to
+						 * effectively take take TxBufferLength, subtract a FRAMESIZE from it, and
+						 * divide by 8 (which should make it time in ms).
+						 *
+						 * So, subtract TxBufferLength - FRAMESIZE (in ms) from z and store
+						 * it in z.
+						 *
+						 */
 						z -= (AppConfig.TxBufferLength - 160) >> 3;
 					}
 
@@ -4385,7 +4630,7 @@ void secondary_processing_loop(void)
 				SetLED(CONNLED,connected);
 			}
 
-			if ((gps_state == GPS_STATE_SYNCED) || ((gps_state == GPS_STATE_VALID) && (!USE_PPS))) {
+			if ((gps_state == GPS_STATE_SYNCED) || ((gps_state == GPS_STATE_VALID) && (!VOTER_CLIENT))) {
 				SetLED(GPSLED,1);
 			} else if (gps_state != GPS_STATE_VALID) {
 				SetLED(GPSLED,0);
@@ -4456,7 +4701,7 @@ void secondary_processing_loop(void)
 			ToggleLED(SYSLED);
 
 			if (LEVDISP) {
-				if ((gps_state == GPS_STATE_VALID) && USE_PPS) {
+				if ((gps_state == GPS_STATE_VALID) && VOTER_CLIENT) {
 					ToggleLED(GPSLED);
 				}
 			}
@@ -4645,7 +4890,7 @@ void secondary_processing_loop(void)
 #endif
 					/* Perform measurement sequence with no filters on audio. */
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 3;
 					measp = (struct meas *)flat_test;
 					measstr = (char *)flat_test_str;
@@ -4659,7 +4904,7 @@ void secondary_processing_loop(void)
 
 				case 3: /* Perform measurement sequence with de-demphasis enabled. */
 					diag_option_flags = OPTION_FLAG_FLATAUDIO;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 4;
 					measp = (struct meas *)plfilt_test;
 					measstr = (char *)plfilt_test_str;
@@ -4673,7 +4918,7 @@ void secondary_processing_loop(void)
 
 				case 4: /* Perform measurement sequence with CTCSS filter enabled. */
 					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 5;
 					measp = (struct meas *)deemp_test;
 					measstr = (char *)deemp_test_str;
@@ -4687,7 +4932,7 @@ void secondary_processing_loop(void)
 
 				case 5: /* Perform measurement sequence of squelch noise detector. */
 					diag_option_flags = 0;
-					SetAudioSrc();
+					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 255;
 					measp = (struct meas *)sql_test;
 					measstr = (char *)sql_test_str;
@@ -4717,7 +4962,7 @@ void secondary_processing_loop(void)
 
 	if (gotbadmix) {
 		printf(logtime()); /* Print current timestamp */
-		printf(badmix); /* Print "ERROR! Host rejecting connection" */
+		printf(badmix); /* Print "ERROR! Host rejecting mix mode connection" */
 		gotbadmix = 0;
 	}
 
@@ -4772,7 +5017,7 @@ void secondary_processing_loop(void)
 
 		if (connected && (!connfail)) {
 			connfail = 1;
-		} else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
+		} else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			if (connected) {
 				if ((connfail == 2) && AppConfig.UnFailString[0]) {
 					domorse((char *)AppConfig.UnFailString);
@@ -4796,7 +5041,7 @@ void secondary_processing_loop(void)
 			needburp = 0;
 		}
 
-		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!USE_PPS))) {
+		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			needburp = 0;
 			if (!connfail) {
 				connfail = 2;
@@ -5124,7 +5369,7 @@ static void DiagMenu()
 	indiag = 1; 
 	gps_state = GPS_STATE_IDLE;
 
-	if (USE_PPS) {
+	if (VOTER_CLIENT) {
 		connected = 0;
 		resp_digest = 0;
 		digest = 0;
@@ -5283,12 +5528,12 @@ static void DiagMenu()
 	txseqno_ptt = 0;
 	host_txseqno = 0;
 	digest = 0;
-	SetAudioSrc();
+	SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
 	gpssync = 0;
 	gotpps = 0;
 	ppscount = 0;
 
-	if (USE_PPS) {
+	if (VOTER_CLIENT) {
 		DAC1CONbits.DACEN = 0;
 		while (!DAC1CONbits.DACEN) {
 			ClrWdt();
@@ -5903,7 +6148,29 @@ int main(void)
 	BYTE i;
 	long mydiff,mydiff1;
 
-	static /*ROM*/ char signon[] = "\nVOTER Client System verson %s, Jim Dixon WB6NIL\n";
+	/* Save Reset Control Regiter (RCON) value immediately at startup,
+	 * temorarily disable the software WDT, and clear the reset status
+	 * bits for next time.
+	 *
+	 * Bit 15 -TRAPR - TRAP Reset flag bit
+	 * Bit 14 - IOPUWR - Illegal OPcode or Unitialized W access Reset flag bit
+	 * Bit 13 - 10 - Not implemented
+	 * Bit 9 - CM - Configuration Mismatch
+	 * Bit 8 - VREGS - Voltage REGulator enable during Sleep
+	 * Bit 7 - EXTR - EXTernal Reset
+	 * Bit 6 - SWR - SoftWare Reset
+	 * Bit 5 - SWDTEN - Software Watch Dog Timer ENable
+	 * Bit 4 - WDTO - Watch Dog Time Out
+	 * Bit 3 - SLEEP - was in SLEEP
+	 * Bit 2 - IDLE - was in IDLE
+	 * Bit 1 - BOR - Brown Out Reset
+	 * Bit 0 - POR - Power On Reset
+	 * 0000 0001 0000 0000 = 0x0100
+	 */
+	saved_rcon = RCON;
+	RCON &= 0x0100;
+
+	static /*ROM*/ char signon[] = "\nVOTER Client System Version %s, AllStarLink, Inc.\n";
 
 	static /*ROM*/ char defwritten[] = "\nDefault Values Written to EEPROM\n",
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
@@ -5941,29 +6208,41 @@ int main(void)
 		"q  - Disconnect Remote Console Session, r - reboot system, d - diagnostics\n\n",
 		entsel[] = "Enter Selection (1-19,81-82,97-99,i,o,s,r,q,d) : ";
 
-	static ROM char oprdata[] = "S/W Version: %s\n"
-		"System Uptime: %lu.%lu Secs\n"
-		"IP Address: %d.%d.%d.%d\n", oprdata1[] = 
-		"Netmask: %d.%d.%d.%d\n", oprdata2[] = 
-		"Gateway: %d.%d.%d.%d\n", oprdata3[] = 
-		"Primary DNS: %d.%d.%d.%d\n", oprdata4[] = 
-		"Secondary DNS: %d.%d.%d.%d\n", oprdata5[] = 
-		"DHCP: %d\n"
-		"VOTER Server IP: %d.%d.%d.%d\n", oprdata6[] = 
+	static ROM char oprdata_sys[] =
+		"S/W Version: %s\n"
+		"System Uptime: %lu.%lu Secs\n",
+		oprdata_rcon[] =
+		"RCON Val=0x%04X\n"
+		"TRAP:%s IO:%s   CM:%s  EXTR:%s SW:%s\n"
+		"WD:%s   SLEP:%s IDL:%s BOR:%s  POR:%s\n",
+		oprdata_net[] =
+		"IP Address: %d.%d.%d.%d\n"
+		"Netmask: %d.%d.%d.%d\n"
+		"Gateway: %d.%d.%d.%d\n"
+		"DHCP: %s\n",
+		oprdata_dns[] =
+		"Primary DNS: %d.%d.%d.%d\n"
+		"Secondary DNS: %d.%d.%d.%d\n",
+		oprdata_svr[] =
+		"VOTER Server IP: %d.%d.%d.%d\n"
 		"VOTER Server UDP Port: %d\n"
 		"OUR UDP Port: %d\n"
-		"GPS Lock: %d\n"
-		"PPS BAD or Wrong Polarity: %d\n"
-		"Connected: %d\n"
-		"COR: %d\n", oprdata7[] = 
-		"EXT CTCSS IN: %d\n"
-		"PTT: %d\n"
+		"Connected: %s\n",
+		oprdata_gps[] =
+		"GPS Lock: %s\n"
+		"PPS Status: %s\n",
+		oprdata_stat[] =
+		"COR: %s\n"
+		"EXT CTCSS IN: %s\n"
+		"PTT: %s\n"
 		"RSSI: %d\n"
 		"Current Samples / Sec.: %d\n"
-		"Current Peak Audio Level: %u\n", oprdata8[] = 
-		"Squelch Noise Gain Value: %d, Diode Cal. Value: %d, SQL Level %d, Hysteresis %d\n",
+		"Current Peak Audio Level: %u\n",
+		oprdata_sq[] =
+		"Sql Noise Gain Val: %d, Diode Cal Val: %d, Sql Lvl %d, Hysteresis %d\n",
 		curtimeis[] = "Current Time: %s.%03lu\n";
 
+	bootdone = 0;
 	portasave = 0;	
 	filling_buffer = 0;
 	fillindex = 0;
@@ -5971,14 +6250,20 @@ int main(void)
 	time_filled = 0;
 	connected = 0;
 	lastrxtimer = 0;
-	memclr((char *)audio_buf,FRAME_SIZE * 2);
+	memclr((char *)audio_buf, 2 * ADPCM_FRAME_SIZE); /* Clear the entire audio buffer (326 bytes) */
 	gps_bufindex = 0;
 	TSIPwasdle = 0;
 	gps_state = GPS_STATE_IDLE;
 	gps_nsat = 0;
+	ppsx = 0;
 	gotpps = 0;
 	gpssync = 0;
 	ppscount = 0;
+	ppstimer = 0;
+	gpstimer = 0;
+	ppswarn = 0;
+	gpswarn = 0;
+	gpsforcetimer = 0;
 	rssi = 0;
 	rssiheld = 0;
 	adcother = 0;
@@ -5989,20 +6274,18 @@ int main(void)
 	wascor = 0;
 	lastcor = 0;
 	vnoise32 = 0;
-	option_flags = 0;
 	txdrainindex = 0;
 	last_drainindex = 0;
 	memset(&lastrxtime,0,sizeof(lastrxtime));
 	ptt = 0;
 	digest = 0;
 	resp_digest = 0;
+	mydigest = 0;
 	their_challenge[0] = 0;
-	ppstimer = 0;
-	gpstimer = 0;
-	gpsforcetimer = 0;
+	option_flags = 0;
+	gotbadmix = 0;
+	diag_option_flags = 0;
 	attempttimer = 0;
-	ppswarn = 0;
-	gpswarn = 0;
 	dwLastIP = 0;
 	inread = 0;
 	memset(&MyVoterAddr,0,sizeof(MyVoterAddr));
@@ -6014,25 +6297,22 @@ int main(void)
 	dnsdone = 0;
 	timing_time = 0;		/* Time (whole secs) at beginning of next packet to be sent out */
 	timing_index = 0;		/* Index at beginning of next packet to be sent out */
-	next_time = 0;			/* Time (whole secs) samppled at begnning of current ADC frame */
+	next_time = 0;			/* Time (whole secs) sampled at begnning of current ADC frame */
 	next_index = 0;			/* Index at beginning of current ADC frame */
 	samplecnt = 0;			/* Index of ADC relative to PPS pulse */
 	last_adcsample = last_index = last_index1 = 2048;	/* Last mulaw sample from ADC (so can be repeated if falls short) */
 	real_time = 0;			/* Actual time (whole secs) */
 	last_samplecnt = 0;		/* Last sample count (for display purposes) */
-	digest = 0;	
-	resp_digest = 0;
-	mydigest = 0;
-	discfactor = 1000;
 	discounterl = 0;
 	discounteru = 0;
-	amax = 0;
-	amin = 0;
-	apeak = 0;
+	amax = 0;				/* Keep track of the maximum audio peak value (s/b positive?) */
+	amin = 0;				/* Keep track of the maximum audio peak value (s/b negative?) */
+	apeak = 0;				/* Peak un-signed audio value */
 	indisplay = 0;
 	indipsw = 0;
 	leddiag = 0;
 	diagstate = 0;
+	/* APCM variables begin */
 	dec_valprev = 0;
 	dec_index = 0;
 	enc_valprev = 0;
@@ -6040,7 +6320,8 @@ int main(void)
 	enc_prev_valprev = 0;
 	enc_prev_index = 0;
 	enc_lastdelta = 0;
-	memset(dec_buffer,0,FRAME_SIZE);
+	memset(dec_buffer,ULAW_SILENCE,(ADPCM_SAMPLE_SIZE)); /* Fill the ADPCM decoder buffer with ulaw silence */
+	/* ADPCM variables end */
 	txseqno = 0;
 	txseqno_ptt = 0;
 	elketimer = 0;
@@ -6051,9 +6332,7 @@ int main(void)
 	measp = 0;
 	measstr = 0;
 	measidx = 0;
-	diag_option_flags = 0;
 	netisup = 0;
-	gotbadmix = 0;
 	telnet_echo = 0;
 	termbuftimer = 0;
 	termbufidx = 0;
@@ -6099,21 +6378,24 @@ int main(void)
 	/* Initialize application specific hardware */
 	InitializeBoard();
 
-	RCONbits.SWDTEN = 0;
-
 	/* Initialize stack-related hardware components that may be 
 	 * required by the UART configuration routines.
 	 */
 	TickInit();
 
+	/* Turn on the SYSLED */
 	SetLED(SYSLED,1);
-
 
 	/* Initialize Stack and application related NV variables into AppConfig. */
 	InitAppConfig();
 
-	if ((!USE_PPS) || (!SIMULCAST_ENABLE)) {
+	/* If we are a mix mode (!VOTER_CLIENT) client, or a regular (non-simulcasting) voting client,
+	 * enable the (left) DAC and turn on interrupts, so we can transmit audio.
+	 */
+	if ((!VOTER_CLIENT) || (!SIMULCAST_ENABLE)) {
+		/* Enable the DAC1 module */
 		DAC1CONbits.DACEN = 1;
+		/* Enable the DAC1L Interrupts (so the DAC ISR will run) */
 		IEC4bits.DAC1LIE = 1;
 	}
 
@@ -6195,7 +6477,7 @@ int main(void)
 
 	/* Initialize core stack layers (MAC, ARP, TCP, UDP) and application modules (HTTP, SNMP, etc.). */
 	StackInit(AppConfig.EthFullDuplex);
-	SetAudioSrc();
+	SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
 	init_squelch();
 
 #ifdef	DSPBEW
@@ -6206,6 +6488,7 @@ int main(void)
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
+	/* Generate our random challenge used for authentication with the host. */
 	sprintf(challenge,"%lu",GenerateRandomDWORD() % 1000000000ul);
 
 	/* Now that all items are initialized, begin the co-operative
@@ -6223,15 +6506,19 @@ int main(void)
 	 */
 	__builtin_nop();
 
+	/* Re-enable the Software Watch Dog Timer */
 	ClrWdt();
 	RCONbits.SWDTEN = 1;
 	ClrWdt();
 	SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
 	printf(signon,VERSION);
 
-	if (sizeof(AppConfig) != 1016) {	
+	/* Check the size of the AppConfig aray, and make sure it is as
+	 * expected, otherwise, throw an error and reboot (forever).
+	 */
+	if (sizeof(AppConfig) != APPCONFIGSIZE) {	
 		DWORD d;
-		printf("??? %d\n",sizeof(AppConfig));
+		printf("AppConfig size %d != %d\n",sizeof(AppConfig), APPCONFIGSIZE);
 		for (d = 0; d < 2000000; d++) {
 			ClrWdt();
 		}
@@ -6269,7 +6556,7 @@ int main(void)
 		}
 
 		indiag = 0;
-		SetAudioSrc();
+		SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
 		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
 			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5]);
 		main_processing_loop();
@@ -6289,6 +6576,7 @@ int main(void)
 		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.Duplex3,AppConfig.LaunchDelay);
 #endif
 		aborted = 0;
+		bootdone = 1;
 
 		while (!aborted) {
 			printf(entsel);
@@ -6543,62 +6831,101 @@ int main(void)
 
 			case 98:
 				t = system_time.vtime_sec;
-				printf(oprdata,VERSION,uptimer / 10,uptimer % 10,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
+				printf(oprdata_sys,
+					VERSION,
+					uptimer / 10,
+					uptimer % 10);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata1,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
+				/* RCON Section */
+				printf(oprdata_rcon,
+					saved_rcon,
+					(saved_rcon & 0x8000) ? "Y" : "N",  // TRAPR(15)
+					(saved_rcon & 0x4000) ? "Y" : "N",  // IOPUWR(14)
+					(saved_rcon & 0x0200) ? "Y" : "N",  // CM(9)
+					(saved_rcon & 0x0080) ? "Y" : "N",  // EXTR(7)
+					(saved_rcon & 0x0040) ? "Y" : "N",  // SWR(6)
+					(saved_rcon & 0x0010) ? "Y" : "N",  // WDTO(4)
+					(saved_rcon & 0x0008) ? "Y" : "N",  // SLEEP(3)
+					(saved_rcon & 0x0004) ? "Y" : "N",  // IDLE(2)
+					(saved_rcon & 0x0002) ? "Y" : "N",  // BOR(1)
+					(saved_rcon & 0x0001) ? "Y" : "N");  // POR(0)
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata2,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+				printf(oprdata_net,
+					AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
+					AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3],
+					AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3],
+					AppConfig.Flags.bIsDHCPReallyEnabled ? "Y" : "N");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata3,AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3]);
+				printf(oprdata_dns,
+					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
+					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata4,AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],
-					AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
+				printf(oprdata_svr,
+					CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
+					AppConfig.VoterServerPort,
+					AppConfig.MyPort,
+					connected ? "Y" : "N");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata5,AppConfig.Flags.bIsDHCPReallyEnabled,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+				printf(oprdata_gps,
+					gps_fix ? "Y" : "N",
+					ppsx ? "bad" : "good (or mix client)");
 				main_processing_loop();
 				secondary_processing_loop();
-				printf(oprdata6,AppConfig.VoterServerPort,AppConfig.MyPort,gpssync,ppsx,connected,lastcor);
-				main_processing_loop();
-				secondary_processing_loop();
-				printf(oprdata7,CTCSSIN ? 1 : 0,ptt,rssiheld,last_samplecnt,apeak);
+				printf(oprdata_stat,
+					lastcor ? "active" : "inactive",
+					HasCTCSS() ? "active or ignore" : "inactive",
+					ptt ? "active" : "inactive",
+					rssiheld,
+					last_samplecnt,
+					apeak);
 				main_processing_loop();
 				secondary_processing_loop();
 				if (AppConfig.Sqpot) {
-					printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
+					printf(oprdata_sq,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
 				} else {
-					printf(oprdata8,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT],AppConfig.Hysteresis);
+					printf(oprdata_sq,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT],AppConfig.Hysteresis);
 				}
 				main_processing_loop();
 				secondary_processing_loop();
 				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
-
-				if (((gps_state == GPS_STATE_SYNCED) || (!USE_PPS)) && system_time.vtime_sec)
+				/* If we have a curent system time, print it. */
+				if (((gps_state == GPS_STATE_SYNCED) || (!VOTER_CLIENT)) && system_time.vtime_sec) {
 					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+				}
 
 				main_processing_loop();
 				secondary_processing_loop();
+				/* system_time is OUR time, last_rxpacket_sys_time is OUR time when we last received
+				 * an audio packet to TX from the host.
+				 *
+				 * This prints the last time we received a packet to TX, and how long ago that was from now.
+				 */
 				mydiff = system_time.vtime_sec - last_rxpacket_sys_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Ntwk Rx Pkt System time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				printf("Last time pkt rcvd to TX: %s, which was %ld ms ago\n",logtime_p(&last_rxpacket_sys_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
+				/* last_rxpacket_time is the HOST timestamp sent in the last audio packet header we received to TX
+				 * 
+				 * This prints that timestamp, and the difference between OUR time and the HOST time when that happened.
+				 */
 				mydiff = last_rxpacket_sys_time.vtime_sec - last_rxpacket_time.vtime_sec;
 				mydiff *= 1000;
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last Ntwk Rx Pkt Timestamp time: %s, diff: %ld msec\n",logtime_p(&last_rxpacket_time),mydiff);
+				printf("Host timestamp of last pkt rcvd to TX: %s, diff from our time: %ld ms\n",logtime_p(&last_rxpacket_time),mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Last Ntwk Rx Pkt index: %ld, inbounds: %d\n",last_rxpacket_index,last_rxpacket_inbounds);
+				printf("Index of last pkt rcvd to TX: %ld, inbounds: %s\n",last_rxpacket_index,last_rxpacket_inbounds ? "yes" : "no");
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
@@ -6791,8 +7118,10 @@ static void InitializeBoard(void)
 	DAC1STAT = 0x8000;
 	DAC1STATbits.LITYPE = 0;
 	DAC1CON = 0x1100 + 74; /* Divide by 75 for 8K Samples/sec */
+	/* Clear the DAC flags */
 	IFS4bits.DAC1LIF = 0;
 //	IEC4bits.DAC1LIE = 1;
+	/* Set DAC1L Interrupt Priority to 6 */
 	IPC19bits.DAC1LIP = 6;
 
 /* Configure I/O pins */
@@ -6855,10 +7184,10 @@ static void InitializeBoard(void)
 	PORTA=0;
 	PORTB=0;
 
-	/*! \todo VE7FET RA1 is not connected on the VOTER, and RA3 is configured 
+	/* RA1 is not connected on the VOTER, and RA3 is configured 
 	 * as an oscillato input... so we shouldn't need to configure TRISA, and 
 	 * this can probably just go away, since all pins default to inputs on
-	 * reset, which would be correct for RA4 (CN0).
+	 * reset, which would be correct for RA4 (CN0). Doesn't hurt to leave it.
 	 */
 	/* Configure PORTA
 	 * 0xFFFD = 1111 1111 1111 1101 (RA4:RA0) 0=OUT, 1=IN(or analog)
@@ -6971,8 +7300,8 @@ static void InitAppConfig(void)
 	AppConfig.DefaultSecondaryDNSServer.v[3] = 0;
 
 	AppConfig.TxBufferLength = DEFAULT_TX_BUFFER_LENGTH;
-	AppConfig.VoterServerPort = 667;
-	AppConfig.GPSBaudRate = 4800;
+	AppConfig.VoterServerPort = DEFAULT_VOTER_PORT;
+	AppConfig.GPSBaudRate = BAUD_RATE2;
 	strcpy(AppConfig.Password,"radios");
 	strcpy(AppConfig.HostPassword,"BLAH");
 	strcpy(AppConfig.VoterServerFQDN,"voter-demo.allstarlink.org");
