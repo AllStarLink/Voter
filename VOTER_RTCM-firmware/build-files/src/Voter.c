@@ -2154,7 +2154,7 @@ void RTCM_Reset(void)
 // 		Description: Used for qualifying COR. Menu 13 "COR Type"			//
 // 					 sets ExternalCTCSS.									//
 // 																			//
-// 		Returns: "Normal" COR is computed by DSP, so return					// 
+// 		Returns: "Normal" COR is computed in the squelch code, so return	// 
 // 				 the cor var												//
 // 				 Ignore COR returns 1 (always qualified)					//
 // 				 No Receiver returns 0 (no COR)								//
@@ -2164,16 +2164,25 @@ void RTCM_Reset(void)
 /****************************************************************************/
 BOOL HasCOR(void)
 {
+	/* In diag mode, return 0. */
 	if (indiag) {
 		return(0);
 	}
-	if (AppConfig.CORType == 2) { /* No receiver */
+	/* No receiver (transmitter only), no COR needed, return 0. */
+	if (AppConfig.CORType == 2) {
 		return(0);
 	}
-	if (AppConfig.CORType == 1) { /* Ignore COR */
+	/* Ignore COR. Used when we are using the External CTCSS input only to
+	 * qualify COR. So, return 1 to force COR to always be true.
+	 */
+	if (AppConfig.CORType == 1) {
 		return(1);
 	}
-	return (cor); /* Return the cor computed by DSP analysis (normal COR) */
+	/* Otherwise, we are using "normal" COR, so return the current COR state
+	 * based on the evaluated squelch state (cor is a global variable that
+	 * is set in squelch.c).
+	 */
+	return (cor);
 }
 
 /****************************************************************************/
@@ -2197,18 +2206,27 @@ BOOL HasCOR(void)
 /****************************************************************************/
 BOOL HasCTCSS(void)
 {
+	/* In diag mode, return 0. */
 	if (indiag) {
 		return(0);
 	}
-	if (!AppConfig.ExternalCTCSS) { /* Ignore CTCSS (0) */
+	/* Ignore CTCSS (0). Not using the external CTCSS input, so always return 1. */
+	if (!AppConfig.ExternalCTCSS) {
 		return (1);
 	}
+	/* If we are using "normal" external CTCSS, and the CTCSSIN pin is high, we have
+	 * valid CTCSS, return 1.
+	 */
 	if ((AppConfig.ExternalCTCSS == 1) && CTCSSIN) { /* Non-inverted CTCSS input */
 		return (1);
 	}
+	/* If we are using "inverted" external CTCSS, and the CTCSSIN pin is low, we have
+	 * valid CTCSS, return 1.
+	 */
 	if ((AppConfig.ExternalCTCSS == 2) && (!CTCSSIN)) { /* Inverted CTCSS input */
 		return(1);
 	}
+	/* External CTCSS is enabled, but not currently valid, so return 0. */
 	return (0);
 }
 
@@ -3550,7 +3568,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		wp = (unsigned int *)&sigCmpx[0];
 		fftresult = 0;
 
-		/* Get the total energy above CTCSS and below 2000Hz */
+		/* Get the total energy above CTCSS and below 3000Hz */
 		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++) {
 			if (i >= 2) {
 				fftresult += *wp;
@@ -3558,20 +3576,29 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			wp++;
 		}
 
+		/* qualnoise is a boolean. If the measured noise (fftresult) is quiet
+		 * enough (<= FFT_MAX_RESULT), then qualnoise will be true. This determines
+		 * when using DSPBEW, if can we trust/use our ADC noise measurement right
+		 * now.
+		 */
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
 
 		/* If we are NOT using BEW Mode, ignore what we did above, and just set
-		 * qualnoise to 1.
+		 * qualnoise to true (strong signal).
 		 */
 		if (!AppConfig.BEWMode) {
 			qualnoise = 1;
 		}
-		/*! \todo VE7FET will we ever run this? qualnoise will probably always have
-		 * SOMETHING in it, after running though DSP, it seems unlikely that it
-		 * would EVER be zero? Weird. Need to look at this more. Bug?
+		
+		/* If qualnoise is false (the result of the BEW DSP), there is too much energy
+		 * in the baseband to use our current ADC noise value. Set vnoise32 and the last two
+		 * noise samples to whatever the noise value was three samples ago, and compute
+		 * the RSSI based on that. rssiheld is what we are "holding" the RSSI value at
+		 * temporarily, until we can measure another sample in the baseband.
 		 */
 		if (!qualnoise) {
 			vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
+			/* Scale the value (divide by 8) before sending it to calcrssi. */
 			rssiheld = calcrssi(vnoise32 >> 3);
 		}
 #endif /* DSPBEW */
@@ -3584,6 +3611,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * ONLY done by a master voting client. When looking in the debug console on
 			 * the host, this will result in a continuous stream of payload 1 (or 3)
 			 * packets from the master client.
+			 *
+			 * Otherwise, only set the tosend flag if we are connected to the host, and
+			 * COR/CTCSS is qualified.
 			 */
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 
@@ -3593,10 +3623,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 
 #ifdef DSPBEW
+			/* If we are using DSPBEW, and qualnoise is true (baseband is quiet enough),
+			 * or we don't have a COR signal anymore, update rssiheld with the current
+			 * calculated rssi value. If we don't have COR, then qualnoise doesn't matter,
+			 * since there's not going to be any voice in the baseband to contaminate the
+			 * result.
+			 */
 			if (qualnoise || (!HasCOR())) {
 				rssiheld = rssi;
 			}
 #else
+			/* If we aren't using DSPBEW, just make rssiheld the last calculated rssi value. */
 			rssiheld = rssi;
 #endif /* DSPBEW */
 			/* This is our main UDP send routine. We will always send a packet if:
@@ -3675,7 +3712,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 * If tosend isn't true, we're not connected yet, and if this is a mix mode
 				 * client, put the mix mode flag in the RSSI position to tell the host we are.
 				 */
-	            if (tosend) {	
+	            if (tosend) {
+					/* If we have an RSSI value, and qualified COR/CTCSS, put it in the buffer,
+					 * along with an audio sample.
+					 */
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS()) {
 						UDPPut(rssiheld);
 						for (i = 0; i < j; i++) {
@@ -3683,6 +3723,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						elketimer = 0;
 					} else {
+						/* Otherwise, put an RSSI of 0 and silence into the buffer. */
 						UDPPut(0);
 						for (i = 0; i < j; i++) {
 							UDPPut(c);
@@ -3701,6 +3742,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 		}
 #ifdef	DSPBEW
+		/* If the DSP baseband noise measurement is quiet enough to use our
+		 * ADC noise measurement, qualnoise will be true. Shuffle all the noise
+		 * measurements in the history buffer, replacing the last value with the
+		 * current measurement.
+		 *
+		 * Effectively:
+		 * lastvnoise[0] = oldest
+		 * lastvnoise[1] = middle
+		 * lastvnoise[2] = newest
+		 */
 		if (qualnoise) {
 			lastvnoise32[0] = lastvnoise32[1];
 			lastvnoise32[1] = lastvnoise32[2];
@@ -4437,6 +4488,13 @@ void secondary_processing_loop(void)
 
 		process_gps();
 
+		/* Run this code every 33 "ADC-rxaudio" sample periods. So, this runs every
+		 * 33 x 125us = 4.125ms.
+		 *
+		 * The constant 33 determines how often we service the squelch, and has downstream
+		 * effects in the squelch routine that set the timing for the 50ms "lookback" and
+		 * 120ms long term squelch averaging.
+		 */
 		if (sqlcount >= 33) {
 			BOOL qualcor;
 			sqlcount = 0;
@@ -4445,15 +4503,42 @@ void secondary_processing_loop(void)
 			} else { /* We're using the hardware pot */
 				service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
 			}
+			/* Toggle the sql2 boolean ever time this code block is entered, so that the code
+			 * gated below runs every OTHER time (every 8.25ms).
+			 */
 			sql2 ^= 1;
+			/* qualcor is a boolean that identifies if COR is qualified. See
+			 * HasCOR() and HasCTCSS() to see under what options/conditions they
+			 * each return true.
+			 */
 			qualcor = (HasCOR() && HasCTCSS());	
 #ifdef	DSPBEW
+			/* qualnoise is a boolean that, when using DSPBEW, tells us if we can
+			 * use the current ADC noise measurement (qualnoise will be true when
+			 * fftresult <= our threshold of FFT_MAX_RESULT), or if the baseband
+			 * is contaminated by voice (and not to use it, qualnoise = 0). If COR
+			 * isn't qualified, the DSP test doesn't matter, so we automatically set
+			 * qualnoise true.
+			 */
 			qualnoise = ((fftresult <= FFT_MAX_RESULT) || (!qualcor)); 
 
+			/* If we are not actually using DSPBEW mode, force qualnoise true (we don't
+			 * care about noise in the baseband, as our measurements take place outside
+			 * of the baseband audio).
+			 */
 			if (!AppConfig.BEWMode) {
 				qualnoise = 1;
 			}
 
+			/* This is a four cycle (defined by QUALCOUNT) qualification/hysteresis buffer
+			 * when using DSPBEW mode.
+			 * 
+			 * If the DSP detects a bad/noisy measurement (qualnoise becomes 0), qualcnt is
+			 * reset to zero. For the next several processing passes, qualnoise remains
+			 * forced to zero even if the FFT result immediately looks good again. This
+			 * prevents the noise estimator from immediately accepting a potentially
+			 * contaminated measurement.
+			 */
 			if (!qualnoise) {
 				qualcnt = 0;
 			}
@@ -4463,16 +4548,45 @@ void secondary_processing_loop(void)
 				qualnoise = 0;
 			}
 #endif
+			/* Every OTHER time we are here (every 66 "ADC-rxaudio" sample periods), reset
+			 * the noise history buffer, update vnoise32 with the current value, see if
+			 * we've gone offline and need to send a notification, and update our COR history
+			 * (wascor).
+			 *
+			 * This effectively throttles how fast we're doing things, since we read the ADC
+			 * very frequently.
+			 */
 			if (sql2) {
 				if (qualcor && (!wascor)) {
+					/* If the baseband audio is quiet enough (qualnoise is true), and COR
+					 * first becomes active (!wascor), initialize the noise history buffer and
+					 * current noise measurement (vnoise32) with the ADC noise measurement.
+					 *
+					 * This avoids dragging old noise measurements into a new receiving event.
+					 */
 					lastvnoise32[0] = lastvnoise32[1] = lastvnoise32[2] = vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
 				} else {
 #ifdef	DSPBEW
+					/* If we're using DSPBEW, first check to see if we can use the current
+					 * ADC noise measurement (if we are using DSPBEW mode, is the baseband
+					 * quiet enough to use the sample (qualnoise is true), or is it contaminated
+					 * by voice (qualnoise is false)).
+					 */
 					if (qualnoise) 
 #endif
+					/* Update and filter the current ADC noise measurement. This is effectively a
+					 * constantly running smoothing filter where the resulting vnoise32 contains
+					 * 75% previous values, and 25% the current/new value.
+					 */
 						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
+				/* We just lost the received signal while we're disconnected from the host, and we're
+				 * operating in one of the offline/failover modes where we need to tell the operator.
+				 *
+				 * We set needburp as a pending flag to send the FailString morse message in the
+				 * secondary processing loop.
+				 */
 				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!VOTER_CLIENT) || (!SIMULCAST_ENABLE))) {
 					if (AppConfig.FailMode == OFFLINE_SPLX_TRIG) {
 						needburp = 1;
@@ -4483,26 +4597,48 @@ void secondary_processing_loop(void)
 					}
 				}
 
+				/* Store the current state of COR qualifaction for later. */
 				wascor = qualcor;
 			}
 #ifdef	DSPBEW
+			/* If we're using DSPBEW, first check to see if we can use the current
+			 * ADC noise measurement (if we are using DSPBEW mode, is the baseband
+			 * quiet enough to use the sample (qualnoise is true), or is it contaminated
+			 * by voice (qualnoise is false)).
+			 *
+			 * The noise history buffer (lastvnoise32) is only updated with qualnoise
+			 * is true.
+			 *
+			 * Set mynoise to the previous (middle) sample in the buffer.
+			 */
 			if (qualnoise) {
 				mynoise = (WORD)lastvnoise32[1];
 			}
 #else
+			/* Without DSPBEW, we can just set mynoise to the current (filtered) value. */
 			mynoise = vnoise32;
 #endif
 		
+			/* Go calculate the RSSI, based on the current noise value. We send a scaled
+			 * ADC value (/8), effectively a 10-bit value (0-1023).
+			 */
 			rssi = calcrssi(mynoise >> 3);
 
+			/* If RSSI rounds down to 0, but we have a valid signal (qualcor is true),
+			 * force rssiheld and rssi to the minimum valid level (1). Otherwise, if
+			 * we let it be 0, the host can interpret it is "no signal", which isn't
+			 * true, since we have qualcor.
+			 */
 			if ((rssi < 1) && (qualcor)) {
 				rssiheld = rssi = 1;
 			}
 
+			/* If we aren't calibrated, don't use the RSSI value, and force it to be 0. */
 			if (!AppConfig.SqlNoiseGain) {
 				rssiheld = rssi = 0;
 			}
 
+			/* Store the current COR value for later. */
 			lastcor = HasCOR();
 
 			if (write_eeprom_cali) {
