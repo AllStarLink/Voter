@@ -3584,7 +3584,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
 
 		/* If we are NOT using BEW Mode, ignore what we did above, and just set
-		 * qualnoise to true (strong signal).
+		 * qualnoise to true (we're not sending audio through the DSP for evaluation).
 		 */
 		if (!AppConfig.BEWMode) {
 			qualnoise = 1;
@@ -4549,7 +4549,7 @@ void secondary_processing_loop(void)
 			}
 #endif
 			/* Every OTHER time we are here (every 66 "ADC-rxaudio" sample periods), reset
-			 * the noise history buffer, update vnoise32 with the current value, see if
+			 * the noise history buffer on a new receiving event, update vnoise32, see if
 			 * we've gone offline and need to send a notification, and update our COR history
 			 * (wascor).
 			 *
@@ -4558,8 +4558,7 @@ void secondary_processing_loop(void)
 			 */
 			if (sql2) {
 				if (qualcor && (!wascor)) {
-					/* If the baseband audio is quiet enough (qualnoise is true), and COR
-					 * first becomes active (!wascor), initialize the noise history buffer and
+					/* When COR first becomes active (!wascor), initialize the noise history buffer and
 					 * current noise measurement (vnoise32) with the ADC noise measurement.
 					 *
 					 * This avoids dragging old noise measurements into a new receiving event.
@@ -4606,8 +4605,8 @@ void secondary_processing_loop(void)
 			 * quiet enough to use the sample (qualnoise is true), or is it contaminated
 			 * by voice (qualnoise is false)).
 			 *
-			 * The noise history buffer (lastvnoise32) is only updated with qualnoise
-			 * is true.
+			 * During steady-state processing, update the noise history buffer only
+			 * when qualnoise is true.
 			 *
 			 * Set mynoise to the previous (middle) sample in the buffer.
 			 */
