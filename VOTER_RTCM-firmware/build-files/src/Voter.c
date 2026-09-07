@@ -969,7 +969,17 @@ static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                          
 //																				//
 /********************************************************************************/
 
-/* This function is used in the calcrssi function. */
+/* This function is used in the calcrssi function. It approximates a fixed-point
+ * base-2 logarithm, using fixed-point math (gets us close, without having to use
+ * CPU-intensive floating-point math libraries).
+ *
+ * log2fix() treats the input as a Q8 fixed-point value, where 256 represents 1.0.
+ * It normalizes the input by powers of two to get the integer part of log2(x / 256),
+ * then uses eight rounds of fixed-point repeated squaring to estimate the fractional
+ * part, returning the result scaled by 256.
+ *
+ * It approximates 256 * log2(x / 256).
+ */
 static WORD log2fix (WORD x) {
 	short b = 127;
 	short y = 0;
@@ -1000,8 +1010,8 @@ static WORD log2fix (WORD x) {
 	return y;
 }
 
-/* Integer square root. Approximates the square root of a number, integer part 
- * only, no rounding. ie 12.96 will return 12
+/* Integer square root. Approximates the square root of a number, returning
+ * the integer part only, no rounding. ie 12.96 will return 12
  *
  * This function is used in the calcrssi function
  */
@@ -1021,12 +1031,24 @@ static DWORD isqrt(DWORD number) {
         return oldAns;
 }
 
-/* Function to calculate the RSSI from the NVOLT ADC input.
+/* Function to calculate the RSSI from the NVOLT ADC input. The raw ADC value is scaled
+ * elsewhere so that this function is effectively called with a 10-bit ADC resolution
+ * (0-1023) value.
+ *
  * The return value (x) is going to be the RSSI from 0-255 with 0 being no signal,
  * and 255 being max signal.
- * If the ADC value is 0 to <200 (loud), make it RSSI 255 to 55.
- * If the ADC value is 201 to 255 (quiet), it looks like we try and convert it to
- * an approximate dBm or "S-unit" value?
+ *
+ * If the scaled ADC value is 0 to 199 (loud/strong), make it RSSI 255 to 56, linearly.
+ *
+ * If the scaled ADC value is 200 to 1023 (quiet/noisy), we switch to evaluating logarithmically,
+ * instead of linearly, which provides more resolution at weaker signal levels.
+ *
+ * Effectively, the RSSI range 0-55 is a more "db-like" strength scale.
+ *
+ * With a 10-bit (0-1023) input, we use 200 counts of our RSSI range for inputs 0-199,
+ * which only leaves 55 counts for inputs 200-1023. By switching to logarithmic processing
+ * for the RSSI range 0-55, we greatly improve the dynamic range, to better represent the
+ * weaker signal levels.
  */
 static BYTE calcrssi(WORD val) {
 	DWORD d;
@@ -3598,7 +3620,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		 */
 		if (!qualnoise) {
 			vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
-			/* Scale the value (divide by 8) before sending it to calcrssi. */
+			/* Send calcrssi a filtered ADC noise value (the bit shift allows the filter
+			 * to maintain fractional ADC information internally).
+			 */
 			rssiheld = calcrssi(vnoise32 >> 3);
 		}
 #endif /* DSPBEW */
@@ -4618,8 +4642,8 @@ void secondary_processing_loop(void)
 			mynoise = vnoise32;
 #endif
 		
-			/* Go calculate the RSSI, based on the current noise value. We send a scaled
-			 * ADC value (/8), effectively a 10-bit value (0-1023).
+			/* Send calcrssi a filtered ADC noise value (the bit shift allows the filter
+			 * to maintain fractional ADC information internally).
 			 */
 			rssi = calcrssi(mynoise >> 3);
 
@@ -5172,10 +5196,16 @@ void secondary_processing_loop(void)
 			}
 		}
 
+		/* Clear needburp (pending notification that we've gone offline) immediately, if our
+		 * host connection is re-established.
+		 */
 		if (connected) {
 			needburp = 0;
 		}
 
+		/* When it is "safe" to do so (no other pending CW messages), send the pending offline
+		 * notification that was flagged with needburp, and reset the flag.
+		 */
 		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			needburp = 0;
 			if (!connfail) {
