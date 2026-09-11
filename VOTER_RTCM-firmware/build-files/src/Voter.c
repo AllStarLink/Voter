@@ -6909,6 +6909,14 @@ int main(void)
 			case 9: /* GPS invert */
 				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.GPSPolarity = i1;
+					/* Update GPS Polarity immediately after changing. */
+#ifndef SMT_BOARD
+					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+#else
+					U2MODEbits.URXINV = AppConfig.GPSPolarity;
+					U2STAbits.UTXINV = AppConfig.GPSPolarity;
+#endif
 					ok = 1;
 				}
 				break;
@@ -6923,6 +6931,8 @@ int main(void)
 			case 11: /* GPS baud rate */
 				if ((sscanf(cmdstr, "%lu", &l) == 1) && (l >= 300L) && (l <= 230400L)) {
 					AppConfig.GPSBaudRate = l;
+					/* Update the GPS baud rate immediately after changing. */
+					U2BRG = CLOSEST_U2BRG_VALUE;
 					ok = 1;
 				}
 				break;
