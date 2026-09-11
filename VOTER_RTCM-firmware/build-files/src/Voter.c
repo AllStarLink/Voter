@@ -6373,7 +6373,7 @@ int main(void)
 		"15 - Alt. VOTER Server Address (FQDN) (%s)\n"
 		"16 - Alt. VOTER Server Port (Override) (%u)\n"
 #ifdef	DSPBEW
-		"17 - DSP/BEW Mode (%d)\n"
+		"17 - DSP/BEW Mode (0=Disabled 1=Normal 2=Sensitive) (%d)\n"
 #else
 		"17 - DSP/BEW Mode NOT SUPPORTED\n"
 #endif
