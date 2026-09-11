@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/11/2026";
+	char	VERSION[] = "3.20 BEW 9/11/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/11/2026";
+	char	VERSION[] = "3.20 9/11/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -6294,7 +6294,8 @@ static void SquelchMenu()
 				break;
 
 			case 3: /* Hysteresis */
-				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 100)) {
+			/* The acceptable Hysteresis range is 1-100 */
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 >= 1) && (i1 <= 100)) {
 					AppConfig.Hysteresis = i1;
 					ok = 1;
 				}
@@ -7525,6 +7526,13 @@ static void InitAppConfig(void)
 
 		if (c == 0x60u) {
 			XEEReadArray(0x0001, (BYTE *) &AppConfig, sizeof(AppConfig));
+			/* If the Hysteresis setting is not initialized in the EEPROM (0), 
+			 * initialize it with the default value.
+			 */
+			if (AppConfig.Hysteresis == 0) {
+				AppConfig.Hysteresis = 24;
+				SaveAppConfig();
+			}
 		} else {
 			SaveAppConfig();
 		}
@@ -7536,6 +7544,12 @@ static void InitAppConfig(void)
 		SPIFlashReadArray(0x0000, &c, 1);
 		if (c == 0x60u) {
 			SPIFlashReadArray(0x0001, (BYTE *) &AppConfig, sizeof(AppConfig));
+			/* If the Hysteresis setting is not initialized in the EEPROM (0), 
+			 * initialize it with the default value.
+			 */
+			if (AppConfig.Hysteresis == 0) {
+				AppConfig.Hysteresis = 24;
+				SaveAppConfig();
 		} else {
 			SaveAppConfig();
 		}
