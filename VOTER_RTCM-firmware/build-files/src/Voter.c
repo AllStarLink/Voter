@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.10 BEW 1/11/2026";
+	char	VERSION[] = "3.20 BEW 9/11/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.10 1/11/2026";
+	char	VERSION[] = "3.20 9/11/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -383,7 +383,7 @@
 #define	QUALCOUNT 			4
 #define	DUPLEX3 			(AppConfig.Duplex3 != 0) /* Not supported in voting or simulcast configurations */
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	/* If the launch delay is anything but 0, use simulcast mode */
-#define	memclr(x,y) 		memset(x,0,y)
+#define	memclr(x, y) 		memset(x, 0, y)
 #define ARPIsTxReady()		MACIsTxReady()
 #define DISCFACTOR			1000
 
@@ -391,8 +391,20 @@
 #define	TSIP_FACTOR 57.295779513082320876798154814105 /* radians to degrees, Trimble reports lat/long in rads */
 #define ADD_1024_WEEKS 		619315200 /* 1024 weeks for Tbolt time fudge */
 #define	VOTER_CLIENT ((AppConfig.PPSPolarity != 2) && (!indiag))	/* 1 if PPS is != ignore (mix mode) and not in diagnostic mode */
-enum {GPS_STATE_IDLE,GPS_STATE_RECEIVED,GPS_STATE_VALID,GPS_STATE_SYNCED} ; /* GPS acquisition states */
-enum {GPS_NMEA,GPS_TSIP} ; /* GPS protocol types */
+
+/* GPS acquisition states */
+enum {
+	GPS_STATE_IDLE,
+	GPS_STATE_RECEIVED,
+	GPS_STATE_VALID,
+	GPS_STATE_SYNCED
+};
+
+/* GPS protocol types */
+enum {
+	GPS_NMEA,
+	GPS_TSIP
+};
 
 /* Defines for ulaw and ADPCM */
 #define BIAS 				0x84 /* Define the add-in bias for 16-bit ulaw samples */
@@ -407,14 +419,14 @@ enum {GPS_NMEA,GPS_TSIP} ; /* GPS protocol types */
 	#define	FFT_TOP_SAMPLE_BUCKET 	16 /* 3000Hz */
 	#define	FFT_MAX_RESULT 		10
 
-	fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory),far,aligned(FFT_BLOCK_LENGTH * 2 *2))); 
+	fractcomplex sigCmpx[FFT_BLOCK_LENGTH] __attribute__ ((space(ymemory), far, aligned(FFT_BLOCK_LENGTH * 2 * 2))); 
 
 #ifndef FFTTWIDCOEFFS_IN_PROGMEM
 	fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] /* Declare Twiddle Factor array in X-space */
-	__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH*2)));
+	__attribute__ ((section (".xbss, bss, xmemory"), aligned (FFT_BLOCK_LENGTH * 2)));
 #else
-	extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH/2] /* Twiddle Factor array in program memory */
-	__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH*2)));
+	extern const fractcomplex twiddleFactors[FFT_BLOCK_LENGTH / 2] /* Twiddle Factor array in program memory */
+	__attribute__ ((space(auto_psv), aligned (FFT_BLOCK_LENGTH * 2)));
 #endif /* FFT */
 #endif /* DSPBEW */
 
@@ -424,7 +436,7 @@ struct meas {
 	WORD min;
 	WORD max;
 	BOOL issql;
-} ;
+};
 
 typedef struct {
 	DWORD vtime_sec;
@@ -450,7 +462,6 @@ static struct {
 	char lon[10];
 	char elev[7];
 } gps_packet;
-
 
 /* Declare AppConfig structure and some other supporting stack variables */
 APP_CONFIG AppConfig;
@@ -482,12 +493,12 @@ extern WORD caldiode;	/* Diode voltage (used for temperature compensation) */
 // 	Function declarations						     						//
 //									     									//
 /****************************************************************************/
-void service_squelch(WORD diode,WORD sqpos,WORD noise,BOOL cal,BOOL wvf,BOOL iscaled);
+void service_squelch(WORD diode, WORD sqpos, WORD noise, BOOL cal, BOOL wvf, BOOL iscaled);
 void init_squelch(void);
 void main_processing_loop(void);
 int myfgets(char *buffer, unsigned int len);
-BYTE ulaw_encode (WORD adc_sample);
-BYTE adpcm_encode (WORD adc_sample);
+BYTE ulaw_encode(WORD adc_sample);
+BYTE adpcm_encode(WORD adc_sample);
 
 /****************************************************************************/
 //																			//
@@ -649,7 +660,7 @@ WORD secondtimer;
 long missed;
 WORD misstimer;
 WORD misstimer1;
-BYTE IOExpOutA,IOExpOutB,IODirB;
+BYTE IOExpOutA, IOExpOutB, IODirB;
 char dummy_loc; /* Needed for EEPROM routines */
 WORD saved_rcon; /* Hold the Reset Control Register contents */
 
@@ -657,50 +668,51 @@ WORD saved_rcon; /* Hold the Reset Control Register contents */
 	DWORD fftresult;
 #endif
 
-static ROM long crc_32_tab[] = { /* CRC polynomial 0xedb88320 */
-0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
-0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
-0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
-0xf3b97148, 0x84be41de, 0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
-0x136c9856, 0x646ba8c0, 0xfd62f97a, 0x8a65c9ec, 0x14015c4f, 0x63066cd9,
-0xfa0f3d63, 0x8d080df5, 0x3b6e20c8, 0x4c69105e, 0xd56041e4, 0xa2677172,
-0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b, 0x35b5a8fa, 0x42b2986c,
-0xdbbbc9d6, 0xacbcf940, 0x32d86ce3, 0x45df5c75, 0xdcd60dcf, 0xabd13d59,
-0x26d930ac, 0x51de003a, 0xc8d75180, 0xbfd06116, 0x21b4f4b5, 0x56b3c423,
-0xcfba9599, 0xb8bda50f, 0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
-0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d, 0x76dc4190, 0x01db7106,
-0x98d220bc, 0xefd5102a, 0x71b18589, 0x06b6b51f, 0x9fbfe4a5, 0xe8b8d433,
-0x7807c9a2, 0x0f00f934, 0x9609a88e, 0xe10e9818, 0x7f6a0dbb, 0x086d3d2d,
-0x91646c97, 0xe6635c01, 0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e,
-0x6c0695ed, 0x1b01a57b, 0x8208f4c1, 0xf50fc457, 0x65b0d9c6, 0x12b7e950,
-0x8bbeb8ea, 0xfcb9887c, 0x62dd1ddf, 0x15da2d49, 0x8cd37cf3, 0xfbd44c65,
-0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2, 0x4adfa541, 0x3dd895d7,
-0xa4d1c46d, 0xd3d6f4fb, 0x4369e96a, 0x346ed9fc, 0xad678846, 0xda60b8d0,
-0x44042d73, 0x33031de5, 0xaa0a4c5f, 0xdd0d7cc9, 0x5005713c, 0x270241aa,
-0xbe0b1010, 0xc90c2086, 0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
-0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4, 0x59b33d17, 0x2eb40d81,
-0xb7bd5c3b, 0xc0ba6cad, 0xedb88320, 0x9abfb3b6, 0x03b6e20c, 0x74b1d29a,
-0xead54739, 0x9dd277af, 0x04db2615, 0x73dc1683, 0xe3630b12, 0x94643b84,
-0x0d6d6a3e, 0x7a6a5aa8, 0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1,
-0xf00f9344, 0x8708a3d2, 0x1e01f268, 0x6906c2fe, 0xf762575d, 0x806567cb,
-0x196c3671, 0x6e6b06e7, 0xfed41b76, 0x89d32be0, 0x10da7a5a, 0x67dd4acc,
-0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5, 0xd6d6a3e8, 0xa1d1937e,
-0x38d8c2c4, 0x4fdff252, 0xd1bb67f1, 0xa6bc5767, 0x3fb506dd, 0x48b2364b,
-0xd80d2bda, 0xaf0a1b4c, 0x36034af6, 0x41047a60, 0xdf60efc3, 0xa867df55,
-0x316e8eef, 0x4669be79, 0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
-0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f, 0xc5ba3bbe, 0xb2bd0b28,
-0x2bb45a92, 0x5cb36a04, 0xc2d7ffa7, 0xb5d0cf31, 0x2cd99e8b, 0x5bdeae1d,
-0x9b64c2b0, 0xec63f226, 0x756aa39c, 0x026d930a, 0x9c0906a9, 0xeb0e363f,
-0x72076785, 0x05005713, 0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38,
-0x92d28e9b, 0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21, 0x86d3d2d4, 0xf1d4e242,
-0x68ddb3f8, 0x1fda836e, 0x81be16cd, 0xf6b9265b, 0x6fb077e1, 0x18b74777,
-0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c, 0x8f659eff, 0xf862ae69,
-0x616bffd3, 0x166ccf45, 0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2,
-0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db, 0xaed16a4a, 0xd9d65adc,
-0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
-0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693,
-0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
-0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
+/* CRC polynomial 0xedb88320 */
+static ROM long crc_32_tab[] = {
+	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
+	0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
+	0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
+	0xf3b97148, 0x84be41de, 0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
+	0x136c9856, 0x646ba8c0, 0xfd62f97a, 0x8a65c9ec, 0x14015c4f, 0x63066cd9,
+	0xfa0f3d63, 0x8d080df5, 0x3b6e20c8, 0x4c69105e, 0xd56041e4, 0xa2677172,
+	0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b, 0x35b5a8fa, 0x42b2986c,
+	0xdbbbc9d6, 0xacbcf940, 0x32d86ce3, 0x45df5c75, 0xdcd60dcf, 0xabd13d59,
+	0x26d930ac, 0x51de003a, 0xc8d75180, 0xbfd06116, 0x21b4f4b5, 0x56b3c423,
+	0xcfba9599, 0xb8bda50f, 0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
+	0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d, 0x76dc4190, 0x01db7106,
+	0x98d220bc, 0xefd5102a, 0x71b18589, 0x06b6b51f, 0x9fbfe4a5, 0xe8b8d433,
+	0x7807c9a2, 0x0f00f934, 0x9609a88e, 0xe10e9818, 0x7f6a0dbb, 0x086d3d2d,
+	0x91646c97, 0xe6635c01, 0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e,
+	0x6c0695ed, 0x1b01a57b, 0x8208f4c1, 0xf50fc457, 0x65b0d9c6, 0x12b7e950,
+	0x8bbeb8ea, 0xfcb9887c, 0x62dd1ddf, 0x15da2d49, 0x8cd37cf3, 0xfbd44c65,
+	0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2, 0x4adfa541, 0x3dd895d7,
+	0xa4d1c46d, 0xd3d6f4fb, 0x4369e96a, 0x346ed9fc, 0xad678846, 0xda60b8d0,
+	0x44042d73, 0x33031de5, 0xaa0a4c5f, 0xdd0d7cc9, 0x5005713c, 0x270241aa,
+	0xbe0b1010, 0xc90c2086, 0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
+	0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4, 0x59b33d17, 0x2eb40d81,
+	0xb7bd5c3b, 0xc0ba6cad, 0xedb88320, 0x9abfb3b6, 0x03b6e20c, 0x74b1d29a,
+	0xead54739, 0x9dd277af, 0x04db2615, 0x73dc1683, 0xe3630b12, 0x94643b84,
+	0x0d6d6a3e, 0x7a6a5aa8, 0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1,
+	0xf00f9344, 0x8708a3d2, 0x1e01f268, 0x6906c2fe, 0xf762575d, 0x806567cb,
+	0x196c3671, 0x6e6b06e7, 0xfed41b76, 0x89d32be0, 0x10da7a5a, 0x67dd4acc,
+	0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5, 0xd6d6a3e8, 0xa1d1937e,
+	0x38d8c2c4, 0x4fdff252, 0xd1bb67f1, 0xa6bc5767, 0x3fb506dd, 0x48b2364b,
+	0xd80d2bda, 0xaf0a1b4c, 0x36034af6, 0x41047a60, 0xdf60efc3, 0xa867df55,
+	0x316e8eef, 0x4669be79, 0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
+	0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f, 0xc5ba3bbe, 0xb2bd0b28,
+	0x2bb45a92, 0x5cb36a04, 0xc2d7ffa7, 0xb5d0cf31, 0x2cd99e8b, 0x5bdeae1d,
+	0x9b64c2b0, 0xec63f226, 0x756aa39c, 0x026d930a, 0x9c0906a9, 0xeb0e363f,
+	0x72076785, 0x05005713, 0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38,
+	0x92d28e9b, 0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21, 0x86d3d2d4, 0xf1d4e242,
+	0x68ddb3f8, 0x1fda836e, 0x81be16cd, 0xf6b9265b, 0x6fb077e1, 0x18b74777,
+	0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c, 0x8f659eff, 0xf862ae69,
+	0x616bffd3, 0x166ccf45, 0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2,
+	0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db, 0xaed16a4a, 0xd9d65adc,
+	0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
+	0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693,
+	0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
+	0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
 /* 1000.h: Generated from frequency 1000 by gentone. 16 samples */
@@ -734,18 +746,18 @@ static ROM short test_100[] = { 160,
 };
 
 /* 2000.h: Generated from frequency 2000 by gentone. 8 samples */
-static ROM short test_2000[] = {8,
+static ROM short test_2000[] = { 8,
     0, 11585, 16384, 11585, 0, -11585, -16384, -11585,
 };
 
 /* 3200.h: Generated from frequency 3200 by gentone. 10 samples */
-static ROM short test_3200[] = {10,
+static ROM short test_3200[] = { 10,
     0, 15582,  9630, -9630, -15582, 0, 15582,  9630,
     -9630, -15582,
 };
 
 /* 320.h: Generated from frequency 320 by gentone. 50 samples */
-static ROM short test_320[] = {50,
+static ROM short test_320[] = { 50,
     0,  2053,  4074,  6031,  7893,  9630, 11215, 12624,
     13833, 14824, 15582, 16093, 16351, 16351, 16093, 15582,
     14824, 13833, 12624, 11215,  9630,  7893,  6031,  4074,
@@ -756,7 +768,7 @@ static ROM short test_320[] = {50,
 };
 
 /* 500.h: Generated from frequency 500 by gentone. 32 samples */
-static ROM short test_500[] = {32,
+static ROM short test_500[] = { 32,
     0,  3196,  6269,  9102, 11585, 13622, 15136, 16069,
     16384, 16069, 15136, 13622, 11585,  9102,  6269,  3196,
     0, -3196, -6269, -9102, -11585, -13622, -15136, -16069,
@@ -764,25 +776,27 @@ static ROM short test_500[] = {32,
 };
 
 /* 6000.h: Generated from frequency 6000 by gentone. 8 samples */
-static ROM short test_6000[] = {8,
+static ROM short test_6000[] = { 8,
     0, 11585, -16384, 11585, 0, -11585, 16384, -11585,
 };
 
 /* 7200.h: Generated from frequency 7200 by gentone. 20 samples */
-static ROM short test_7200[] = {20,
+static ROM short test_7200[] = { 20,
     0,  5062, -9630, 13254, -15582, 16384, -15582, 13254,
     -9630,  5062, 0, -5062,  9630, -13254, 15582, -16384,
     15582, -13254,  9630, -5062,
 };
 
-static long crc32_bufs(unsigned char *buf, unsigned char *buf1) {
+static long crc32_bufs(unsigned char *buf, unsigned char *buf1)
+{
     long oldcrc32;
 	oldcrc32 = 0xFFFFFFFF;
+
     while(buf && *buf) {
-        oldcrc32 = crc_32_tab[(oldcrc32 ^ *buf++) & 0xff] ^ ((unsigned long)oldcrc32 >> 8);
+        oldcrc32 = crc_32_tab[(oldcrc32 ^ *buf++) & 0xff] ^ ((unsigned long) oldcrc32 >> 8);
     }
     while(buf1 && *buf1) {
-        oldcrc32 = crc_32_tab[(oldcrc32 ^ *buf1++) & 0xff] ^ ((unsigned long)oldcrc32 >> 8);
+        oldcrc32 = crc_32_tab[(oldcrc32 ^ *buf1++) & 0xff] ^ ((unsigned long) oldcrc32 >> 8);
     }
     return ~oldcrc32;
 }
@@ -868,9 +882,7 @@ ROM static int stepsizeTable[89] = {
 #define CWTONELEN 10 /* 10 samples of tone? */
 
 /* These should be the ulaw samples to set the pitch of the CW tone */
-static ROM short cwtone[CWTONELEN] = {
-    0,  2407, 3895, 3895,  2407, 0, -2407, -3895, -3895, -2407
-};
+static ROM short cwtone[CWTONELEN] = { 0,  2407, 3895, 3895,  2407, 0, -2407, -3895, -3895, -2407 };
 
 struct morse_bits {
     BYTE len;
@@ -943,17 +955,17 @@ static ROM struct morse_bits mbits[] = {
 /* Define some CLI status messages and responses */
 ROM char 	gpsmsg1[] = "  GPS receiver active, waiting for acquisition",
 		gpsmsg2[] = "  GPS signal acquired, number of satellites locked = ",
-		gpsmsg3[] = "  Time now synchronized to GPS\n", 
+		gpsmsg3[] = "  Time now synchronized to GPS\n",
 		gpsmsg5[] = "  Lost GPS time synchronization",
 		gpsmsg6[] = "  GPS signal lost entirely. Starting again...",
 		gpsmsg7[] = "  Warning: GPS data time period elapsed",
 		gpsmsg8[] = "  Warning: GPS PPS signal time period elapsed",
 		gpsmsg9[] = "  GPS signal acquired",
-		entnewval[] = "Enter New Value : ", 
+		entnewval[] = "Enter New Value : ",
 		newvalchanged[] = "Value Changed Successfully\n",
 		saved[] = "Configuration Settings Written to EEPROM\n";
 
-char 	newvalerror[] = "Invalid Entry, Value Not Changed\n", 
+char 	newvalerror[] = "Invalid Entry, Value Not Changed\n",
 		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
 		badmix[] = "  ERROR! Host rejecting mix mode connection",
 		hosttmomsg[] = "  ERROR! Host response timeout";
@@ -969,8 +981,19 @@ static ROM char rxvoicestr[] = " \rRX VOICE DISPLAY:\n                          
 //																				//
 /********************************************************************************/
 
-/* This function is used in the calcrssi function. */
-static WORD log2fix (WORD x) {
+/* This function is used in the calcrssi function. It approximates a fixed-point
+ * base-2 logarithm, using fixed-point math (gets us close, without having to use
+ * CPU-intensive floating-point math libraries).
+ *
+ * log2fix() treats the input as a Q8 fixed-point value, where 256 represents 1.0.
+ * It normalizes the input by powers of two to get the integer part of log2(x / 256),
+ * then uses eight rounds of fixed-point repeated squaring to estimate the fractional
+ * part, returning the result scaled by 256.
+ *
+ * It approximates 256 * log2(x / 256).
+ */
+static WORD log2fix(WORD x)
+{
 	short b = 127;
 	short y = 0;
 	BYTE i;
@@ -989,8 +1012,7 @@ static WORD log2fix (WORD x) {
 
 	for (i = 0; i < 8; i++) {
 		z = z * z >> 8;
-		if (z >= 512) 
-		{
+		if (z >= 512) {
 			z >>= 1;
 			y += b;
 		}
@@ -1000,49 +1022,64 @@ static WORD log2fix (WORD x) {
 	return y;
 }
 
-/* Integer square root. Approximates the square root of a number, integer part 
- * only, no rounding. ie 12.96 will return 12
+/* Integer square root. Approximates the square root of a number, returning
+ * the integer part only, no rounding. ie 12.96 will return 12
  *
  * This function is used in the calcrssi function
  */
-static DWORD isqrt(DWORD number) {
-        if (number <= 3) {
-			return number > 0;
-		}
-        DWORD oldAns = number >> 1,                     /* Initial guess */
-            newAns = (oldAns + number / oldAns) >> 1; 	/* First iteration */
+static DWORD isqrt(DWORD number)
+{
+	if (number <= 3) {
+		return number > 0;
+	}
+	DWORD oldAns = number >> 1,                     /* Initial guess */
+	newAns = (oldAns + number / oldAns) >> 1; 	/* First iteration */
 
-        /* Main iterative method */
-        while (newAns < oldAns) {
-            oldAns = newAns;
-            newAns = (oldAns + number / oldAns) >> 1;
-        }
+    /* Main iterative method */
+	while (newAns < oldAns) {
+		oldAns = newAns;
+		newAns = (oldAns + number / oldAns) >> 1;
+	}
 
-        return oldAns;
+	return oldAns;
 }
 
-/* Function to calculate the RSSI from the NVOLT ADC input.
+/* Function to calculate the RSSI from the NVOLT ADC input. The raw ADC value is scaled
+ * elsewhere so that this function is effectively called with a 10-bit ADC resolution
+ * (0-1023) value.
+ *
  * The return value (x) is going to be the RSSI from 0-255 with 0 being no signal,
  * and 255 being max signal.
- * If the ADC value is 0 to <200 (loud), make it RSSI 255 to 55.
- * If the ADC value is 201 to 255 (quiet), it looks like we try and convert it to
- * an approximate dBm or "S-unit" value?
+ *
+ * If the scaled ADC value is 0 to 199 (loud/strong), make it RSSI 255 to 56, linearly.
+ *
+ * If the scaled ADC value is 200 to 1023 (quiet/noisy), we switch to evaluating logarithmically,
+ * instead of linearly, which provides more resolution at weaker signal levels.
+ *
+ * Effectively, the RSSI range 0-55 is a more "db-like" strength scale.
+ *
+ * With a 10-bit (0-1023) input, we use 200 counts of our RSSI range for inputs 0-199,
+ * which only leaves 55 counts for inputs 200-1023. By switching to logarithmic processing
+ * for the RSSI range 0-55, we greatly improve the dynamic range, to better represent the
+ * weaker signal levels.
  */
-static BYTE calcrssi(WORD val) {
+static BYTE calcrssi(WORD val)
+{
 	DWORD d;
-	short i,x;
+	short i, x;
 
 	/* The first part of this IF is "Chuck RSSI" */
 	if (val < 200) {
-	    x = 255 - val;
+		x = 255 - val;
+	} else { /* This is the original RSSI calculation */
+		d = (((DWORD) val + 1) << 8);
+		i = log2fix(isqrt(d) << 4);
+		x = 255 - ((i << 3) / 39);
+	    if (x < 0) {
+			x = 0;
+		}
 	}
-	else { /* This is the original RSSI calculation */
-	    d = (((DWORD)val + 1) << 8);
-	    i = log2fix(isqrt(d) << 4);
-	    x = 255 - ((i << 3) / 39);
-	    if (x < 0) x = 0;
-	}
-	return(x);
+	return (x);
 }
 /******************End of Calculate RSSI Functions*******************************/
 
@@ -1061,9 +1098,8 @@ static BYTE calcrssi(WORD val) {
  * See the (lengthy) explanation of how PPS works in this ISR at the top of the
  * source. We need ppsx = 1 in order to "do stuff" with voter clients.
  */ 
-void __attribute__((auto_psv,__interrupt__(__preprologue__("push W7\n\tmov PORTA,w7\n\tmov W7,_portasave\n\tpop W7")))) _CNInterrupt(void)
+void __attribute__((auto_psv, __interrupt__(__preprologue__("push W7\n\tmov PORTA, w7\n\tmov W7, _portasave\n\tpop W7")))) _CNInterrupt(void)
 {
-
 	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
@@ -1253,7 +1289,7 @@ void __attribute__((interrupt, auto_psv)) _T4Interrupt(void)
  * On EVEN calls of this ISR, we rotate between getting values for RXNoise
  * (RSSI), Squelch Pot position, and Diode Voltage (temp comp), and we always
  * bump some counters.
-*/ 
+ */ 
 void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 {
 	WORD index; /* Current ADC Buffer 12-bit unsigned value (0x0000 to 0x0fff) (0 - 4095) */
@@ -1352,20 +1388,20 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 
 				/* Keep track of the maximum audio peak value */
 	            if (accum > amax) {
-	                amax = accum;
-	                discounteru = DISCFACTOR;
+					amax = accum;
+					discounteru = DISCFACTOR;
 	            } else if (--discounteru <= 0) {
-	                discounteru = DISCFACTOR;
-	                amax = (long)((amax * 32700) / 32768L);
+					discounteru = DISCFACTOR;
+					amax = (long) ((amax * 32700) / 32768L);
 	            }
 
 				/* Keep track of the minimum audio peak value */
 				if (accum < amin) {
-	                amin = accum;
-	                discounterl = DISCFACTOR;
+					amin = accum;
+					discounterl = DISCFACTOR;
 	            } else if (--discounterl <= 0) {
-	                discounterl = DISCFACTOR;
-	                amin = (long)((amin * 32700) / 32768L);
+					discounterl = DISCFACTOR;
+					amin = (long) ((amin * 32700) / 32768L);
 				}
 				
 				/* Reset the sample counter when we hit 8000 samples */
@@ -1429,8 +1465,8 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 						timing_time = next_time;
 						/* apeak should be the peak un-signed audio value, since
 						 * amin should be a negative value */
-						apeak = (long)(amax - amin) / 2;
-						for (i = NAPEAKS -1; i; i--) {
+						apeak = (long) (amax - amin) / 2;
+						for (i = NAPEAKS - 1; i; i--) {
 							apeaks[i] = apeaks[i - 1];
 						}
 						apeaks[0] = apeak;
@@ -1567,7 +1603,9 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 			 * audio samples we can convert to analog audio output via the DAC.
 			 */
 			DAC1LDAT = ulawtabletx[ulaw_digital_milliwatt[mwp++]];
-			if (mwp > 7) mwp = 0;
+			if (mwp > 7) {
+				mwp = 0;
+			}
 #else
 			/* Normally, we're going to get the audio sample from the network,
 			 * and put it in c.
@@ -1632,7 +1670,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				discounteru = DISCFACTOR;
 			} else if (--discounteru <= 0) {
 				discounteru = DISCFACTOR;
-				amax = (long)((amax * 32700) / 32768L);
+				amax = (long) ((amax * 32700) / 32768L);
 			}
 			
 			/* Keep track of the minimum audio peak value */
@@ -1641,7 +1679,7 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				discounterl = DISCFACTOR;
 			} else if (--discounterl <= 0) {
 				discounterl = DISCFACTOR;
-				amin = (long)((amin * 32700) / 32768L);
+				amin = (long) ((amin * 32700) / 32768L);
 			}
 
 			if ((!VOTER_CLIENT) && (samplecnt == 8000)) {
@@ -1704,8 +1742,8 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 					timing_time = next_time;
 					/* apeak should be the peak un-signed audio value, since
 					 * amin should be a negative value */
-					apeak = (long)(amax - amin) / 2;
-					for (i = NAPEAKS -1; i; i--) {
+					apeak = (long) (amax - amin) / 2;
+					for (i = NAPEAKS - 1; i; i--) {
 						apeaks[i] = apeaks[i - 1];
 					}
 					apeaks[0] = apeak;
@@ -1758,7 +1796,7 @@ void __attribute__((interrupt, auto_psv)) _MathError(void)
  * RB14 (Pin 14) GPSLED
  * RB13 (Pin 11) CONNLED
  */
-ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
+ROM WORD ledmask[] = { 0x1000, 0x800, 0x400, 0x2000 };
 
 /****************************************************************************/
 //																			//
@@ -1767,7 +1805,7 @@ ROM WORD ledmask[] = {0x1000,0x800,0x400,0x2000};
 // 		Description: Turn the passed LED on or off.							//
 //																			//
 /****************************************************************************/
-void SetLED(BYTE led,BOOL val)
+void SetLED(BYTE led, BOOL val)
 {
 	LATB &= ~ledmask[led];
 	if (!val) {
@@ -1824,8 +1862,7 @@ void SetAudioSrc(void)
 
 	if (indiag) {
 		myflags = diag_option_flags;
-	}
-	else if (!connected) {
+	} else if (!connected) {
 		myflags = 0;
 		if (AppConfig.CORType || AppConfig.OffLineNoDeemp) {
 			myflags |= 1;
@@ -1868,7 +1905,7 @@ void SetAudioSrc(void)
 // 		Description: Wait for the SPI bus to have data ready.				//
 //																			//
 /****************************************************************************/
-static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
+static inline __attribute__((__always_inline__)) void WaitForDataByte(void)
 {
 	while ((IOEXP_SPISTATbits.SPITBF == 1) || (IOEXP_SPISTATbits.SPIRBF == 0));
 }
@@ -1883,7 +1920,7 @@ static inline __attribute__((__always_inline__)) void WaitForDataByte( void )
 // 					 the VOTER.												//
 //																			//
 /****************************************************************************/
-void IOExp_Write(BYTE reg,BYTE val)
+void IOExp_Write(BYTE reg, BYTE val)
 {
 	volatile BYTE vDummy;
 	BYTE vSPIONSave;
@@ -1927,7 +1964,7 @@ void IOExp_Write(BYTE reg,BYTE val)
 /****************************************************************************/
 BYTE IOExp_Read(BYTE reg)
 {	
-	volatile BYTE vDummy,retv;
+	volatile BYTE vDummy, retv;
 	BYTE vSPIONSave;
 	WORD SPICON1Save;
 	
@@ -1971,7 +2008,7 @@ BYTE IOExp_Read(BYTE reg)
 void IOExpInit(void)
 {
 	/* SEQOP disable, address pointer does not auto-increment */
-	IOExp_Write(IOEXP_IOCON,0x20);
+	IOExp_Write(IOEXP_IOCON, 0x20);
 	/* Configure GPA0-GPA7
 	 * 0xD0 = 1101 0000 (7:0)
 	 * GPA0 (Pin 21) OUT LED1 SYSLED
@@ -1983,7 +2020,7 @@ void IOExpInit(void)
 	 * GPA6 (Pin 27) IN JP8 Initialize EEPROM
 	 * GPA7 (Pin 28) IN JP9 Calibrate Squelch
 	 */
-	IOExp_Write(IOEXP_IODIRA,0xD0);
+	IOExp_Write(IOEXP_IODIRA, 0xD0);
 	/* Configure GPB0-GPB7 
 	 * 0xF3 = 1111 0011 (7:0)
 	 * GPB0 (Pin 1) IN JP10 Calibrate Diode
@@ -1996,11 +2033,11 @@ void IOExpInit(void)
 	 * GPB7 (Pin 8) (IN NOT USED)
 	 */
 	IODirB = 0xf3;
-	IOExp_Write(IOEXP_IODIRB,IODirB);
+	IOExp_Write(IOEXP_IODIRB, IODirB);
 	IOExpOutA = 0xDF;
-	IOExp_Write(IOEXP_OLATA,IOExpOutA);
+	IOExp_Write(IOEXP_OLATA, IOExpOutA);
 	IOExpOutB = 0x53;
-	IOExp_Write(IOEXP_OLATB,IOExpOutB);
+	IOExp_Write(IOEXP_OLATB, IOExpOutB);
 }
 
 /****************************************************************************/
@@ -2011,9 +2048,9 @@ void IOExpInit(void)
 // 					 the I/O Expander in the VOTER.							//
 //																			//
 /****************************************************************************/
-void SetLED(BYTE led,BOOL val)
+void SetLED(BYTE led, BOOL val)
 {
-	BYTE mask,oldout;
+	BYTE mask, oldout;
 	oldout = IOExpOutA;
 	mask = 1 << led;
 	IOExpOutA &= ~mask;
@@ -2023,7 +2060,7 @@ void SetLED(BYTE led,BOOL val)
 	}
 	
 	if (IOExpOutA != oldout) {
-		IOExp_Write(IOEXP_OLATA,IOExpOutA);
+		IOExp_Write(IOEXP_OLATA, IOExpOutA);
 	}
 }
 
@@ -2037,13 +2074,13 @@ void SetLED(BYTE led,BOOL val)
 /****************************************************************************/
 void ToggleLED(BYTE led)
 {
-	BYTE mask,oldout;
+	BYTE mask, oldout;
 	oldout = IOExpOutA;
 	mask = 1 << led;
 	IOExpOutA ^= mask;
 		
 	if (IOExpOutA != oldout) {
-		IOExp_Write(IOEXP_OLATA,IOExpOutA);
+		IOExp_Write(IOEXP_OLATA, IOExpOutA);
 	}
 }
 
@@ -2066,7 +2103,7 @@ void SetPTT(BOOL val)
 	}
 		
 	if (IOExpOutA != oldout) {
-		IOExp_Write(IOEXP_OLATA,IOExpOutA);
+		IOExp_Write(IOEXP_OLATA, IOExpOutA);
 	}
 }
 
@@ -2093,7 +2130,7 @@ void SetPTT(BOOL val)
 /****************************************************************************/ 
 void SetAudioSrc(void)
 {
-	BYTE oldout,myflags;
+	BYTE oldout, myflags;
 
 	if (indiag) {
 		myflags = diag_option_flags;
@@ -2123,7 +2160,7 @@ void SetAudioSrc(void)
 	}
 
 	if (IOExpOutB != oldout) {
-		IOExp_Write(IOEXP_OLATB,IOExpOutB);
+		IOExp_Write(IOEXP_OLATB, IOExpOutB);
 	}
 }
 #endif /* Board type */
@@ -2154,7 +2191,7 @@ void RTCM_Reset(void)
 // 		Description: Used for qualifying COR. Menu 13 "COR Type"			//
 // 					 sets ExternalCTCSS.									//
 // 																			//
-// 		Returns: "Normal" COR is computed by DSP, so return					// 
+// 		Returns: "Normal" COR is computed in the squelch code, so return	// 
 // 				 the cor var												//
 // 				 Ignore COR returns 1 (always qualified)					//
 // 				 No Receiver returns 0 (no COR)								//
@@ -2164,16 +2201,25 @@ void RTCM_Reset(void)
 /****************************************************************************/
 BOOL HasCOR(void)
 {
+	/* In diag mode, return 0. */
 	if (indiag) {
-		return(0);
+		return (0);
 	}
-	if (AppConfig.CORType == 2) { /* No receiver */
-		return(0);
+	/* No receiver (transmitter only), no COR needed, return 0. */
+	if (AppConfig.CORType == 2) {
+		return (0);
 	}
-	if (AppConfig.CORType == 1) { /* Ignore COR */
-		return(1);
+	/* Ignore COR. Used when we are using the External CTCSS input only to
+	 * qualify COR. So, return 1 to force COR to always be true.
+	 */
+	if (AppConfig.CORType == 1) {
+		return (1);
 	}
-	return (cor); /* Return the cor computed by DSP analysis (normal COR) */
+	/* Otherwise, we are using "normal" COR, so return the current COR state
+	 * based on the evaluated squelch state (cor is a global variable that
+	 * is set in squelch.c).
+	 */
+	return (cor);
 }
 
 /****************************************************************************/
@@ -2197,18 +2243,27 @@ BOOL HasCOR(void)
 /****************************************************************************/
 BOOL HasCTCSS(void)
 {
+	/* In diag mode, return 0. */
 	if (indiag) {
-		return(0);
+		return (0);
 	}
-	if (!AppConfig.ExternalCTCSS) { /* Ignore CTCSS (0) */
+	/* Ignore CTCSS (0). Not using the external CTCSS input, so always return 1. */
+	if (!AppConfig.ExternalCTCSS) {
 		return (1);
 	}
+	/* If we are using "normal" external CTCSS, and the CTCSSIN pin is high, we have
+	 * valid CTCSS, return 1.
+	 */
 	if ((AppConfig.ExternalCTCSS == 1) && CTCSSIN) { /* Non-inverted CTCSS input */
 		return (1);
 	}
+	/* If we are using "inverted" external CTCSS, and the CTCSSIN pin is low, we have
+	 * valid CTCSS, return 1.
+	 */
 	if ((AppConfig.ExternalCTCSS == 2) && (!CTCSSIN)) { /* Inverted CTCSS input */
-		return(1);
+		return (1);
 	}
+	/* External CTCSS is enabled, but not currently valid, so return 0. */
 	return (0);
 }
 
@@ -2254,30 +2309,30 @@ void SetTxTone(int freq)
 		testidx = 0;
 	} else {
 		DAC1CONbits.DACFDIV = 36;	/* Divide by 37 for approx 16216.216 Samples/sec */
-		switch(freq) {
+		switch (freq) {
 		    case 100:
-				testp = (short *)test_100;
+				testp = (short *) test_100;
 				break;
 		    case 320:
-				testp = (short *)test_320;
+				testp = (short *) test_320;
 				break;
 		    case 500:
-				testp = (short *)test_500;
+				testp = (short *) test_500;
 				break;
 		    case 1000:
-				testp = (short *)test_1000;
+				testp = (short *) test_1000;
 				break;
 		    case 2000:
-				testp = (short *)test_2000;
+				testp = (short *) test_2000;
 				break;
 		    case 3200:
-				testp = (short *)test_3200;
+				testp = (short *) test_3200;
 				break;
 		    case 6000:
-				testp = (short *)test_6000;
+				testp = (short *) test_6000;
 				break;
 		    case 7200:
-				testp = (short *)test_7200;
+				testp = (short *) test_7200;
 				break;
 			default:
 				testp = 0;
@@ -2299,7 +2354,7 @@ static void domorse(char *str)
 	BYTE c;
 
 	if (!cwptr) {
-		while((c = *str++)) {
+		while ((c = *str++)) {
 			if (c < ' ') {
 				continue;
 			}
@@ -2343,12 +2398,12 @@ static void domorse(char *str)
 /****************************************************************************/
 BYTE GetBootCS(void)
 {
-	BYTE x = 0x69,i;
+	BYTE x = 0x69, i;
 
 	for (i = 0; i < 4; i++) {
 		x += AppConfig.BootIPAddr.v[i];
 	}
-	return(x);
+	return (x);
 }
 
 /****************************************************************************/
@@ -2375,17 +2430,17 @@ BYTE GetBootCS(void)
 /****************************************************************************/
 static int explode_string(char *str, char *strp[], int limit, char delim, char quote)
 {
-	int i,l,inquo;
+	int i, l, inquo;
     inquo = 0;
     i = 0;
     strp[i++] = str;
 
 	if (!*str) {
 		strp[0] = 0;
-		return(0);
+		return (0);
 	}
 
-	for (l = 0; *str && (l < limit) ; str++) {
+	for (l = 0; *str && (l < limit); str++) {
 		if (quote) {
 			if (*str == quote) {
 				if (inquo) {
@@ -2406,7 +2461,7 @@ static int explode_string(char *str, char *strp[], int limit, char delim, char q
 	}
 
 	strp[i] = 0;
-	return(i);
+	return (i);
 }
 
 /****************************************************************************/
@@ -2419,52 +2474,52 @@ static int explode_string(char *str, char *strp[], int limit, char delim, char q
 WORD htons(WORD x)
 {
 	WORD y;
-	BYTE *p = (BYTE *)&x;
-	BYTE *q = (BYTE *)&y;
+	BYTE *p = (BYTE *) &x;
+	BYTE *q = (BYTE *) &y;
 
 	q[0] = p[1];
 	q[1] = p[0];
-	return(y);
+	return (y);
 }
 
 /* Network to Host Short */
 WORD ntohs(WORD x)
 {
 	WORD y;
-	BYTE *p = (BYTE *)&x;
-	BYTE *q = (BYTE *)&y;
+	BYTE *p = (BYTE *) &x;
+	BYTE *q = (BYTE *) &y;
 
 	q[0] = p[1];
 	q[1] = p[0];
-	return(y);
+	return (y);
 }
 
 /* Host to Network Long */
 DWORD htonl(DWORD x)
 {
 	DWORD y;
-	BYTE *p = (BYTE *)&x;
-	BYTE *q = (BYTE *)&y;
+	BYTE *p = (BYTE *) &x;
+	BYTE *q = (BYTE *) &y;
 
 	q[0] = p[3];
 	q[1] = p[2];
 	q[2] = p[1];
 	q[3] = p[0];
-	return(y);
+	return (y);
 }
 
 /* Network to Host Long */
 DWORD ntohl(DWORD x)
 {
 	DWORD y;
-	BYTE *p = (BYTE *)&x;
-	BYTE *q = (BYTE *)&y;
+	BYTE *p = (BYTE *) &x;
+	BYTE *q = (BYTE *) &y;
 
 	q[0] = p[3];
 	q[1] = p[2];
 	q[2] = p[1];
 	q[3] = p[0];
-	return(y);
+	return (y);
 }
 /* End byte manipulation functions. */
 
@@ -2487,7 +2542,7 @@ BOOL getGPSStr(void)
 		c = ReadUART2();
 	
 		if (c == '\n') {
-			gps_buf[gps_bufindex]= 0;
+			gps_buf[gps_bufindex] = 0;
 			gps_bufindex = 0;
 			return 1; 
 		}
@@ -2499,7 +2554,7 @@ BOOL getGPSStr(void)
 		gps_buf[gps_bufindex++] = c;
 	
 		if (gps_bufindex >= (sizeof(gps_buf) - 1)) {
-			gps_buf[gps_bufindex]= 0;
+			gps_buf[gps_bufindex] = 0;
 			gps_bufindex = 0;
 			return 1; 
 		}
@@ -2562,7 +2617,7 @@ static DWORD twoascii(char *s)
 
 	rv = s[1] - '0';
 	rv += 10 * (s[0] - '0');
-	return(rv);
+	return (rv);
 }
 
 /****************************************************************************/
@@ -2576,20 +2631,18 @@ static char *logtime_p(VTIME *p)
 {
 	time_t	t;
 	static char str[50];
-	static ROM char notime[] = "\n<No Time Available>",
-	logtemplate[] = "\n%m/%d/%Y %H:%M:%S";
+	static ROM char notime[] = "\n<No Time Available>", logtemplate[] = "\n%m/%d/%Y %H:%M:%S";
 
 	t = p->vtime_sec;
 	
 	if (t == 0) {
-		return((char *)notime);
+		return ((char *) notime);
 	}
 	
-	strftime(str,sizeof(str) - 1,(char *)logtemplate,gmtime(&t));
-	sprintf(str + strlen(str),".%03lu",p->vtime_nsec / 1000000L);
-	return(str);
+	strftime(str, sizeof(str) - 1, (char *) logtemplate, gmtime(&t));
+	sprintf(str + strlen(str), ".%03lu", p->vtime_nsec / 1000000L);
+	return (str);
 }
-
 
 /****************************************************************************/
 //																			//
@@ -2597,7 +2650,7 @@ static char *logtime_p(VTIME *p)
 //																			//
 /****************************************************************************/
 /* 01/06/21 WA1JHK patch to replace broken mktime() in MPLAB C30 */
-static DWORD getSecondsSinceEpoch (struct tm *tm)
+static DWORD getSecondsSinceEpoch(struct tm *tm)
 {
     #define SECONDS_EPOCH_TO_1121 1609459200  /* seconds 1/1/1970 until 1/1/2021 0:0:0 */
     #define SECONDS_PER_DAY 86400             /* 60 * 60 * 24 */
@@ -2606,14 +2659,14 @@ static DWORD getSecondsSinceEpoch (struct tm *tm)
     DWORD   total_seconds;
     
     /* days before current month in current year */
-    static ROM int normal_year[] = {0,31,59,90,120,151,181,212,243,273,304,334};
+    static ROM int normal_year[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
     
     /* SECONDS_EPOCH_TO_1121 is seconds from 1/1/70 0:0:0 up to 1/1/21 0:0:0 */
     total_seconds = SECONDS_EPOCH_TO_1121;
     /* seconds elapsed current day since midnight */
-    total_seconds = total_seconds + ((DWORD)tm->tm_sec + ((DWORD)tm->tm_min * 60) + ((DWORD)tm->tm_hour * 3600));
+    total_seconds = total_seconds + ((DWORD) tm->tm_sec + ((DWORD) tm->tm_min * 60) + ((DWORD) tm->tm_hour * 3600));
     /* seconds elapsed since 1st of month up to current day */
-    total_seconds = total_seconds + (((DWORD)tm->tm_mday - 1) * SECONDS_PER_DAY);
+    total_seconds = total_seconds + (((DWORD) tm->tm_mday - 1) * SECONDS_PER_DAY);
     /* seconds elapsed since 1st of year up to current month */
     total_seconds = total_seconds + (normal_year[tm->tm_mon - 1] * SECONDS_PER_DAY);
     /* seconds elapsed since 1st of year up to current month */
@@ -2628,7 +2681,6 @@ static DWORD getSecondsSinceEpoch (struct tm *tm)
     return  (total_seconds);
 }
 
-
 /****************************************************************************/
 //																			//
 //		Process GPS Subroutine												//
@@ -2638,8 +2690,7 @@ void process_gps(void)
 {
 	int n;
 	char *strs[30];
-	static ROM char gpgga[] = "$GPGGA",
-				gprmc[] = "$GPRMC";
+	static ROM char gpgga[] = "$GPGGA", gprmc[] = "$GPRMC";
 
 	/* Please see doubleify.c for explanation of this poo-poo */
 	extern float doubleify(BYTE *p);
@@ -2718,11 +2769,11 @@ void process_gps(void)
 		 * We have to do this before we run through explode_string, as that modifies gps_buf.
 		 */
 		if (AppConfig.DebugLevel & 32) {
-			if (strstr((char *)gps_buf,gprmc)) {
-				printf("GPS-DEBUG: %s\n",gps_buf);
+			if (strstr((char *) gps_buf, gprmc)) {
+				printf("GPS-DEBUG: %s\n", gps_buf);
 			}
-			if (strstr((char *)gps_buf,gpgga)) {
-				printf("GPS-DEBUG: %s\n",gps_buf);
+			if (strstr((char *) gps_buf, gpgga)) {
+				printf("GPS-DEBUG: %s\n", gps_buf);
 			}
 			/* If PPS is bad if ppsx is idling at 1. The only time it should be 1
 			 * is during an actual PPS pulse (which is VERY small). If we
@@ -2736,13 +2787,13 @@ void process_gps(void)
 		/* Put gps_buf into the strs array, maximum of 30 substrings, delimited
 		 * by , and use \ as an escape. n will be the number of substrings found.
 		 */
-		n = explode_string((char *)gps_buf,strs,30,',','\"');
+		n = explode_string((char *) gps_buf, strs, 30, ',', '\"');
 	
 		/* If we didn't find any substrings in the buffer, or we didn't get $GPGGA
 		 * or $GPRMC stings, exit. This prevents us from thinking we've received
 		 * valid data if there is just garbage on the serial port (ie. TSIP).
 		 */
-		if ((n < 1) || (strcmp(strs[0],gpgga) && strcmp(strs[0],gprmc))) {
+		if ((n < 1) || (strcmp(strs[0], gpgga) && strcmp(strs[0], gprmc))) {
 			return;
 		}
 		
@@ -2777,7 +2828,7 @@ void process_gps(void)
 		 * Then get the number of satellites being used for our current
 		 * fix from field 7 and put it in gps_nsat, then exit.
 		 */
-		if (!strcmp(strs[0],gpgga)) {
+		if (!strcmp(strs[0], gpgga)) {
 			/* If we didn't decode 14 fields in the message, exit. */
 			if (n < 14) {
 				return;
@@ -2796,12 +2847,12 @@ void process_gps(void)
 			/* If we don't have a valid fix, no point in getting this stuff. */
 			if (gps_fix) {
 				/* Get the lat/long and elevation */
-				memclr(&gps_packet,sizeof(gps_packet));
-				strncpy(gps_packet.lat,strs[2],7);
+				memclr(&gps_packet, sizeof(gps_packet));
+				strncpy(gps_packet.lat, strs[2], 7);
 				gps_packet.lat[7] = *strs[3];
-				strncpy(gps_packet.lon,strs[4],8);
+				strncpy(gps_packet.lon, strs[4], 8);
 				gps_packet.lon[8] = *strs[5];
-				strncpy(gps_packet.elev,strs[9],6);
+				strncpy(gps_packet.elev, strs[9], 6);
 
 				/* Get the number of satellites used for the fix */
 				gps_nsat = atoi(strs[7]);
@@ -2813,7 +2864,7 @@ void process_gps(void)
 		 * Yes? Let's process it.
 		 * 
 		 */
-		if (!strcmp(strs[0],gprmc) && (gps_fix)) {
+		if (!strcmp(strs[0], gprmc) && (gps_fix)) {
 			struct tm tm;
 	
 			/* If we didn't decode all 10 fields in the message, exit. */
@@ -2828,7 +2879,7 @@ void process_gps(void)
 			 *
 			 * Use tm to pass binary time to getSecondsSinceEpoch
 			 */
-			memset(&tm,0,sizeof(tm));
+			memset(&tm, 0, sizeof(tm));
 			/* Get the sec, min, and hour from strs[1] */
 			tm.tm_sec = twoascii(strs[1] + 4);
 			tm.tm_min = twoascii(strs[1] + 2);
@@ -2854,7 +2905,7 @@ void process_gps(void)
 			 * ctime: human readable format of gps_time
 			 */
 			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: gps_time: %ld, %s\n",gps_time,ctime((time_t *)&gps_time));
+				printf("GPS-DEBUG: gps_time: %ld, %s\n", gps_time, ctime((time_t *) &gps_time));
 			}
 			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
 			 * We don't need to qualify PPS (and set gpssync).
@@ -2877,7 +2928,7 @@ void process_gps(void)
 			gps_state = GPS_STATE_VALID;
 			printf(logtime()); /* Print the current timestamp */
 			printf(gpsmsg2); /* Print GPS signal acquired, number of satellites locked =" */
-			printf("%d",gps_nsat);
+			printf("%d", gps_nsat);
 		}
 
 		/* Check the fix, if it isn't valid, then we've lost our fix,
@@ -2953,7 +3004,7 @@ void process_gps(void)
 		 */
 		if (gps_buf[1] == 0xac) { /* AC is the Supplemental Timing Packet */
 
-			int x,y;
+			int x, y;
 			float f;
 
 			/* Check Receiver Mode and Discipline Mode
@@ -2992,7 +3043,7 @@ void process_gps(void)
 			}
 
 			/* Determine the latitude (have to convert from radians to degrees) */
-			memclr(&gps_packet,sizeof(gps_packet));
+			memclr(&gps_packet, sizeof(gps_packet));
 			f = doubleify(gps_buf + 37) * TSIP_FACTOR;
 			x = (int) f;
 			f -= (float) x;
@@ -3010,9 +3061,9 @@ void process_gps(void)
 			}
 
 			if (x < 0) {
-				sprintf(gps_packet.lat,"%02d%02d.%02dS",-x,y,(int)((f * 100.0) + 0.5));
+				sprintf(gps_packet.lat, "%02d%02d.%02dS", -x, y, (int) ((f * 100.0) + 0.5));
 			} else {
-				sprintf(gps_packet.lat,"%02d%02d.%02dN",x,y,(int)((f * 100.0) + 0.5));
+				sprintf(gps_packet.lat, "%02d%02d.%02dN", x, y, (int) ((f * 100.0) + 0.5));
 			}
 
 			/* Determine the longitude (have to convert from radians to degrees) */
@@ -3033,17 +3084,17 @@ void process_gps(void)
 			}
 
 			if (x < 0) {
-				sprintf(gps_packet.lon,"%03d%02d.%02dW",-x,y,(int)((f * 100.0) + 0.5));
+				sprintf(gps_packet.lon, "%03d%02d.%02dW", -x, y, (int) ((f * 100.0) + 0.5));
 			} else {
-				sprintf(gps_packet.lon,"%03d%02d.%02dE",x,y,(int)((f * 100.0) + 0.5));
+				sprintf(gps_packet.lon, "%03d%02d.%02dE", x, y, (int) ((f * 100.0) + 0.5));
 			}
 
 			/* Determine the elevation */
-			sprintf(gps_packet.elev,"%4.1f",(double)doubleify(gps_buf + 53));
+			sprintf(gps_packet.elev, "%4.1f", (double) doubleify(gps_buf + 53));
 
 			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: TSIP: Alm ok? %s, 2: %i,3: %i, 9 - 14: %02x %02x %02x %02x %02x %02x\n",
-					gps_nsat ? "yes" : "no",gps_buf[2],gps_buf[3],gps_buf[9],gps_buf[10],gps_buf[11],gps_buf[12],gps_buf[13],gps_buf[14]);
+				printf("GPS-DEBUG: TSIP: Alm ok? %s, 2: %i,3: %i, 9 - 14: %02x %02x %02x %02x %02x %02x\n", gps_nsat ? "yes" : "no",
+					gps_buf[2], gps_buf[3], gps_buf[9], gps_buf[10], gps_buf[11], gps_buf[12], gps_buf[13], gps_buf[14]);
 			}
 		}
 
@@ -3053,7 +3104,7 @@ void process_gps(void)
 			struct tm tm;
 			WORD w;
 	
-			memset(&tm,0,sizeof(tm));
+			memset(&tm, 0, sizeof(tm));
 			/* Extract the time any day of month, and put it in tm */
 			tm.tm_sec = gps_buf[11]; /* Seconds 0-59 */
 			tm.tm_min = gps_buf[12]; /* Minutes 0-59 */
@@ -3063,9 +3114,9 @@ void process_gps(void)
 			/* gps_buf[15] is Month of Year, 1-12, put that in tm too */
 			tm.tm_mon = gps_buf[15]; /* No longer need to -1 as we are not using mktime() */
 			/* Now we need to assemble the year, and work around for broken mktime() */ 
-			w = gps_buf[17] | ((WORD)gps_buf[16] << 8); /* 4-digit year (two bytes) */
+			w = gps_buf[17] | ((WORD) gps_buf[16] << 8); /* 4-digit year (two bytes) */
 			tm.tm_year = w - 2000; /* tm_year is now relative to years since 2000 (not using mktime()) */
-			gpsweek = gps_buf[7] | ((WORD)gps_buf[6] << 8); /* gps week number (two bytes) */
+			gpsweek = gps_buf[7] | ((WORD) gps_buf[6] << 8); /* gps week number (two bytes) */
 
 			if (!AppConfig.GPSTbolt) { /* If this isn't a Tbolt device, don't fudge the time */
 				gps_time = (DWORD) getSecondsSinceEpoch(&tm) + (DWORD) AppConfig.GPSOffset;
@@ -3086,7 +3137,7 @@ void process_gps(void)
 				}
 			}
 
-			gpsleap = gps_buf[9] | ((WORD)gps_buf[8] << 8); /* GPS-UTC offset (leap seconds) */
+			gpsleap = gps_buf[9] | ((WORD) gps_buf[8] << 8); /* GPS-UTC offset (leap seconds) */
 
 			/* If the timing flags are all 0, then we are using GPS time, 
 			 * GPS PPS, time is set, we have UTC info (leap seconds), and we 
@@ -3105,7 +3156,7 @@ void process_gps(void)
 			 * gps_week: the GPS week the Trimble "thinks" it is
 			 */
 			if (AppConfig.DebugLevel & 32) {
-				printf("GPS-DEBUG: gps_time: %ld, %s, gps_week: %d\n",gps_time,ctime((time_t *)&gps_time),gpsweek);
+				printf("GPS-DEBUG: gps_time: %ld, %s, gps_week: %d\n", gps_time, ctime((time_t *) &gps_time), gpsweek);
 				/* If PPS is bad if ppsx is idling at 1. The only time it should be 1
 				 * is during an actual PPS pulse (which is VERY small). If we
 				 * consistently have ppsx = 1, throw a message to check the PPS config.
@@ -3181,8 +3232,8 @@ void process_gps(void)
 //					 a ulaw sample, and return it.							//
 //																			//
 /****************************************************************************/
-BYTE ulaw_encode (WORD adc_sample) {
-
+BYTE ulaw_encode(WORD adc_sample)
+{
 	short sign, exponent, mantissa;
 	BYTE ulawbyte;
 
@@ -3218,8 +3269,8 @@ BYTE ulaw_encode (WORD adc_sample) {
 //					 an ADPCM sample, and return it.						//
 //																			//
 /****************************************************************************/
-BYTE adpcm_encode (WORD adc_sample) {
-
+BYTE adpcm_encode(WORD adc_sample)
+{
 	short sign;		/* Current ADPCM sign bit */
 	long valpred;	/* Predicted output value */
 	int adpcm_index; /* Quantizer step size index from indexTable */
@@ -3333,7 +3384,6 @@ BYTE adpcm_encode (WORD adc_sample) {
 
 	/* Output a 4-bit ADPCM encoded sample (0-15). */
 	return delta;
-
 }
 
 /****************************************************************************/
@@ -3367,7 +3417,7 @@ void adpcm_decoder(BYTE *indata)
 	bufferstep = 0;
 	inputbuffer = 0;
 
-	for ( i = 0; i < ADPCM_SAMPLE_SIZE; i++) {
+	for (i = 0; i < ADPCM_SAMPLE_SIZE; i++) {
 		/* Step 1 - get the delta value */
 		if (bufferstep) {
 			delta = inputbuffer & 0xf;
@@ -3476,9 +3526,9 @@ void adpcm_decoder(BYTE *indata)
 //		Process UDP Packet Subroutine										//
 //																			//
 /****************************************************************************/
-void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
+void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 {
-	BYTE n,c,i,j,*cp;
+	BYTE n, c, i, j, *cp;
 
 #ifdef	DSPBEW
 	short x;
@@ -3487,7 +3537,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 #endif
 
 	WORD mytxindex;
-	long mytxseqno,myhost_txseqno;
+	long mytxseqno, myhost_txseqno;
 	mytxindex = last_drainindex;
 	mytxseqno = txseqno;
 	myhost_txseqno = host_txseqno;
@@ -3521,12 +3571,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		/* If we've built with DSPBEW, do some DSP on the audio samples, and use
 		 * them if BEWMode is set.
 		 */
-		for(i = 0; i < FFT_BLOCK_LENGTH; i++) {
+		for (i = 0; i < FFT_BLOCK_LENGTH; i++) {
 			x = ulawtabletx[audio_buf[filling_buffer ^ 1][i]];
 
 			if (AppConfig.BEWMode > 1) {
-				if (x > 16383) x = 16383;
-				if (x < -16383) x = -16383;
+				if (x > 16383) {
+					x = 16383;
+				}
+				if (x < -16383) {
+					x = -16383;
+				}
 				sigCmpx[i].real = x;
 			} else {
 				sigCmpx[i].real = x / 2;
@@ -3536,42 +3590,54 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		}
 	
 #ifndef FFTTWIDCOEFFS_IN_PROGMEM
-		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
+		FFTComplexIP(LOG2_BLOCK_LENGTH, &sigCmpx[0], &twiddleFactors[0], COEFFS_IN_DATA);
 #else
-		FFTComplexIP (LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]), (int) __builtin_psvpage(&twiddleFactors[0]));
+		FFTComplexIP(LOG2_BLOCK_LENGTH, &sigCmpx[0], (fractcomplex *) __builtin_psvoffset(&twiddleFactors[0]),
+			(int) __builtin_psvpage(&twiddleFactors[0]));
 #endif
 	
 		/* Store output samples in bit-reversed order of their addresses */
-		BitReverseComplex (LOG2_BLOCK_LENGTH, &sigCmpx[0]);
+		BitReverseComplex(LOG2_BLOCK_LENGTH, &sigCmpx[0]);
 	 
 		/* Compute the square magnitude of the complex FFT output array so we have a real output vector */
 		SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &sigCmpx[0], &sigCmpx[0].real);
 	
-		wp = (unsigned int *)&sigCmpx[0];
+		wp = (unsigned int *) &sigCmpx[0];
 		fftresult = 0;
 
-		/* Get the total energy above CTCSS and below 2000Hz */
-		for(i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++) {
+		/* Get the total energy above CTCSS and below 3000Hz */
+		for (i = 0; i < FFT_TOP_SAMPLE_BUCKET; i++) {
 			if (i >= 2) {
 				fftresult += *wp;
 			}
 			wp++;
 		}
 
+		/* qualnoise is a boolean. If the measured noise (fftresult) is quiet
+		 * enough (<= FFT_MAX_RESULT), then qualnoise will be true. This determines
+		 * when using DSPBEW, if can we trust/use our ADC noise measurement right
+		 * now.
+		 */
 		qualnoise = ((fftresult <= FFT_MAX_RESULT));
 
 		/* If we are NOT using BEW Mode, ignore what we did above, and just set
-		 * qualnoise to 1.
+		 * qualnoise to true (we're not sending audio through the DSP for evaluation).
 		 */
 		if (!AppConfig.BEWMode) {
 			qualnoise = 1;
 		}
-		/*! \todo VE7FET will we ever run this? qualnoise will probably always have
-		 * SOMETHING in it, after running though DSP, it seems unlikely that it
-		 * would EVER be zero? Weird. Need to look at this more. Bug?
+		
+		/* If qualnoise is false (the result of the BEW DSP), there is too much energy
+		 * in the baseband to use our current ADC noise value. Set vnoise32 and the last two
+		 * noise samples to whatever the noise value was three samples ago, and compute
+		 * the RSSI based on that. rssiheld is what we are "holding" the RSSI value at
+		 * temporarily, until we can measure another sample in the baseband.
 		 */
 		if (!qualnoise) {
 			vnoise32 = lastvnoise32[2] = lastvnoise32[1] = lastvnoise32[0];
+			/* Send calcrssi a filtered ADC noise value (the bit shift allows the filter
+			 * to maintain fractional ADC information internally).
+			 */
 			rssiheld = calcrssi(vnoise32 >> 3);
 		}
 #endif /* DSPBEW */
@@ -3584,6 +3650,9 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 * ONLY done by a master voting client. When looking in the debug console on
 			 * the host, this will result in a continuous stream of payload 1 (or 3)
 			 * packets from the master client.
+			 *
+			 * Otherwise, only set the tosend flag if we are connected to the host, and
+			 * COR/CTCSS is qualified.
 			 */
 			BOOL tosend = (connected && ((HasCOR() && HasCTCSS()) || (option_flags & OPTION_FLAG_SENDALWAYS)));
 
@@ -3593,10 +3662,17 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 
 #ifdef DSPBEW
+			/* If we are using DSPBEW, and qualnoise is true (baseband is quiet enough),
+			 * or we don't have a COR signal anymore, update rssiheld with the current
+			 * calculated rssi value. If we don't have COR, then qualnoise doesn't matter,
+			 * since there's not going to be any voice in the baseband to contaminate the
+			 * result.
+			 */
 			if (qualnoise || (!HasCOR())) {
 				rssiheld = rssi;
 			}
 #else
+			/* If we aren't using DSPBEW, just make rssiheld the last calculated rssi value. */
 			rssiheld = rssi;
 #endif /* DSPBEW */
 			/* This is our main UDP send routine. We will always send a packet if:
@@ -3633,10 +3709,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			 */
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
 				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
-				memclr(&audio_packet,sizeof(VOTER_PACKET_HEADER));
+				memclr(&audio_packet, sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
 				audio_packet.vph.curtime.vtime_nsec = (!VOTER_CLIENT) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
-				strcpy((char *)audio_packet.vph.challenge,challenge);
+				strcpy((char *) audio_packet.vph.challenge, challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
 				
 				/* If tosend is qualified (so, we are connected), set our payload type byte to either ADPCM or
@@ -3675,7 +3751,10 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 				 * If tosend isn't true, we're not connected yet, and if this is a mix mode
 				 * client, put the mix mode flag in the RSSI position to tell the host we are.
 				 */
-	            if (tosend) {	
+	            if (tosend) {
+					/* If we have an RSSI value, and qualified COR/CTCSS, put it in the buffer,
+					 * along with an audio sample.
+					 */
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS()) {
 						UDPPut(rssiheld);
 						for (i = 0; i < j; i++) {
@@ -3683,6 +3762,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 						}
 						elketimer = 0;
 					} else {
+						/* Otherwise, put an RSSI of 0 and silence into the buffer. */
 						UDPPut(0);
 						for (i = 0; i < j; i++) {
 							UDPPut(c);
@@ -3701,6 +3781,16 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			}
 		}
 #ifdef	DSPBEW
+		/* If the DSP baseband noise measurement is quiet enough to use our
+		 * ADC noise measurement, qualnoise will be true. Shuffle all the noise
+		 * measurements in the history buffer, replacing the last value with the
+		 * current measurement.
+		 *
+		 * Effectively:
+		 * lastvnoise[0] = oldest
+		 * lastvnoise[1] = middle
+		 * lastvnoise[2] = newest
+		 */
 		if (qualnoise) {
 			lastvnoise32[0] = lastvnoise32[1];
 			lastvnoise32[1] = lastvnoise32[2];
@@ -3734,7 +3824,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
 			gps_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
-			strcpy((char *)gps_packet.vph.challenge,challenge);
+			strcpy((char *)gps_packet.vph.challenge, challenge);
 			gps_packet.vph.digest = htonl(resp_digest);
 			gps_packet.vph.payload_type = htons(PAYLOAD_GPS);
 			
@@ -3770,7 +3860,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 		gpsforcetimer = 0;
 		}
 
-		memclr(&gps_packet,sizeof(gps_packet));
+		memclr(&gps_packet, sizeof(gps_packet));
 	}
 
 	/* We're done SENDING stuff to the host, now let's see if there is stuff for us to
@@ -3822,13 +3912,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 			  * for the host (their_challange), something is wrong so we dump the host
 			  * connection, and re-generate our digest (resetting the connection).
 			  */
-			if (strcmp((char *)audio_packet.vph.challenge,their_challenge)) {
+			if (strcmp((char *) audio_packet.vph.challenge, their_challenge)) {
 				connected = 0;
 				txseqno = 0;
 				txseqno_ptt = 0;
 				lastrxtimer = 0;
-				resp_digest = crc32_bufs(audio_packet.vph.challenge,(BYTE *)AppConfig.Password);
-				strcpy(their_challenge,(char *)audio_packet.vph.challenge);
+				resp_digest = crc32_bufs(audio_packet.vph.challenge, (BYTE *) AppConfig.Password);
+				strcpy(their_challenge, (char *) audio_packet.vph.challenge);
 				SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 			} else {
 				/* Look for the next AUTH packet (Payload 0) from the host, and figure out
@@ -3840,7 +3930,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					(ntohs(audio_packet.vph.payload_type) == PAYLOAD_AUTH)) {
 					
 					/* Generate our digest based on the Host Password that is configured */
-					mydigest = crc32_bufs((BYTE *)challenge,(BYTE *)AppConfig.HostPassword);
+					mydigest = crc32_bufs((BYTE *) challenge, (BYTE *) AppConfig.HostPassword);
 				
 					/* If the digest we generated above matches the digest we got off the wire
 					 * (Host Password matches), we're off to the races, assert that we're
@@ -3935,13 +4025,13 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
 								audio_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
-								strcpy((char *)audio_packet.vph.challenge,challenge);
+								strcpy((char *) audio_packet.vph.challenge, challenge);
 								audio_packet.vph.digest = htonl(resp_digest);
 								audio_packet.vph.payload_type = htons(PAYLOAD_PING);
 
 							 	/* Send elements one at a time -- SWINE dsPIC33 architecture!!! */
 								cp = (BYTE *) &audio_packet.vph;
-								for(i = 0; i < n; i++) {
+								for (i = 0; i < n; i++) {
 									UDPPut(*cp++);
 								}
 
@@ -3959,7 +4049,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 					 * This is used for calculating stuff to display on the Status (98) menu.
 					 */
 					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) || (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM)) {
-						long index,ndiff;
+						long index, ndiff;
 						short mydiff;
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
 						last_rxpacket_time.vtime_nsec = ntohl(audio_packet.vph.curtime.vtime_nsec);
@@ -4038,7 +4128,7 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 
 							/* ADPCM */
 							if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
-					  			mydiff -= ((short)index + (ADPCM_SAMPLE_SIZE));
+					  			mydiff -= ((short) index + (ADPCM_SAMPLE_SIZE));
 								/* Get the predictor value from bytes 160 and 161 of the payload
 								 * and re-assemble them (they are stored lowest nibble first).
 								 */
@@ -4048,19 +4138,19 @@ void process_udp(UDP_SOCKET *udpSocketUser,NODE_INFO *udpServerNode)
 								adpcm_decoder(audio_packet.audio);
 
 								if (mydiff >= 0) {
-									memcpy(txaudio + index,dec_buffer,ADPCM_SAMPLE_SIZE);
+									memcpy(txaudio + index, dec_buffer, ADPCM_SAMPLE_SIZE);
 								} else {
-									memcpy(txaudio + index,dec_buffer,(ADPCM_SAMPLE_SIZE) + mydiff);
-									memcpy(txaudio,dec_buffer + ((ADPCM_SAMPLE_SIZE) + mydiff),-mydiff);
+									memcpy(txaudio + index, dec_buffer, (ADPCM_SAMPLE_SIZE) + mydiff);
+									memcpy(txaudio, dec_buffer + ((ADPCM_SAMPLE_SIZE) + mydiff), -mydiff);
 								}
 							} else { /* ulaw */
-					  			mydiff -= ((short)index + ULAW_SAMPLE_SIZE);
+					  			mydiff -= ((short) index + ULAW_SAMPLE_SIZE);
 	                            				
 								if (mydiff >= 0) {	
-									memcpy(txaudio + index,audio_packet.audio,ULAW_SAMPLE_SIZE);
+									memcpy(txaudio + index, audio_packet.audio, ULAW_SAMPLE_SIZE);
 								} else {
-									memcpy(txaudio + index,audio_packet.audio,ULAW_SAMPLE_SIZE + mydiff);
-									memcpy(txaudio,audio_packet.audio + (ULAW_SAMPLE_SIZE + mydiff),-mydiff);
+									memcpy(txaudio + index, audio_packet.audio, ULAW_SAMPLE_SIZE + mydiff);
+									memcpy(txaudio, audio_packet.audio + (ULAW_SAMPLE_SIZE + mydiff), -mydiff);
 								}
 							}
                         } else {
@@ -4103,7 +4193,7 @@ void main_processing_loop(void)
 	IP_ADDR vaddr;
 
 	/* MACIsLinked should come from the TCP/IP Stack*/
-	if(!MACIsLinked()) {
+	if (!MACIsLinked()) {
 		connected = 0;
 		txseqno = 0;
 		txseqno_ptt = 0;
@@ -4141,12 +4231,12 @@ void main_processing_loop(void)
 					dnstimer = 60;
 					dnsdone = 0;
 					if (DNSBeginUsage()) { 
-						DNSResolve((BYTE *)AppConfig.AltVoterServerFQDN,DNS_TYPE_A);
+						DNSResolve((BYTE *) AppConfig.AltVoterServerFQDN, DNS_TYPE_A);
 					}
 				} else {
 					if ((!dnsdone) && (DNSIsResolved(&vaddr))) {
 						if (DNSEndUsage()) {
-							if (memcmp(&MyAltVoterAddr,&vaddr,sizeof(IP_ADDR))) {
+							if (memcmp(&MyAltVoterAddr, &vaddr, sizeof(IP_ADDR))) {
 								altdnsnotify = 1;
 							}
 							MyAltVoterAddr = vaddr;
@@ -4168,13 +4258,13 @@ void main_processing_loop(void)
 					dnstimer = 60;
 					dnsdone = 0;
 			
-					if(DNSBeginUsage()) { 
-						DNSResolve((BYTE *)AppConfig.VoterServerFQDN,DNS_TYPE_A);
+					if (DNSBeginUsage()) { 
+						DNSResolve((BYTE *) AppConfig.VoterServerFQDN, DNS_TYPE_A);
 					}
 				} else {
 					if ((!dnsdone) && (DNSIsResolved(&vaddr))) {
 						if (DNSEndUsage()) {
-							if (memcmp(&MyVoterAddr,&vaddr,sizeof(IP_ADDR))) {
+							if (memcmp(&MyVoterAddr, &vaddr, sizeof(IP_ADDR))) {
 								dnsnotify = 1;
 							}
 							MyVoterAddr = vaddr;
@@ -4221,8 +4311,7 @@ void main_processing_loop(void)
 			vaddr = MyVoterAddr;
 		}
 
-		if (memcmp(&LastVoterAddr,&vaddr,sizeof(IP_ADDR))) {
-	
+		if (memcmp(&LastVoterAddr, &vaddr, sizeof(IP_ADDR))) {
 			if (udpSocketUser != INVALID_UDP_SOCKET) {
 				UDPClose(udpSocketUser);
 			}
@@ -4288,7 +4377,7 @@ void main_processing_loop(void)
 					break;
 
 				case SM_UDP_RESOLVED:
-					process_udp(&udpSocketUser,&udpServerNode);
+					process_udp(&udpSocketUser, &udpServerNode);
 					break;
 			}
 		}
@@ -4317,22 +4406,22 @@ void secondary_processing_loop(void)
 {
 	static ROM char cfgwritten[] = "Squelch calibration saved, noise gain = ",
 		diodewritten[] = "Diode calibration saved, value (hex) = ",
-		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n", 
+		dnschanged[] = "  Voter Host DNS Resolved to %d.%d.%d.%d\n",
 		dnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-		altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n", 
+		altdnschanged[] = "  Alternate Voter Host DNS Resolved to %d.%d.%d.%d\n",
 		altdnsfailed[] = "  Warning: Unable to resolve DNS for Voter Host %s\n",
-		altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n", 
+		altdnshost[] = "  Using Alternate Voter Host (%d.%d.%d.%d)\n",
 		dnshost[] = "  Using Primary Voter Host (%d.%d.%d.%d)\n",
 		dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",
 		miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
-		gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n", 
-		losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";	
+		gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n",
+		losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";
 	
 	static ROM char ipinfo[] = "\nIP Configuration Info: \n",
 		ipwithdhcp[] = "Configured With DHCP\n",
-		ipwithstatic[] = "Static IP Configuration\n", 
+		ipwithstatic[] = "Static IP Configuration\n",
 		ipipaddr[] = "IP Address: %d.%d.%d.%d\n",
-		ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n", 
+		ipsubnet[] = "Subnet Mask: %d.%d.%d.%d\n",
 		ipgateway[] = "Gateway Addr: %d.%d.%d.%d\n";
 
 #ifdef DIAGMENU
@@ -4345,24 +4434,24 @@ void secondary_processing_loop(void)
 		diag2[] = "Testing GPS UART\n",
 		measerr[] = "Error -- Measured %u, should have been between %u and %u\n",
 		measmsg[] = "Testing level at %d Hz for %s\n",
-		flat_test_str[] = "Normal Audio",plfilt_test_str[] = "CTCSS Filtered Audio",
+		flat_test_str[] = "Normal Audio", plfilt_test_str[] = "CTCSS Filtered Audio",
 		deemp_test_str[] = "De-Emphasized Audio",
 		sql_test_str[] = "Squelch Noise Detector";
 
-	static ROM struct meas flat_test[] = {{100,9750,13350,0},{320,10655,14416,0},{500,10485,14186,0},
-						{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0}}, 
-		plfilt_test[] = {{100,100,451,0},{320,10655,14416,0},{500,10485,14186,0},
-			{1000,9798,13257,0},{2000,8989,12162,0},{3200,6929,9374,0},{0,0,0,0}}, 
-		deemp_test[] = {{1000,9798,13257,0},{2000,4380,6155,0},{3200,2271,3073,0},{0,0,0,0}}, 
-		sql_test[] = {{3200,0,50,1},{6000,200,375,1},{7200,500,1023,1},{0,0,0,0} };
+	static ROM struct meas flat_test[] = { { 100, 9750, 13350, 0 }, { 320, 10655, 14416, 0 }, { 500, 10485, 14186, 0 },
+			{ 1000, 9798, 13257, 0 }, { 2000, 8989, 12162, 0 }, { 3200, 6929, 9374, 0 }, { 0, 0, 0, 0 } },
+		plfilt_test[] = { { 100, 100, 451, 0 }, { 320, 10655, 14416, 0 }, { 500, 10485, 14186, 0 },
+			{ 1000, 9798, 13257, 0 }, { 2000, 8989, 12162, 0 }, { 3200, 6929, 9374, 0 }, { 0, 0, 0, 0 } },
+		deemp_test[] = { { 1000, 9798, 13257, 0 }, { 2000, 4380, 6155, 0 }, { 3200, 2271, 3073, 0 }, { 0, 0, 0, 0 } },
+		sql_test[] = { { 3200, 0, 50, 1 }, { 6000, 200, 375, 1 }, { 7200, 500, 1023, 1 }, { 0, 0, 0, 0 } };
 
-	static ROM BYTE diaguart[] = {0x55,0xaa,0x69,0};
+	static ROM BYTE diaguart[] = { 0x55, 0xaa, 0x69, 0 };
 #endif
 
 	static DWORD t = 0, t1 = 0, t2 = 0, tdisp = 0;
-	long meas,thresh;
-	WORD i,mypeak;
-	long x,y,z;
+	long meas, thresh;
+	WORD i, mypeak;
+	long x, y, z;
 	static BYTE dispcnt = 0;
 	BOOL isoffline;
 	BOOL qualtx;
@@ -4392,7 +4481,7 @@ void secondary_processing_loop(void)
 				printf(gpsmsg7); /* Print "Warning: GPS Data time period elapsed" */
 			}
 
-			if (gpstimer >((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME)) {
+			if (gpstimer > ((AppConfig.GPSProto == GPS_TSIP) ? GPS_TSIP_MAX_TIME : GPS_NMEA_MAX_TIME)) {
 				printf(logtime()); /* Print current timestamp */
 				printf(gpsmsg6); /* Print "GPS signal lost entirely. Starting again..." */
 				gps_state = GPS_STATE_IDLE;
@@ -4437,23 +4526,59 @@ void secondary_processing_loop(void)
 
 		process_gps();
 
+		/* Run this code every 33 "ADC-rxaudio" sample periods. So, this runs every
+		 * 33 x 125us = 4.125ms.
+		 *
+		 * The constant 33 determines how often we service the squelch, and has downstream
+		 * effects in the squelch routine that set the timing for the 50ms "lookback" and
+		 * 120ms long term squelch averaging.
+		 */
 		if (sqlcount >= 33) {
 			BOOL qualcor;
 			sqlcount = 0;
 			if (AppConfig.Sqpot) { /* Check to see if we are using software squelch pot (yes if true) */
-				service_squelch(adcothers[ADCDIODE],0x3ff - AppConfig.Squelch,adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+				service_squelch(adcothers[ADCDIODE], 0x3ff - AppConfig.Squelch, adcothers[ADCSQNOISE], !CAL, !WVF,
+					(AppConfig.SqlNoiseGain) ? 1 : 0);
 			} else { /* We're using the hardware pot */
-				service_squelch(adcothers[ADCDIODE],0x3ff - adcothers[ADCSQPOT],adcothers[ADCSQNOISE],!CAL,!WVF,(AppConfig.SqlNoiseGain) ? 1: 0);
+				service_squelch(adcothers[ADCDIODE], 0x3ff - adcothers[ADCSQPOT], adcothers[ADCSQNOISE], !CAL, !WVF,
+					(AppConfig.SqlNoiseGain) ? 1 : 0);
 			}
+			/* Toggle the sql2 boolean ever time this code block is entered, so that the code
+			 * gated below runs every OTHER time (every 8.25ms).
+			 */
 			sql2 ^= 1;
+			/* qualcor is a boolean that identifies if COR is qualified. See
+			 * HasCOR() and HasCTCSS() to see under what options/conditions they
+			 * each return true.
+			 */
 			qualcor = (HasCOR() && HasCTCSS());	
 #ifdef	DSPBEW
+			/* qualnoise is a boolean that, when using DSPBEW, tells us if we can
+			 * use the current ADC noise measurement (qualnoise will be true when
+			 * fftresult <= our threshold of FFT_MAX_RESULT), or if the baseband
+			 * is contaminated by voice (and not to use it, qualnoise = 0). If COR
+			 * isn't qualified, the DSP test doesn't matter, so we automatically set
+			 * qualnoise true.
+			 */
 			qualnoise = ((fftresult <= FFT_MAX_RESULT) || (!qualcor)); 
 
+			/* If we are not actually using DSPBEW mode, force qualnoise true (we don't
+			 * care about noise in the baseband, as our measurements take place outside
+			 * of the baseband audio).
+			 */
 			if (!AppConfig.BEWMode) {
 				qualnoise = 1;
 			}
 
+			/* This is a four cycle (defined by QUALCOUNT) qualification/hysteresis buffer
+			 * when using DSPBEW mode.
+			 * 
+			 * If the DSP detects a bad/noisy measurement (qualnoise becomes 0), qualcnt is
+			 * reset to zero. For the next several processing passes, qualnoise remains
+			 * forced to zero even if the FFT result immediately looks good again. This
+			 * prevents the noise estimator from immediately accepting a potentially
+			 * contaminated measurement.
+			 */
 			if (!qualnoise) {
 				qualcnt = 0;
 			}
@@ -4463,16 +4588,44 @@ void secondary_processing_loop(void)
 				qualnoise = 0;
 			}
 #endif
+			/* Every OTHER time we are here (every 66 "ADC-rxaudio" sample periods), reset
+			 * the noise history buffer on a new receiving event, update vnoise32, see if
+			 * we've gone offline and need to send a notification, and update our COR history
+			 * (wascor).
+			 *
+			 * This effectively throttles how fast we're doing things, since we read the ADC
+			 * very frequently.
+			 */
 			if (sql2) {
 				if (qualcor && (!wascor)) {
-					lastvnoise32[0] = lastvnoise32[1] = lastvnoise32[2] = vnoise32 = (DWORD)adcothers[ADCSQNOISE] << 3;
+					/* When COR first becomes active (!wascor), initialize the noise history buffer and
+					 * current noise measurement (vnoise32) with the ADC noise measurement.
+					 *
+					 * This avoids dragging old noise measurements into a new receiving event.
+					 */
+					lastvnoise32[0] = lastvnoise32[1] = lastvnoise32[2] = vnoise32 = (DWORD) adcothers[ADCSQNOISE] << 3;
 				} else {
 #ifdef	DSPBEW
+					/* If we're using DSPBEW, first check to see if we can use the current
+					 * ADC noise measurement (if we are using DSPBEW mode, is the baseband
+					 * quiet enough to use the sample (qualnoise is true), or is it contaminated
+					 * by voice (qualnoise is false)).
+					 */
 					if (qualnoise) 
 #endif
-						vnoise32 = ((vnoise32 * 3) + ((DWORD)adcothers[ADCSQNOISE] << 3)) >> 2;
+					/* Update and filter the current ADC noise measurement. This is effectively a
+					 * constantly running smoothing filter where the resulting vnoise32 contains
+					 * 75% previous values, and 25% the current/new value.
+					 */
+						vnoise32 = ((vnoise32 * 3) + ((DWORD) adcothers[ADCSQNOISE] << 3)) >> 2;
 				}
 
+				/* We just lost the received signal while we're disconnected from the host, and we're
+				 * operating in one of the offline/failover modes where we need to tell the operator.
+				 *
+				 * We set needburp as a pending flag to send the FailString morse message in the
+				 * secondary processing loop.
+				 */
 				if ((!connected) && (!indiag) && (!qualcor) && wascor && (gpssync || (!VOTER_CLIENT) || (!SIMULCAST_ENABLE))) {
 					if (AppConfig.FailMode == OFFLINE_SPLX_TRIG) {
 						needburp = 1;
@@ -4483,26 +4636,48 @@ void secondary_processing_loop(void)
 					}
 				}
 
+				/* Store the current state of COR qualifaction for later. */
 				wascor = qualcor;
 			}
 #ifdef	DSPBEW
+			/* If we're using DSPBEW, first check to see if we can use the current
+			 * ADC noise measurement (if we are using DSPBEW mode, is the baseband
+			 * quiet enough to use the sample (qualnoise is true), or is it contaminated
+			 * by voice (qualnoise is false)).
+			 *
+			 * During steady-state processing, update the noise history buffer only
+			 * when qualnoise is true.
+			 *
+			 * Set mynoise to the previous (middle) sample in the buffer.
+			 */
 			if (qualnoise) {
-				mynoise = (WORD)lastvnoise32[1];
+				mynoise = (WORD) lastvnoise32[1];
 			}
 #else
+			/* Without DSPBEW, we can just set mynoise to the current (filtered) value. */
 			mynoise = vnoise32;
 #endif
 		
+			/* Send calcrssi a filtered ADC noise value (the bit shift allows the filter
+			 * to maintain fractional ADC information internally).
+			 */
 			rssi = calcrssi(mynoise >> 3);
 
+			/* If RSSI rounds down to 0, but we have a valid signal (qualcor is true),
+			 * force rssiheld and rssi to the minimum valid level (1). Otherwise, if
+			 * we let it be 0, the host can interpret it is "no signal", which isn't
+			 * true, since we have qualcor.
+			 */
 			if ((rssi < 1) && (qualcor)) {
 				rssiheld = rssi = 1;
 			}
 
+			/* If we aren't calibrated, don't use the RSSI value, and force it to be 0. */
 			if (!AppConfig.SqlNoiseGain) {
 				rssiheld = rssi = 0;
 			}
 
+			/* Store the current COR value for later. */
 			lastcor = HasCOR();
 
 			if (write_eeprom_cali) {
@@ -4513,16 +4688,16 @@ void secondary_processing_loop(void)
 				}
 				SaveAppConfig();
 				printf(cfgwritten);
-				printf("%d\n",noise_gain);
+				printf("%d\n", noise_gain);
 
 				if (!WVF) {
 					printf(diodewritten);
-					printf("%d\n",caldiode);
+					printf("%d\n", caldiode);
 				}
 			}
 
 			if (!CAL) {
-				SetLED(SQLED,sqled);
+				SetLED(SQLED, sqled);
 			}
 		}
 
@@ -4627,32 +4802,32 @@ void secondary_processing_loop(void)
 
 		if (LEVDISP) {
 			if ((!misstimer1) || (!connected)) {
-				SetLED(CONNLED,connected);
+				SetLED(CONNLED, connected);
 			}
 
 			if ((gps_state == GPS_STATE_SYNCED) || ((gps_state == GPS_STATE_VALID) && (!VOTER_CLIENT))) {
-				SetLED(GPSLED,1);
+				SetLED(GPSLED, 1);
 			} else if (gps_state != GPS_STATE_VALID) {
-				SetLED(GPSLED,0);
+				SetLED(GPSLED, 0);
 			}
 		} else {
 			if (HasCOR() && HasCTCSS()) {
 				mypeak = apeak / (7200 / LEVDISP_FACTOR);
 
 				if (mypeak < dispcnt) {
-					SetLED(CONNLED,1);
+					SetLED(CONNLED, 1);
 				} else {
-					SetLED(CONNLED,0);
+					SetLED(CONNLED, 0);
 				}
 
 				if (mypeak > (dispcnt + LEVDISP_FACTOR)) {
-					SetLED(GPSLED,1);
+					SetLED(GPSLED, 1);
 				} else {
-					SetLED(GPSLED,0);
+					SetLED(GPSLED, 0);
 				}
 			} else {
-				SetLED(GPSLED,0);
-				SetLED(CONNLED,0);
+				SetLED(GPSLED, 0);
+				SetLED(CONNLED, 0);
 			}
 			dispcnt++;
 
@@ -4661,11 +4836,11 @@ void secondary_processing_loop(void)
 			}
 		}
 	
-		if (CAL){	
+		if (CAL) {	
 			if (lastcor && HasCTCSS()) {
-				SetLED(SQLED,1);
+				SetLED(SQLED, 1);
 			} else if ((!lastcor) || ((AppConfig.CORType != 0) && (!HasCTCSS()))) {
-				SetLED(SQLED,0);
+				SetLED(SQLED, 0);
 			}
 		}
 	}
@@ -4728,7 +4903,7 @@ void secondary_processing_loop(void)
 
 		putchar('|');
 		for (i = 0; i < NCOLS; i++) {
-			thresh = (meas * (long)NCOLS) / 16384;
+			thresh = (meas * (long) NCOLS) / 16384;
 			
 			if (i < thresh) {
 				putchar('=');
@@ -4748,27 +4923,27 @@ void secondary_processing_loop(void)
 	/* Dip Switch diagnostic display handler */
 	if (indipsw && (TickGet() - tdisp >= TICK_SECOND / 10ul)) {
 		tdisp = TickGet();
-		printf(" (%s) (%s) (%s) (%s)\r",(!JP8) ? "Down" : " Up ",(!JP9) ? "Down" : " Up ",
-			(!JP10) ? "Down" : " Up ",(!JP11) ? "Down" : " Up ");
+		printf(" (%s) (%s) (%s) (%s)\r", (!JP8) ? "Down" : " Up ", (!JP9) ? "Down" : " Up ", (!JP10) ? "Down" : " Up ",
+			(!JP11) ? "Down" : " Up ");
 		fflush(stdout);
 	}
  
 	/* LED Flash diagnostic handler */
-	if(leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul)) {
+	if (leddiag && (TickGet() - tdisp >= TICK_SECOND * 2ul)) {
 		tdisp = TickGet();
-		SetLED(SQLED,0);
-		SetLED(GPSLED,0);
-		SetLED(CONNLED,0);
+		SetLED(SQLED, 0);
+		SetLED(GPSLED, 0);
+		SetLED(CONNLED, 0);
 		SetPTT(0);
 
 		switch (leddiag) {
 			case 1:
-				SetLED(SQLED,1);
+				SetLED(SQLED, 1);
 			    leddiag = 2;
 				break;
 
 			case 2:
-				SetLED(CONNLED,1);
+				SetLED(CONNLED, 1);
 				leddiag = 3;
 				break;
 	
@@ -4778,7 +4953,7 @@ void secondary_processing_loop(void)
 				break;
 
 			case 4:
-				SetLED(GPSLED,1);
+				SetLED(GPSLED, 1);
 				leddiag = 1;
 				break;
 		}
@@ -4797,7 +4972,7 @@ void secondary_processing_loop(void)
 			for (i = 0; i < NAPEAKS; i++) {
 				accum += apeaks[i];
 			}
-			aval = (WORD)(accum / NAPEAKS);
+			aval = (WORD) (accum / NAPEAKS);
 			if (sqlval < 0) {
 				sqlval = 0;
 			}
@@ -4811,14 +4986,14 @@ void secondary_processing_loop(void)
 				}
 			}
 			if (!isok) {
-				printf(measerr,(m->issql) ? sqlval : aval,m->min,m->max);
+				printf(measerr, (m->issql) ? sqlval : aval, m->min, m->max);
 				errcnt++;
 			}
 			
 			/* Grab next "step" in current measurement sequence. */
 			measidx++;
 			m = (measp + (measidx - 1));
-			memset(apeaks,0,sizeof(apeaks));
+			memset(apeaks, 0, sizeof(apeaks));
 
 			/* If no more steps */
 			if (!m->freq) {
@@ -4829,7 +5004,7 @@ void secondary_processing_loop(void)
 				SetTxTone(m->freq);
 				tdiag = TickGet() + DIAG_WAIT_MEAS;
 				if (measstr) {
-					printf(measmsg,m->freq,measstr);
+					printf(measmsg, m->freq, measstr);
 				}
 			}
 		}
@@ -4863,7 +5038,7 @@ void secondary_processing_loop(void)
 					while (DataRdyUART2()) {
 						ReadUART2();
 					}
-					putrsUART2((ROM char *)diaguart);
+					putrsUART2((ROM char *) diaguart);
 					diagstate = 2;
 					tdiag = TickGet() + DIAG_WAIT_UART; /* Wait 333ms */
 					break;
@@ -4892,63 +5067,63 @@ void secondary_processing_loop(void)
 					diag_option_flags = OPTION_FLAG_FLATAUDIO | OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 3;
-					measp = (struct meas *)flat_test;
-					measstr = (char *)flat_test_str;
+					measp = (struct meas *) flat_test;
+					measstr = (char *) flat_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
-					memset(apeaks,0,sizeof(apeaks));
+					memset(apeaks, 0, sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
+					printf(measmsg, m->freq, measstr);
 					break;
 
 				case 3: /* Perform measurement sequence with de-demphasis enabled. */
 					diag_option_flags = OPTION_FLAG_FLATAUDIO;
 					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 4;
-					measp = (struct meas *)plfilt_test;
-					measstr = (char *)plfilt_test_str;
+					measp = (struct meas *) plfilt_test;
+					measstr = (char *) plfilt_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
-					memset(apeaks,0,sizeof(apeaks));
+					memset(apeaks, 0, sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
+					printf(measmsg, m->freq, measstr);
 					break;
 
 				case 4: /* Perform measurement sequence with CTCSS filter enabled. */
 					diag_option_flags = OPTION_FLAG_NOCTCSSFILTER;
 					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 5;
-					measp = (struct meas *)deemp_test;
-					measstr = (char *)deemp_test_str;
+					measp = (struct meas *) deemp_test;
+					measstr = (char *) deemp_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
-					memset(apeaks,0,sizeof(apeaks));
+					memset(apeaks, 0, sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
+					printf(measmsg, m->freq, measstr);
 					break;
 
 				case 5: /* Perform measurement sequence of squelch noise detector. */
 					diag_option_flags = 0;
 					SetAudioSrc(); /* Reconfigure our audio filtering, based on our diag_option_flags. */
 					diagstate = 255;
-					measp = (struct meas *)sql_test;
-					measstr = (char *)sql_test_str;
+					measp = (struct meas *) sql_test;
+					measstr = (char *) sql_test_str;
 					measidx = 1;
 					m = (measp + (measidx - 1));
 					set_atten(DIAG_NOISE_GAIN);
-					memset(apeaks,0,sizeof(apeaks));
+					memset(apeaks, 0, sizeof(apeaks));
 					SetTxTone(m->freq);
 					tdiag = TickGet() + DIAG_WAIT_MEAS;
-					printf(measmsg,m->freq,measstr);
+					printf(measmsg, m->freq, measstr);
 					break;
 
 				case 255: /* No more measurements to do. */
 					tdiag = 0;
 					if (errcnt) {
-						printf(diagfail,errcnt);
+						printf(diagfail, errcnt);
 					} else {
 						printf(diagpass);
 					}
@@ -4974,27 +5149,27 @@ void secondary_processing_loop(void)
 
 	if (dnsnotify == 1) {
 		printf(logtime());
-		printf(dnschanged,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+		printf(dnschanged, MyVoterAddr.v[0], MyVoterAddr.v[1], MyVoterAddr.v[2], MyVoterAddr.v[3]);
 	} else if (dnsnotify == 2) {
 		printf(logtime());
-		printf(dnsfailed,AppConfig.VoterServerFQDN); /* Print "Warning: Unable to resolve DNS for Voter Host" */
+		printf(dnsfailed, AppConfig.VoterServerFQDN); /* Print "Warning: Unable to resolve DNS for Voter Host" */
 	}
 
 	dnsnotify = 0;
 
 	if (altdnsnotify == 1) {
 		printf(logtime());
-		printf(altdnschanged,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+		printf(altdnschanged, MyAltVoterAddr.v[0], MyAltVoterAddr.v[1], MyAltVoterAddr.v[2], MyAltVoterAddr.v[3]);
 	} else if (altdnsnotify == 2) {
 		printf(logtime());
-		printf(altdnsfailed,AppConfig.AltVoterServerFQDN); /* Print "Warning: Unable to resolve DNS for Voter Host" */
+		printf(altdnsfailed, AppConfig.AltVoterServerFQDN); /* Print "Warning: Unable to resolve DNS for Voter Host" */
 	}
 
 	altdnsnotify = 0;
 
 	if (missed && (!misstimer)) {
 		printf(logtime());
-		printf(miss_str,-missed); /* Print "Inbound (Eth Rx) packet out of bounds by:" */
+		printf(miss_str, -missed); /* Print "Inbound (Eth Rx) packet out of bounds by:" */
 		misstimer = MISS_REPORT_TIME;
 		missed = 0;
 	}
@@ -5002,11 +5177,11 @@ void secondary_processing_loop(void)
 	if (!indiag) {
 		if ((!connected) && connrep) {
 			printf(logtime());
-			printf(losthost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(losthost, (althost) ? "Alt" : "Pri", CurVoterAddr.v[0], CurVoterAddr.v[1], CurVoterAddr.v[2], CurVoterAddr.v[3]);
 			connrep = 0;
 		} else if (connected && (!connrep)) {
 			printf(logtime());
-			printf(gothost,(althost) ? "Alt" : "Pri",CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(gothost, (althost) ? "Alt" : "Pri", CurVoterAddr.v[0], CurVoterAddr.v[1], CurVoterAddr.v[2], CurVoterAddr.v[3]);
 			connrep = 1;
 		}
 
@@ -5020,33 +5195,39 @@ void secondary_processing_loop(void)
 		} else if (AppConfig.FailMode && (!cwptr) && (!cwtimer1) && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			if (connected) {
 				if ((connfail == 2) && AppConfig.UnFailString[0]) {
-					domorse((char *)AppConfig.UnFailString);
+					domorse((char *) AppConfig.UnFailString);
 					connfail = 1;
 				}
 			} else {
 				if ((connfail == 1) && AppConfig.FailString[0]) {
-					domorse((char *)AppConfig.FailString);
+					domorse((char *) AppConfig.FailString);
 					connfail = 2;
 					failtimer = 0;
 				}
 			}
 
 			if ((connfail == 2) && AppConfig.FailTime && (failtimer >= AppConfig.FailTime) && AppConfig.FailString[0]) {
-				domorse((char *)AppConfig.FailString);
+				domorse((char *) AppConfig.FailString);
 				failtimer = 0;
 			}
 		}
 
+		/* Clear needburp (pending notification that we've gone offline) immediately, if our
+		 * host connection is re-established.
+		 */
 		if (connected) {
 			needburp = 0;
 		}
 
+		/* When it is "safe" to do so (no other pending CW messages), send the pending offline
+		 * notification that was flagged with needburp, and reset the flag.
+		 */
 		if (needburp && (!cwptr) && (!cwtimer1) && AppConfig.FailString[0] && (gpssync || (!SIMULCAST_ENABLE) || (!VOTER_CLIENT))) {
 			needburp = 0;
 			if (!connfail) {
 				connfail = 2;
 			}
-			domorse((char *)AppConfig.FailString);
+			domorse((char *) AppConfig.FailString);
 			failtimer = 0;
 		}
 	}
@@ -5054,7 +5235,7 @@ void secondary_processing_loop(void)
 	/* If the local IP address has changed (ex: due to DHCP lease change)
 	 * write the new IP address to the LCD display, UART, and Announce service
 	 */
-	if(dwLastIP != AppConfig.MyIPAddr.Val) {
+	if (dwLastIP != AppConfig.MyIPAddr.Val) {
 		dwLastIP = AppConfig.MyIPAddr.Val;
 		printf(ipinfo); /* Print "IP Configuration Info:" */
 
@@ -5064,9 +5245,9 @@ void secondary_processing_loop(void)
 			printf(ipwithstatic); /* Print "Static IP Configuration" */
 		}
 
-		printf(ipipaddr,AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3]);
-		printf(ipsubnet,AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3]);
-		printf(ipgateway,AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3]);
+		printf(ipipaddr, AppConfig.MyIPAddr.v[0], AppConfig.MyIPAddr.v[1], AppConfig.MyIPAddr.v[2], AppConfig.MyIPAddr.v[3]);
+		printf(ipsubnet, AppConfig.MyMask.v[0], AppConfig.MyMask.v[1], AppConfig.MyMask.v[2], AppConfig.MyMask.v[3]);
+		printf(ipgateway, AppConfig.MyGateway.v[0], AppConfig.MyGateway.v[1], AppConfig.MyGateway.v[2], AppConfig.MyGateway.v[3]);
 
 #ifdef STACK_USE_ANNOUNCE
 		AnnounceIP();
@@ -5077,15 +5258,15 @@ void secondary_processing_loop(void)
 		if (altchange) {
 			printf(logtime());
 			if (althost) {
-				printf(altdnshost,MyAltVoterAddr.v[0],MyAltVoterAddr.v[1],MyAltVoterAddr.v[2],MyAltVoterAddr.v[3]);
+				printf(altdnshost, MyAltVoterAddr.v[0], MyAltVoterAddr.v[1], MyAltVoterAddr.v[2], MyAltVoterAddr.v[3]);
 			} else {
-				printf(dnshost,MyVoterAddr.v[0],MyVoterAddr.v[1],MyVoterAddr.v[2],MyVoterAddr.v[3]);
+				printf(dnshost, MyVoterAddr.v[0], MyVoterAddr.v[1], MyVoterAddr.v[2], MyVoterAddr.v[3]);
 			}
 		}
 
 		if (altchange1) {
 			printf(logtime());
-			printf(dnsusing,CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3]);
+			printf(dnsusing, CurVoterAddr.v[0], CurVoterAddr.v[1], CurVoterAddr.v[2], CurVoterAddr.v[3]);
 		}
 	}
 
@@ -5094,7 +5275,6 @@ void secondary_processing_loop(void)
 }
 /***************End of Secondary Processing Loop*******************************/
 
-
 int write(int handle, void *buffer, unsigned int len)
 {
 	int i;
@@ -5102,7 +5282,7 @@ int write(int handle, void *buffer, unsigned int len)
 	i = len;
 
 	if ((handle >= 0) && (handle <= 2)) {
-			cp = (BYTE *)buffer;
+			cp = (BYTE *) buffer;
 			while (i--) {
 				while (BusyUART()) {
 					main_processing_loop();
@@ -5132,13 +5312,13 @@ int write(int handle, void *buffer, unsigned int len)
 			}
 		} else {
 			errno = EBADF;
-			return(-1);
+			return (-1);
 		}
 
-	return(len);
+	return (len);
 }
 
-int read(int handle,void *buffer, unsigned int len)
+int read(int handle, void *buffer, unsigned int len)
 {
 	return 0;
 }
@@ -5146,7 +5326,7 @@ int read(int handle,void *buffer, unsigned int len)
 int myfgets(char *dest, unsigned int len)
 {
 	BYTE c;
-	int count,x;
+	int count, x;
 	ClrWdt();
 	fflush(stdout);
 	inread = 1;
@@ -5154,7 +5334,7 @@ int myfgets(char *dest, unsigned int len)
 	count = 0;
 	while (count < len) {
 		dest[count] = 0;
-		for(;;) {
+		for (;;) {
 			ClrWdt();
 
 			if ((!netisup) && ((!AppConfig.Flags.bIsDHCPEnabled) || (!AppConfig.Flags.bInConfigMode))) {
@@ -5304,7 +5484,6 @@ int myfgets(char *dest, unsigned int len)
 				main_processing_loop();
 			}
 		}
-
 	}
 
 	while (BusyUART()) {
@@ -5324,13 +5503,13 @@ int myfgets(char *dest, unsigned int len)
 	WriteUART('\n');
 
 	if (netisup) {
-		while(!PutTelnetConsole('\n')) {
+		while (!PutTelnetConsole('\n')) {
 			main_processing_loop();
 		}
 	}
 
 	inread = 0;
-	return(count);
+	return (count);
 }
 
 /****************************************************************************/
@@ -5341,7 +5520,7 @@ int myfgets(char *dest, unsigned int len)
 static void SetDynDNS(void)
 {
 	static ROM BYTE checkip[] = "checkip.dyndns.com", update[] = "members.dyndns.org";
-	memset(&DDNSClient,0,sizeof(DDNSClient));
+	memset(&DDNSClient, 0, sizeof(DDNSClient));
 
 	if (AppConfig.DynDNSEnable) {
 		DDNSClient.CheckIPServer.szROM = checkip;
@@ -5386,10 +5565,11 @@ static void DiagMenu()
 	connfail = 0;
 	connrep = 0;
 	
-	while(1) {
-		int i,sel;
+	while (1) {
+		int i, sel;
 
-		ROMNOBEW char menu[] = "Select the following Diagnostic functions:\n\n" 
+		ROMNOBEW char menu[] =
+			"Select the following Diagnostic functions:\n\n"
 		"1  - Set Initial Tone Level (and assert PTT)\n"
 		"2  - Display Value of DIP Switches\n"
 		"3  - Flash LED's in sequence\n"
@@ -5400,26 +5580,26 @@ static void DiagMenu()
 		dipstr[] = "Dip Switch Values\n\n   SW1    SW2    SW3    SW4\n",
 		diodewarn[] = "Warning!! VF Diode NOT calibrated!!!\n\n",
 		ledstr[] = "LED's will flash as follows: Squelch (Top Green), GPS (Middle Yellow),\n"
-				"PTT (Red), Host (Top, Right Yellow). System LED will continue flashing\nat fast speed.\n",
+			"PTT (Red), Host (Top, Right Yellow). System LED will continue flashing\nat fast speed.\n",
 		diagstr[] = "Running Diagnostics...\n\n";
 
 		printf(menu);
 		fflush(stdout);
-		SetLED(SQLED,0);
-		SetLED(GPSLED,0);
-		SetLED(CONNLED,0);
+		SetLED(SQLED, 0);
+		SetLED(GPSLED, 0);
+		SetLED(CONNLED, 0);
 		SetPTT(0);
 		aborted = 0;
 
-		while(!aborted) {
+		while (!aborted) {
 			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
+			memset(cmdstr, 0, sizeof(cmdstr));
 
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) {
+			if (!myfgets(cmdstr, sizeof(cmdstr) - 1)) {
 				continue;
 			}
 
-			if (!strchr(cmdstr,'!')) {
+			if (!strchr(cmdstr, '!')) {
 				break;
 			}
 		}
@@ -5428,25 +5608,25 @@ static void DiagMenu()
 			continue;
 		}
 
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q')) {
+		if ((strchr(cmdstr, 'Q')) || strchr(cmdstr, 'q')) {
 			CloseTelnetConsole();
 			continue;
 		}
 	
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r')) {
+		if ((strchr(cmdstr, 'R')) || strchr(cmdstr, 'r')) {
 			CloseTelnetConsole();
 			printf(booting); /* Print "System Re-Booting..." */
 			RTCM_Reset();
 		}
 
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x')) {
+		if ((strchr(cmdstr, 'X')) || strchr(cmdstr, 'x')) {
 			break;
 		}
 
 		printf(" \n");
 		sel = atoi(cmdstr);
 
-		switch(sel) {
+		switch (sel) {
 			case 1: /* Send 1000Hz Tone, display RX level quasi-graphically */
 				SetPTT(1); 
 				SetTxTone(1000);
@@ -5459,7 +5639,7 @@ static void DiagMenu()
 				
 				printf(rxvoicestr);
 				indisplay = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				indisplay = 0;
 				SetPTT(0);
 				SetTxTone(0);
@@ -5468,7 +5648,7 @@ static void DiagMenu()
 			case 2: /* Dip switch test */  
 				printf(dipstr);
 				indipsw = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				indipsw = 0;
 				printf("\n\n");
 				continue;
@@ -5478,7 +5658,7 @@ static void DiagMenu()
 				leddiag = 1;
  				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				leddiag = 0;
 				printf("\n\n");
 				continue;
@@ -5493,7 +5673,7 @@ static void DiagMenu()
 				errcnt = 0;
 				diagstate = 1;
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				measp = 0;
 				measidx = 0;
 				measstr = 0;
@@ -5551,60 +5731,60 @@ static void DiagMenu()
 /****************************************************************************/
 static void IPMenu()
 {
-	while(1) {
-		unsigned int i1,i2,i3,i4,x;
-		BOOL bootok,ok;
+	while (1) {
+		unsigned int i1, i2, i3, i4, x;
+		BOOL bootok, ok;
 		int sel;
-		static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
-		"1  - (Static) IP Address (%d.%d.%d.%d)\n", menu1[] = 
-		"2  - (Static) Netmask (%d.%d.%d.%d)\n", menu2[] = 
-		"3  - (Static) Gateway (%d.%d.%d.%d)\n", menu3[] = 
-		"4  - (Static) Primary DNS Server (%d.%d.%d.%d)\n", menu4[] = 
-		"5  - (Static) Secondary DNS Server (%d.%d.%d.%d)\n", menu5[] = 
+		static ROMNOBEW char menu[] = "\nIP Parameters Menu\n\nSelect the following values to View/Modify:\n\n"
+		"1  - (Static) IP Address (%d.%d.%d.%d)\n", menu1[] =
+		"2  - (Static) Netmask (%d.%d.%d.%d)\n", menu2[] =
+		"3  - (Static) Gateway (%d.%d.%d.%d)\n", menu3[] =
+		"4  - (Static) Primary DNS Server (%d.%d.%d.%d)\n", menu4[] =
+		"5  - (Static) Secondary DNS Server (%d.%d.%d.%d)\n", menu5[] =
 		"6  - DHCP Enable (%d)\n"
 		"7  - Telnet Port (%d)\n"
 		"8  - Telnet Username (%s)\n"
 		"9  - Telnet Password (%s)\n"
-		"10 - DynDNS Enable (%d)\n", menu6[] = 
+		"10 - DynDNS Enable (%d)\n", menu6[] =
 		"11 - DynDNS Username (%s)\n"
 		"12 - DynDNS Password (%s)\n"
-		"13 - DynDNS Host (%s)\n", menu7[] = 
+		"13 - DynDNS Host (%s)\n", menu7[] =
 		"14 - BootLoader IP Address (%d.%d.%d.%d) (%s)\n"
-		"15 - Ethernet Duplex (0=Half, 1=Full) (%d)\n", menu8[] = 
+		"15 - Ethernet Duplex (0=Half, 1=Full) (%d)\n", menu8[] =
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit IP Parameters Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-14,99,c,x,q,r) : ";
 
 		bootok = ((AppConfig.BootIPCheck == GetBootCS()));
-		printf(menu,AppConfig.DefaultIPAddr.v[0],AppConfig.DefaultIPAddr.v[1],
-			AppConfig.DefaultIPAddr.v[2],AppConfig.DefaultIPAddr.v[3]);
+		printf(menu,AppConfig.DefaultIPAddr.v[0], AppConfig.DefaultIPAddr.v[1], AppConfig.DefaultIPAddr.v[2],
+			AppConfig.DefaultIPAddr.v[3]);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu1,AppConfig.DefaultMask.v[0],AppConfig.DefaultMask.v[1],
-			AppConfig.DefaultMask.v[2],AppConfig.DefaultMask.v[3]);
+		printf(menu1,AppConfig.DefaultMask.v[0], AppConfig.DefaultMask.v[1], AppConfig.DefaultMask.v[2],
+			AppConfig.DefaultMask.v[3]);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu2,AppConfig.DefaultGateway.v[0],AppConfig.DefaultGateway.v[1],
-			AppConfig.DefaultGateway.v[2],AppConfig.DefaultGateway.v[3]);
+		printf(menu2,AppConfig.DefaultGateway.v[0], AppConfig.DefaultGateway.v[1], AppConfig.DefaultGateway.v[2],
+			AppConfig.DefaultGateway.v[3]);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu3,AppConfig.DefaultPrimaryDNSServer.v[0],AppConfig.DefaultPrimaryDNSServer.v[1],
-			AppConfig.DefaultPrimaryDNSServer.v[2],AppConfig.DefaultPrimaryDNSServer.v[3]);
+		printf(menu3,AppConfig.DefaultPrimaryDNSServer.v[0], AppConfig.DefaultPrimaryDNSServer.v[1],
+			AppConfig.DefaultPrimaryDNSServer.v[2], AppConfig.DefaultPrimaryDNSServer.v[3]);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu4,AppConfig.DefaultSecondaryDNSServer.v[0],AppConfig.DefaultSecondaryDNSServer.v[1],
-			AppConfig.DefaultSecondaryDNSServer.v[2],AppConfig.DefaultSecondaryDNSServer.v[3]);
+		printf(menu4,AppConfig.DefaultSecondaryDNSServer.v[0], AppConfig.DefaultSecondaryDNSServer.v[1],
+			AppConfig.DefaultSecondaryDNSServer.v[2], AppConfig.DefaultSecondaryDNSServer.v[3]);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu5,AppConfig.Flags.bIsDHCPReallyEnabled,
-			AppConfig.TelnetPort,AppConfig.TelnetUsername,AppConfig.TelnetPassword,AppConfig.DynDNSEnable);
+		printf(menu5,AppConfig.Flags.bIsDHCPReallyEnabled, AppConfig.TelnetPort,AppConfig.TelnetUsername,
+			AppConfig.TelnetPassword, AppConfig.DynDNSEnable);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu6,AppConfig.DynDNSUsername,AppConfig.DynDNSPassword,AppConfig.DynDNSHost);
+		printf(menu6, AppConfig.DynDNSUsername, AppConfig.DynDNSPassword, AppConfig.DynDNSHost);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu7,AppConfig.BootIPAddr.v[0],AppConfig.BootIPAddr.v[1],AppConfig.BootIPAddr.v[2],
-			AppConfig.BootIPAddr.v[3],(bootok) ? "OK" : "BAD",AppConfig.EthFullDuplex);
+		printf(menu7, AppConfig.BootIPAddr.v[0], AppConfig.BootIPAddr.v[1], AppConfig.BootIPAddr.v[2], AppConfig.BootIPAddr.v[3],
+			(bootok) ? "OK" : "BAD", AppConfig.EthFullDuplex);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu8);
@@ -5613,13 +5793,13 @@ static void IPMenu()
 
 		while (!aborted) {
 			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
+			memset(cmdstr, 0, sizeof(cmdstr));
 
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) {
+			if (!myfgets(cmdstr, sizeof(cmdstr) - 1)) {
 				continue;
 			}
 
-			if (!strchr(cmdstr,'!')) {
+			if (!strchr(cmdstr, '!')) {
 				break;
 			}
 		}
@@ -5628,18 +5808,18 @@ static void IPMenu()
 			continue;
 		}
 
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q')) {
+		if ((strchr(cmdstr, 'Q')) || strchr(cmdstr, 'q')) {
 			CloseTelnetConsole();
 			continue;
 		}
 
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r')) {
+		if ((strchr(cmdstr, 'R')) || strchr(cmdstr, 'r')) {
 			CloseTelnetConsole();
 			printf(booting); /* Print "System Re-Booting..." */
 			RTCM_Reset();
 		}
 
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x')) {
+		if ((strchr(cmdstr, 'X')) || strchr(cmdstr, 'x')) {
 			break;
 		}
 
@@ -5653,7 +5833,7 @@ static void IPMenu()
 				continue;
 			}
 
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2)) {
+			if ((!myfgets(cmdstr, sizeof(cmdstr) - 1)) || (strlen(cmdstr) < 2)) {
 				printf(newvalnotchanged);
 				continue;
 			}
@@ -5666,7 +5846,7 @@ static void IPMenu()
 		ok = 0;
 		switch (sel) {
 			case 1: /* Default IP address */
-				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
+				if ((sscanf(cmdstr, "%d.%d.%d.%d", &i1, &i2, &i3, &i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
 					AppConfig.DefaultIPAddr.v[0] = i1;
 					AppConfig.DefaultIPAddr.v[1] = i2;
 					AppConfig.DefaultIPAddr.v[2] = i3;
@@ -5676,7 +5856,7 @@ static void IPMenu()
 				break;
 
 			case 2: /* Default netmask */
-				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
+				if ((sscanf(cmdstr, "%d.%d.%d.%d", &i1, &i2, &i3, &i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
 					AppConfig.DefaultMask.v[0] = i1;
 					AppConfig.DefaultMask.v[1] = i2;
 					AppConfig.DefaultMask.v[2] = i3;
@@ -5686,7 +5866,7 @@ static void IPMenu()
 				break;
 
 			case 3: /* Default gateway */
-				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
+				if ((sscanf(cmdstr, "%d.%d.%d.%d", &i1, &i2, &i3, &i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
 					AppConfig.DefaultGateway.v[0] = i1;
 					AppConfig.DefaultGateway.v[1] = i2;
 					AppConfig.DefaultGateway.v[2] = i3;
@@ -5696,7 +5876,7 @@ static void IPMenu()
 				break;
 
 			case 4: /* Default primary DNS */
-				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
+				if ((sscanf(cmdstr, "%d.%d.%d.%d", &i1, &i2, &i3, &i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
 					AppConfig.DefaultPrimaryDNSServer.v[0] = i1;
 					AppConfig.DefaultPrimaryDNSServer.v[1] = i2;
 					AppConfig.DefaultPrimaryDNSServer.v[2] = i3;
@@ -5706,7 +5886,7 @@ static void IPMenu()
 				break;
 
 			case 5: /* Default secondary DNS */
-				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
+				if ((sscanf(cmdstr, "%d.%d.%d.%d", &i1, &i2, &i3, &i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
 					AppConfig.DefaultSecondaryDNSServer.v[0] = i1;
 					AppConfig.DefaultSecondaryDNSServer.v[1] = i2;
 					AppConfig.DefaultSecondaryDNSServer.v[2] = i3;
@@ -5716,14 +5896,14 @@ static void IPMenu()
 				break;
 
 			case 6: /* DHCP Enable */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.Flags.bIsDHCPReallyEnabled = i1;
 					ok = 1;
 				}
 				break;
 
 			case 7: /* Telnet Port */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.TelnetPort = i1;
 					ok = 1;
 				}
@@ -5734,7 +5914,7 @@ static void IPMenu()
 
 				if ((x > 2) && (x < sizeof(AppConfig.TelnetUsername))) {
 					cmdstr[x - 1] = 0;
-					strcpy((char *)AppConfig.TelnetUsername,cmdstr);
+					strcpy((char *) AppConfig.TelnetUsername, cmdstr);
 					ok = 1;
 				}
 				break;
@@ -5744,13 +5924,13 @@ static void IPMenu()
 
 				if ((x > 2) && (x < sizeof(AppConfig.TelnetPassword))) {
 					cmdstr[x - 1] = 0;
-					strcpy((char *)AppConfig.TelnetPassword,cmdstr);
+					strcpy((char *) AppConfig.TelnetPassword, cmdstr);
 					ok = 1;
 				}
 				break;
 
 			case 10: /* DynDNS enable */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.DynDNSEnable = i1;
 					ok = 1;
 					SetDynDNS();
@@ -5762,7 +5942,7 @@ static void IPMenu()
 
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSUsername))) {
 					cmdstr[x - 1] = 0;
-					strcpy((char *)AppConfig.DynDNSUsername,cmdstr);
+					strcpy((char *) AppConfig.DynDNSUsername, cmdstr);
 					ok = 1;
 					SetDynDNS();
 				}
@@ -5773,7 +5953,7 @@ static void IPMenu()
 
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSPassword))) {
 					cmdstr[x - 1] = 0;
-					strcpy((char *)AppConfig.DynDNSPassword,cmdstr);
+					strcpy((char *) AppConfig.DynDNSPassword, cmdstr);
 					ok = 1;
 					SetDynDNS();
 				}
@@ -5784,14 +5964,14 @@ static void IPMenu()
 
 				if ((x > 2) && (x < sizeof(AppConfig.DynDNSHost))) {
 					cmdstr[x - 1] = 0;
-					strcpy((char *)AppConfig.DynDNSHost,cmdstr);
+					strcpy((char *) AppConfig.DynDNSHost, cmdstr);
 					ok = 1;
 					SetDynDNS();
 				}
 				break;
 
 			case 14: /* BootLoader IP address */
-				if ((sscanf(cmdstr,"%d.%d.%d.%d",&i1,&i2,&i3,&i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
+				if ((sscanf(cmdstr, "%d.%d.%d.%d", &i1, &i2, &i3, &i4) == 4) && (i1 < 256) && (i2 < 256) && (i3 < 256) && (i4 < 256)) {
 					AppConfig.BootIPAddr.v[0] = i1;
 					AppConfig.BootIPAddr.v[1] = i2;
 					AppConfig.BootIPAddr.v[2] = i3;
@@ -5802,7 +5982,7 @@ static void IPMenu()
 				break;
 
 			case 15: /* Ethernet duplex setting */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.EthFullDuplex = i1;
 					ok = 1;
 				}
@@ -5827,49 +6007,49 @@ static void IPMenu()
 /****************************************************************************/
 static void OffLineMenu()
 {
-	while(1) {
-		unsigned int i1,x;
+	while (1) {
+		unsigned int i1, x;
 		BOOL ok;
 		int sel;
 		float f;
 
-		static /*ROM*/ char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+		static /*ROM*/ char menu[] = "\nOffLine Mode Parameters Menu\n\nSelect the following values to View/Modify:\n\n"
 		"1  - Offline Mode (0=NONE, 1=Simplex, 2=Simplex w/Trigger, 3=Repeater) (%d)\n"
 		"2  - CW Speed (%u) (1/8000 secs)\n"
 		"3  - Pre-CW Delay (%u) (1/8000 secs)\n"
-		"4  - Post-CW Delay (%u) (1/8000 secs)\n", menu1[] = 
+		"4  - Post-CW Delay (%u) (1/8000 secs)\n", menu1[] =
 		"5  - CW \"Offline\" (ID) String (%s)\n"
 		"6  - CW \"Online\" String (%s)\n"
 		"7  - \"Offline\" (CW ID) Period Time (%u) (1/10 secs)\n"
-		"8  - Offline Repeat Hang Time (%u) (1/10 secs)\n", menu1a[] = 
+		"8  - Offline Repeat Hang Time (%u) (1/10 secs)\n", menu1a[] =
 		"9  - Offline CTCSS Tone (%.1f) Hz\n"
 		"10 - Offline CTCSS Level (0-32767) (%d)\n"
-		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n", menu2[] = 
+		"11 - Offline De-Emphasis Override (0=NORMAL, 1=OVERRIDE) (%d)\n", menu2[] =
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit OffLine Mode Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-9,99,c,x,q,r) : ";
 
-		printf(menu,AppConfig.FailMode,AppConfig.CWSpeed,AppConfig.CWBeforeTime,AppConfig.CWAfterTime);
+		printf(menu, AppConfig.FailMode, AppConfig.CWSpeed, AppConfig.CWBeforeTime, AppConfig.CWAfterTime);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu1,AppConfig.FailString,AppConfig.UnFailString,AppConfig.FailTime,AppConfig.HangTime);
+		printf(menu1, AppConfig.FailString, AppConfig.UnFailString, AppConfig.FailTime, AppConfig.HangTime);
 		main_processing_loop();
-		printf(menu1a,(double)AppConfig.CTCSSTone,AppConfig.CTCSSLevel,AppConfig.OffLineNoDeemp);
+		printf(menu1a, (double) AppConfig.CTCSSTone, AppConfig.CTCSSLevel, AppConfig.OffLineNoDeemp);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu2);
 		fflush(stdout);
 		aborted = 0;
 
-		while(!aborted) {
+		while (!aborted) {
 			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
+			memset(cmdstr, 0, sizeof(cmdstr));
 
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) {
+			if (!myfgets(cmdstr, sizeof(cmdstr) - 1)) {
 				continue;
 			}
 
-			if (!strchr(cmdstr,'!')) {
+			if (!strchr(cmdstr, '!')) {
 				break;
 			}
 		}
@@ -5878,18 +6058,18 @@ static void OffLineMenu()
 			continue;
 		}
 
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q')) {
+		if ((strchr(cmdstr, 'Q')) || strchr(cmdstr, 'q')) {
 			CloseTelnetConsole();
 			continue;
 		}
 
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r')) {
+		if ((strchr(cmdstr, 'R')) || strchr(cmdstr, 'r')) {
 			CloseTelnetConsole();
 			printf(booting); /* Print "System Re-Booting..." */
 			RTCM_Reset();
 		}
 
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x')) {
+		if ((strchr(cmdstr, 'X')) || strchr(cmdstr, 'x')) {
 			break;
 		}
 
@@ -5903,7 +6083,7 @@ static void OffLineMenu()
 				continue;
 			}
 
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) ||  ((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6)))) {
+			if ((!myfgets(cmdstr, sizeof(cmdstr) - 1)) ||  ((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6)))) {
 				printf(newvalnotchanged);
 				continue;
 			}
@@ -5917,28 +6097,28 @@ static void OffLineMenu()
 
 		switch (sel) {
 			case 1: /* Fail Mode */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 3)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 3)) {
 					AppConfig.FailMode = i1;
 					ok = 1;
 				}
 				break;
 
 			case 2: /* CW Speed */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 100)) {
+				if ((sscanf(cmdstr,"%u", &i1) == 1) && (i1 >= 100)) {
 					AppConfig.CWSpeed = i1;
 					ok = 1;
 				}
 				break;
 
 			case 3: /* Pre-CW Delay */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.CWBeforeTime = i1;
 					ok = 1;
 				}
 				break;
 
 			case 4: /* Post-CW Delay */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.CWAfterTime = i1;
 					ok = 1;
 				}
@@ -5950,7 +6130,7 @@ static void OffLineMenu()
 				if ((x > 0) && (x < sizeof(AppConfig.FailString))) {
 					cmdstr[x - 1] = 0;
 					strupr(cmdstr);
-					strcpy((char *)AppConfig.FailString,cmdstr);
+					strcpy((char *) AppConfig.FailString, cmdstr);
 					ok = 1;
 				}
 				break;
@@ -5961,20 +6141,20 @@ static void OffLineMenu()
 				if ((x > 0) && (x < sizeof(AppConfig.UnFailString))) {
 					cmdstr[x - 1] = 0;
 					strupr(cmdstr);
-					strcpy((char *)AppConfig.UnFailString,cmdstr);
+					strcpy((char *) AppConfig.UnFailString, cmdstr);
 					ok = 1;
 				}
 				break;
 
 			case 7: /* Offline (ID) Period Time */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.FailTime = i1;
 					ok = 1;
 				}
 				break;
 
 			case 8: /* Hang Time */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr,"%u", &i1) == 1) {
 					AppConfig.HangTime = i1;
 					ok = 1;
 				}
@@ -5985,21 +6165,21 @@ static void OffLineMenu()
 
 				if ((f == 0.0) || ((f >= 60.0) && (f <= 300.0))) {
 					AppConfig.CTCSSTone = f;
-					SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
+					SetCTCSSTone(AppConfig.CTCSSTone, AppConfig.CTCSSLevel);
 					ok = 1;
 				}
 				break;
 
 			case 10: /* CTCSS Level */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 32767)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 32767)) {
 					AppConfig.CTCSSLevel = i1;
-					SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
+					SetCTCSSTone(AppConfig.CTCSSTone, AppConfig.CTCSSLevel);
 					ok = 1;
 				}
 				break;
 
 			case 11: /* DEEMP Override */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 1)) {
 					AppConfig.OffLineNoDeemp = i1;
 					ok = 1;
 				}
@@ -6024,36 +6204,35 @@ static void OffLineMenu()
 /****************************************************************************/
 static void SquelchMenu()
 {
-
-	while(1) {
+	while (1) {
 		unsigned int i1;
 		BOOL ok;
 		int sel;
 
-		static /*ROM*/ char menu[] = "\nSquelch Parameters Menu\n\nSelect the following values to View/Modify:\n\n" 
+		static /*ROM*/ char menu[] = "\nSquelch Parameters Menu\n\nSelect the following values to View/Modify:\n\n"
 		"1  - Squelch Pot (0=Hardware, 1=Software) (%d)\n"
 		"2  - Squelch Setting (1-1023) (%d)\n"
-		"3  - Hysteresis (1-100) (%d)\n", menu1[] = 
+		"3  - Hysteresis (1-100) (%d)\n", menu1[] =
 		"99 - Save Values to EEPROM\n"
 		"x  - Exit Squelch Parameter Menu (back to main menu)\nq  - Disconnect Remote Console Session, r - reboot system\n\n",
 		entsel[] = "Enter Selection (1-3,99,x,q,r) : ";
 
-		printf(menu,AppConfig.Sqpot,AppConfig.Squelch,AppConfig.Hysteresis);
+		printf(menu, AppConfig.Sqpot, AppConfig.Squelch, AppConfig.Hysteresis);
 		main_processing_loop();
 		secondary_processing_loop();
 		printf(menu1);
 		fflush(stdout);
 		aborted = 0;
 
-		while(!aborted) {
+		while (!aborted) {
 			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
+			memset(cmdstr, 0, sizeof(cmdstr));
 
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) {
+			if (!myfgets(cmdstr, sizeof(cmdstr) - 1)) {
 				continue;
 			}
 
-			if (!strchr(cmdstr,'!')) {
+			if (!strchr(cmdstr, '!')) {
 				break;
 			}
 		}
@@ -6062,18 +6241,18 @@ static void SquelchMenu()
 			continue;
 		}
 
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q')) {
+		if ((strchr(cmdstr, 'Q')) || strchr(cmdstr, 'q')) {
 			CloseTelnetConsole();
 			continue;
 		}
 
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r')) {
+		if ((strchr(cmdstr, 'R')) || strchr(cmdstr, 'r')) {
 			CloseTelnetConsole();
 			printf(booting); /* Print "System Re-Booting..." */
 			RTCM_Reset();
 		}
 
-		if ((strchr(cmdstr,'X')) || strchr(cmdstr,'x')) {
+		if ((strchr(cmdstr, 'X')) || strchr(cmdstr, 'x')) {
 			break;
 		}
 
@@ -6087,7 +6266,7 @@ static void SquelchMenu()
 				continue;
 			}
 
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6)))) {
+			if ((!myfgets(cmdstr, sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && ((sel < 5) || (sel > 6)))) {
 				printf(newvalnotchanged);
 				continue;
 			}
@@ -6101,21 +6280,22 @@ static void SquelchMenu()
 
 		switch (sel) {
 			case 1: /* Hardware Pot or Software Pot */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.Sqpot = i1;
 					ok = 1;
 				}
 				break;
 
 			case 2: /* Squelch Setting */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1023)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 1023)) {
 					AppConfig.Squelch = i1;
 					ok = 1;
 				}
 				break;
 
 			case 3: /* Hysteresis */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 100)) {
+			/* The acceptable Hysteresis range is 1-100 */
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 >= 1) && (i1 <= 100)) {
 					AppConfig.Hysteresis = i1;
 					ok = 1;
 				}
@@ -6133,7 +6313,6 @@ static void SquelchMenu()
 	}
 }
 
-
 /****************************************************************************/
 //																			//
 //	MAIN Subroutine															//
@@ -6142,11 +6321,10 @@ static void SquelchMenu()
 
 int main(void)
 {
-
 	WORD sel;
 	time_t t;
 	BYTE i;
-	long mydiff,mydiff1;
+	long mydiff, mydiff1;
 
 	/* Save Reset Control Regiter (RCON) value immediately at startup,
 	 * temorarily disable the software WDT, and clear the reset status
@@ -6176,26 +6354,26 @@ int main(void)
 		defdiode[] = "Diode Calibration Value Written to EEPROM\n";
 			
 	static /* ROM */ char menu1[] = "\nSelect the following values to View/Modify:\n\n" 
-		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n", menu2[] = 
+		"1  - Serial # (%d) (which is MAC ADDR %02X:%02X:%02X:%02X:%02X:%02X)\n", menu2[] =
 		"2  - VOTER Server Address (FQDN) (%s)\n"
 		"3  - VOTER Server Port (%u),  "
 		"4  - Local Port (Override) (%u)\n"
 		"5  - Client Password (%s),  "
-		"6  - Host Password (%s)\n", menu3[] = 
+		"6  - Host Password (%s)\n", menu3[] =
 		"7  - Tx Buffer Length (%d)\n"
 		"8  - GPS Data Protocol (0=NMEA, 1=TSIP) (%d)\n"
 		"81 - GPS Type (0=Normal TSIP, 1=Trimble Thunderbolt) (%d)\n"
 		"82 - GPS Time Offset (seconds to add for correction) (%lu)\n"
 		"9  - GPS Serial Polarity (0=Non-Inverted, 1=Inverted) (%d)\n"
-		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n", menu4[] = 
+		"10 - GPS PPS Polarity (0=Non-Inverted, 1=Inverted, 2=NONE) (%d)\n", menu4[] =
 		"11 - GPS Baud Rate (%lu)\n"
 		"12 - External CTCSS (0=Ignore, 1=Non-Inverted, 2=Inverted) (%d)\n"
 		"13 - COR Type (0=Normal, 1=IGNORE COR, 2=No Receiver) (%d)\n"
-		"14 - Debug Level (%lu)\n", menu5[] = 
+		"14 - Debug Level (%lu)\n", menu5[] =
 		"15 - Alt. VOTER Server Address (FQDN) (%s)\n"
 		"16 - Alt. VOTER Server Port (Override) (%u)\n"
 #ifdef	DSPBEW
-		"17 - DSP/BEW Mode (%d)\n"
+		"17 - DSP/BEW Mode (0=Disabled 1=Normal 2=Sensitive) (%d)\n"
 #else
 		"17 - DSP/BEW Mode NOT SUPPORTED\n"
 #endif
@@ -6250,7 +6428,7 @@ int main(void)
 	time_filled = 0;
 	connected = 0;
 	lastrxtimer = 0;
-	memclr((char *)audio_buf, 2 * ADPCM_FRAME_SIZE); /* Clear the entire audio buffer (326 bytes) */
+	memclr((char *) audio_buf, 2 * ADPCM_FRAME_SIZE); /* Clear the entire audio buffer (326 bytes) */
 	gps_bufindex = 0;
 	TSIPwasdle = 0;
 	gps_state = GPS_STATE_IDLE;
@@ -6268,7 +6446,7 @@ int main(void)
 	rssiheld = 0;
 	adcother = 0;
 	adcindex = 0;
-	memclr(adcothers,sizeof(adcothers));
+	memclr(adcothers, sizeof(adcothers));
 	sqlcount = 0;
 	sql2 = 0;
 	wascor = 0;
@@ -6276,7 +6454,7 @@ int main(void)
 	vnoise32 = 0;
 	txdrainindex = 0;
 	last_drainindex = 0;
-	memset(&lastrxtime,0,sizeof(lastrxtime));
+	memset(&lastrxtime, 0, sizeof(lastrxtime));
 	ptt = 0;
 	digest = 0;
 	resp_digest = 0;
@@ -6288,10 +6466,10 @@ int main(void)
 	attempttimer = 0;
 	dwLastIP = 0;
 	inread = 0;
-	memset(&MyVoterAddr,0,sizeof(MyVoterAddr));
-	memset(&LastVoterAddr,0,sizeof(LastVoterAddr));
-	memset(&MyAltVoterAddr,0,sizeof(MyVoterAddr));
-	memset(&CurVoterAddr,0,sizeof(CurVoterAddr));
+	memset(&MyVoterAddr, 0, sizeof(MyVoterAddr));
+	memset(&LastVoterAddr, 0, sizeof(LastVoterAddr));
+	memset(&MyAltVoterAddr, 0, sizeof(MyVoterAddr));
+	memset(&CurVoterAddr, 0, sizeof(CurVoterAddr));
 	dnstimer = 0;
 	alttimer = 0;
 	dnsdone = 0;
@@ -6320,7 +6498,7 @@ int main(void)
 	enc_prev_valprev = 0;
 	enc_prev_index = 0;
 	enc_lastdelta = 0;
-	memset(dec_buffer,ULAW_SILENCE,(ADPCM_SAMPLE_SIZE)); /* Fill the ADPCM decoder buffer with ulaw silence */
+	memset(dec_buffer, ULAW_SILENCE, (ADPCM_SAMPLE_SIZE)); /* Fill the ADPCM decoder buffer with ulaw silence */
 	/* ADPCM variables end */
 	txseqno = 0;
 	txseqno_ptt = 0;
@@ -6370,8 +6548,8 @@ int main(void)
 	missed = 0;
 	misstimer = 0;
 	misstimer1 = 0;
-	memset(&last_rxpacket_time,0,sizeof(last_rxpacket_time));
-	memset(&last_rxpacket_sys_time,0,sizeof(last_rxpacket_sys_time));
+	memset(&last_rxpacket_time, 0, sizeof(last_rxpacket_time));
+	memset(&last_rxpacket_sys_time, 0, sizeof(last_rxpacket_sys_time));
 	last_rxpacket_index = 0;
 	last_rxpacket_inbounds = 0;
 
@@ -6384,7 +6562,7 @@ int main(void)
 	TickInit();
 
 	/* Turn on the SYSLED */
-	SetLED(SYSLED,1);
+	SetLED(SYSLED, 1);
 
 	/* Initialize Stack and application related NV variables into AppConfig. */
 	InitAppConfig();
@@ -6404,11 +6582,11 @@ int main(void)
 	U1MODE = 0x8000; /* Set UARTEN. Note: this must be done before setting UTXEN */
 	U1STA = 0x0400;	 /* UTXEN set */
 
-	#define CLOSEST_U1BRG_VALUE ((GetPeripheralClock()+8ul*BAUD_RATE1)/16/BAUD_RATE1-1)
-	#define BAUD_ACTUAL1 (GetPeripheralClock()/16/(CLOSEST_U1BRG_VALUE+1))
+	#define CLOSEST_U1BRG_VALUE ((GetPeripheralClock() + 8ul * BAUD_RATE1) / 16 / BAUD_RATE1 - 1)
+	#define BAUD_ACTUAL1 (GetPeripheralClock() / 16 / (CLOSEST_U1BRG_VALUE + 1))
 
 	#define BAUD_ERROR1 ((BAUD_ACTUAL1 > BAUD_RATE1) ? BAUD_ACTUAL1-BAUD_RATE1 : BAUD_RATE1-BAUD_ACTUAL1)
-	#define BAUD_ERROR_PRECENT1	((BAUD_ERROR1*100+BAUD_RATE1/2)/BAUD_RATE1)
+	#define BAUD_ERROR_PRECENT1	((BAUD_ERROR1 * 100 + BAUD_RATE1 / 2) / BAUD_RATE1)
 	#if (BAUD_ERROR_PRECENT1 > 3)
 		#warning UART1 frequency error is worse than 3%
 	#elif (BAUD_ERROR_PRECENT1 > 2)
@@ -6429,7 +6607,7 @@ int main(void)
 #else
 	U2STAbits.UTXINV = AppConfig.GPSPolarity;
 #endif
-	#define CLOSEST_U2BRG_VALUE ((GetPeripheralClock()+8ul*AppConfig.GPSBaudRate)/16/AppConfig.GPSBaudRate-1)
+	#define CLOSEST_U2BRG_VALUE ((GetPeripheralClock() + 8ul * AppConfig.GPSBaudRate) / 16 / AppConfig.GPSBaudRate - 1)
 	U2BRG = CLOSEST_U2BRG_VALUE;
 
 	InitUARTS();
@@ -6440,10 +6618,10 @@ int main(void)
 		#if defined(EEPROM_CS_TRIS) || defined(SPIFLASH_CS_TRIS)
 		/* Invalidate the EEPROM contents if BUTTON is held down for more than 4 seconds. */
 		DWORD StartTime = TickGet();
-		SetLED(SYSLED,1);
+		SetLED(SYSLED, 1);
 
 		while (!INITIALIZE) {
-			if (TickGet() - StartTime > 4*TICK_SECOND) {
+			if (TickGet() - StartTime > 4 * TICK_SECOND) {
 				#if defined(EEPROM_CS_TRIS)
 				XEEBeginWrite(0x0000);
 				XEEWrite(0xFF);
@@ -6462,10 +6640,10 @@ int main(void)
 					printf(defdiode);
 				}
 
-				SetLED(SYSLED,0);
+				SetLED(SYSLED, 0);
 	
-				while ((LONG)(TickGet() - StartTime) <= (LONG)(9*TICK_SECOND/2));
-				SetLED(SYSLED,1);
+				while ((LONG) (TickGet() - StartTime) <= (LONG) (9 * TICK_SECOND / 2));
+				SetLED(SYSLED, 1);
 
 				while (!INITIALIZE);
 				RTCM_Reset();
@@ -6482,14 +6660,14 @@ int main(void)
 
 #ifdef	DSPBEW
 #ifndef FFTTWIDCOEFFS_IN_PROGMEM /* Generate TwiddleFactor Coefficients */
-	TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactors[0], 0); /* We need to do this only once at start-up */
+	TwidFactorInit(LOG2_BLOCK_LENGTH, &twiddleFactors[0], 0); /* We need to do this only once at start-up */
 #endif
 #endif /* DSPBEW */
 
 	udpSocketUser = INVALID_UDP_SOCKET;
 
 	/* Generate our random challenge used for authentication with the host. */
-	sprintf(challenge,"%lu",GenerateRandomDWORD() % 1000000000ul);
+	sprintf(challenge, "%lu", GenerateRandomDWORD() % 1000000000ul);
 
 	/* Now that all items are initialized, begin the co-operative
 	 * multitasking loop.  This infinite loop will continuously 
@@ -6510,22 +6688,22 @@ int main(void)
 	ClrWdt();
 	RCONbits.SWDTEN = 1;
 	ClrWdt();
-	SetCTCSSTone(AppConfig.CTCSSTone,AppConfig.CTCSSLevel);
-	printf(signon,VERSION);
+	SetCTCSSTone(AppConfig.CTCSSTone, AppConfig.CTCSSLevel);
+	printf(signon, VERSION);
 
 	/* Check the size of the AppConfig aray, and make sure it is as
 	 * expected, otherwise, throw an error and reboot (forever).
 	 */
 	if (sizeof(AppConfig) != APPCONFIGSIZE) {	
 		DWORD d;
-		printf("AppConfig size %d != %d\n",sizeof(AppConfig), APPCONFIGSIZE);
+		printf("AppConfig size %d != %d\n", sizeof(AppConfig), APPCONFIGSIZE);
 		for (d = 0; d < 2000000; d++) {
 			ClrWdt();
 		}
 		Reset();
 	}
 
-	memset(&AppConfig.Zeros,0,sizeof(AppConfig.Zeros));
+	memset(&AppConfig.Zeros, 0, sizeof(AppConfig.Zeros));
 	AppConfig.DebugLevel1 &= 0xffffff00;
 	AppConfig.DebugLevel1 |= AppConfig.DebugLevel & 0xff;
 	SaveAppConfig();
@@ -6542,7 +6720,7 @@ int main(void)
 
 	while (1) {
 		char ok;
-		unsigned int i1,x;
+		unsigned int i1, x;
 		unsigned long l;
 		SetTxTone(0);
 
@@ -6557,36 +6735,37 @@ int main(void)
 
 		indiag = 0;
 		SetAudioSrc(); /* Reconfigure our audio filtering, based on our connection status. */
-		printf(menu1,AppConfig.SerialNumber,AppConfig.MyMACAddr.v[0],AppConfig.MyMACAddr.v[1],AppConfig.MyMACAddr.v[2],
-			AppConfig.MyMACAddr.v[3],AppConfig.MyMACAddr.v[4],AppConfig.MyMACAddr.v[5]);
+		printf(menu1, AppConfig.SerialNumber, AppConfig.MyMACAddr.v[0], AppConfig.MyMACAddr.v[1], AppConfig.MyMACAddr.v[2],
+			AppConfig.MyMACAddr.v[3], AppConfig.MyMACAddr.v[4], AppConfig.MyMACAddr.v[5]);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu2,AppConfig.VoterServerFQDN,AppConfig.VoterServerPort,AppConfig.DefaultPort,AppConfig.Password,AppConfig.HostPassword);
+		printf(menu2, AppConfig.VoterServerFQDN, AppConfig.VoterServerPort, AppConfig.DefaultPort, AppConfig.Password, AppConfig.HostPassword);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu3,AppConfig.TxBufferLength,AppConfig.GPSProto,AppConfig.GPSTbolt,AppConfig.GPSOffset,AppConfig.GPSPolarity,AppConfig.PPSPolarity);
+		printf(menu3, AppConfig.TxBufferLength, AppConfig.GPSProto, AppConfig.GPSTbolt, AppConfig.GPSOffset,
+			AppConfig.GPSPolarity, AppConfig.PPSPolarity);
 		main_processing_loop();
 		secondary_processing_loop();
-		printf(menu4,AppConfig.GPSBaudRate,AppConfig.ExternalCTCSS,AppConfig.CORType,AppConfig.DebugLevel1);
+		printf(menu4, AppConfig.GPSBaudRate, AppConfig.ExternalCTCSS, AppConfig.CORType, AppConfig.DebugLevel1);
 		main_processing_loop();
 		secondary_processing_loop();
 #ifdef DSPBEW
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.BEWMode,AppConfig.Duplex3,AppConfig.LaunchDelay);
+		printf(menu5, AppConfig.AltVoterServerFQDN, AppConfig.AltVoterServerPort, AppConfig.BEWMode, AppConfig.Duplex3, AppConfig.LaunchDelay);
 #else
-		printf(menu5,AppConfig.AltVoterServerFQDN,AppConfig.AltVoterServerPort,AppConfig.Duplex3,AppConfig.LaunchDelay);
+		printf(menu5, AppConfig.AltVoterServerFQDN, AppConfig.AltVoterServerPort, AppConfig.Duplex3, AppConfig.LaunchDelay);
 #endif
 		aborted = 0;
 		bootdone = 1;
 
 		while (!aborted) {
 			printf(entsel);
-			memset(cmdstr,0,sizeof(cmdstr));
+			memset(cmdstr, 0, sizeof(cmdstr));
 
-			if (!myfgets(cmdstr,sizeof(cmdstr) - 1)) {
+			if (!myfgets(cmdstr, sizeof(cmdstr) - 1)) {
 				continue;
 			}
 
-			if (!strchr(cmdstr,'!')) {
+			if (!strchr(cmdstr, '!')) {
 				break;
 			}
 		}
@@ -6595,33 +6774,33 @@ int main(void)
 			continue;
 		}
 
-		if ((strchr(cmdstr,'Q')) || strchr(cmdstr,'q')) {
+		if ((strchr(cmdstr, 'Q')) || strchr(cmdstr, 'q')) {
 			CloseTelnetConsole();
 			continue;
 		}
 
-		if ((strchr(cmdstr,'R')) || strchr(cmdstr,'r')) {
+		if ((strchr(cmdstr, 'R')) || strchr(cmdstr, 'r')) {
 			CloseTelnetConsole();
 			printf(booting); /* Print "System Re-Booting..." */
 			RTCM_Reset();
 		}
 #ifdef DIAGMENU
-		if ((strchr(cmdstr,'D')) || strchr(cmdstr,'d')) {
+		if ((strchr(cmdstr, 'D')) || strchr(cmdstr, 'd')) {
 			DiagMenu();
 			continue;
 		}
 #endif
-		if ((strchr(cmdstr,'I')) || strchr(cmdstr,'i')) {
+		if ((strchr(cmdstr, 'I')) || strchr(cmdstr, 'i')) {
 			IPMenu();
 			continue;
 		}
 
-		if ((strchr(cmdstr,'O')) || strchr(cmdstr,'o')) {
+		if ((strchr(cmdstr, 'O')) || strchr(cmdstr, 'o')) {
 			OffLineMenu();
 			continue;
 		}
 
-		if ((strchr(cmdstr,'S')) || strchr(cmdstr,'s')) {
+		if ((strchr(cmdstr, 'S')) || strchr(cmdstr, 's')) {
 			SquelchMenu();
 			continue;
 		}
@@ -6637,7 +6816,7 @@ int main(void)
 			if (aborted) {
 				continue;
 			}
-			if ((!myfgets(cmdstr,sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 15))) {
+			if ((!myfgets(cmdstr, sizeof(cmdstr) - 1)) || ((strlen(cmdstr) < 2) && (sel != 15))) {
 				printf(newvalnotchanged);
 				continue;
 			}
@@ -6650,7 +6829,7 @@ int main(void)
 
 		switch (sel) {
 			case 1: /* Serial # (part of MAC address) */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.SerialNumber = i1;
 					ok = 1;
 				}
@@ -6661,20 +6840,20 @@ int main(void)
 
 				if ((x > 2) && (x < sizeof(AppConfig.VoterServerFQDN))) {
 					cmdstr[x - 1] = 0;
-					strcpy(AppConfig.VoterServerFQDN,cmdstr);
+					strcpy(AppConfig.VoterServerFQDN, cmdstr);
 					ok = 1;
 				}
 				break;
 
 			case 3: /* Voter server PORT */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.VoterServerPort = i1;
 					ok = 1;
 				}
 				break;
 
 			case 4: /* My default port */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.DefaultPort = i1;
 					ok = 1;
 				}
@@ -6685,7 +6864,7 @@ int main(void)
 
 				if ((x > 2) && (x < sizeof(AppConfig.Password))) {
 					cmdstr[x - 1] = 0;
-					strcpy(AppConfig.Password,cmdstr);
+					strcpy(AppConfig.Password, cmdstr);
 					ok = 1;
 				}
 				break;
@@ -6695,76 +6874,86 @@ int main(void)
 
 				if ((x > 2) && (x < sizeof(AppConfig.HostPassword))) {
 					cmdstr[x - 1] = 0;
-					strcpy(AppConfig.HostPassword,cmdstr);
+					strcpy(AppConfig.HostPassword, cmdstr);
 					ok = 1;
 				}
 				break;
 
 			case 7: /* TX buffer length */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 >= 480) && (i1 <= MAX_BUFLEN)) {
 					AppConfig.TxBufferLength = i1;
 					ok = 1;
 				}
 				break;
 
 			case 8: /* GPS type */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 >= GPS_NMEA) && (i1 <= GPS_TSIP)) {
 					AppConfig.GPSProto = i1;
 					ok = 1;
 				}
 				break;
 
 			case 81: /* GPS is a Thunderbolt */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.GPSTbolt = i1;
 					ok = 1;
 				}
 				break;
 
 			case 82: /* GPS time offset (seconds) */
-				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l <= 788400000UL)) {
+				if ((sscanf(cmdstr, "%lu", &l) == 1) && (l <= 788400000UL)) {
 					AppConfig.GPSOffset = l;
 					ok = 1;
 				}
 				break;
 
 			case 9: /* GPS invert */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 2)) {
 					AppConfig.GPSPolarity = i1;
+					/* Update GPS Polarity immediately after changing. */
+#ifndef SMT_BOARD
+					U2MODEbits.URXINV = AppConfig.GPSPolarity ^ 1;
+					U2STAbits.UTXINV = AppConfig.GPSPolarity ^ 1;
+#else
+					U2MODEbits.URXINV = AppConfig.GPSPolarity;
+					U2STAbits.UTXINV = AppConfig.GPSPolarity;
+#endif
 					ok = 1;
 				}
 				break;
 
 			case 10: /* PPS invert */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 < 3)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 < 3)) {
 					AppConfig.PPSPolarity = i1;
 					ok = 1;
 				}
 				break;
 
 			case 11: /* GPS baud rate */
-				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >= 300L) && (l <= 230400L)) {
+				if ((sscanf(cmdstr, "%lu", &l) == 1) && (l >= 300L) && (l <= 230400L)) {
 					AppConfig.GPSBaudRate = l;
+					/* Update the GPS baud rate immediately after changing. */
+					U2BRG = CLOSEST_U2BRG_VALUE;
 					ok = 1;
 				}
 				break;
 
 			case 12: /* EXT CTCSS */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 2)) {
 					AppConfig.ExternalCTCSS = i1;
 					ok = 1;
 				}
 				break;
 
 			case 13: /* COR type */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 2)) {
 					AppConfig.CORType = i1;
 					ok = 1;
 				}
 				break;
 
 			case 14: /* Debug level */
-				if (sscanf(cmdstr,"%lu",&l) == 1) {
+				if (sscanf(cmdstr, "%lu", &l) == 1) {
 					AppConfig.DebugLevel1 = l;
 					AppConfig.DebugLevel = l & 0xff;
 					ok = 1;
@@ -6776,34 +6965,34 @@ int main(void)
 
 				if ((x > 0) && (x < sizeof(AppConfig.VoterServerFQDN))) {
 					cmdstr[x - 1] = 0;
-					strcpy(AppConfig.AltVoterServerFQDN,cmdstr);
+					strcpy(AppConfig.AltVoterServerFQDN, cmdstr);
 					ok = 1;
 				}
 				break;
 
 			case 16: /* Alt VOTER server PORT */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.AltVoterServerPort = i1;
 					ok = 1;
 				}
 				break;
 #ifdef DSPBEW
 			case 17: /* BEW mode */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 2)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 2)) {
 					AppConfig.BEWMode = i1;
 					ok = 1;
 				}
 				break;
 #endif
 			case 18: /* Duplex3 hang time */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 255)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 255)) {
 					AppConfig.Duplex3 = i1;
 					ok = 1;
 				}
 				break;
 
 			case 19: /* Launch Delay */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 600)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 600)) {
 					AppConfig.LaunchDelay = i1;
 					ok = 1;
 				}
@@ -6813,7 +7002,7 @@ int main(void)
 				DumpETHReg();
  				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				continue;
 #endif
 			case 97: /* Display RX level quasi-graphically */  
@@ -6825,7 +7014,7 @@ int main(void)
 
 				printf(rxvoicestr);
 				indisplay = 1;
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				indisplay = 0;
 				continue;
 
@@ -6853,19 +7042,19 @@ int main(void)
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata_net,
-					AppConfig.MyIPAddr.v[0],AppConfig.MyIPAddr.v[1],AppConfig.MyIPAddr.v[2],AppConfig.MyIPAddr.v[3],
-					AppConfig.MyMask.v[0],AppConfig.MyMask.v[1],AppConfig.MyMask.v[2],AppConfig.MyMask.v[3],
-					AppConfig.MyGateway.v[0],AppConfig.MyGateway.v[1],AppConfig.MyGateway.v[2],AppConfig.MyGateway.v[3],
+					AppConfig.MyIPAddr.v[0], AppConfig.MyIPAddr.v[1], AppConfig.MyIPAddr.v[2], AppConfig.MyIPAddr.v[3],
+					AppConfig.MyMask.v[0], AppConfig.MyMask.v[1], AppConfig.MyMask.v[2], AppConfig.MyMask.v[3],
+					AppConfig.MyGateway.v[0], AppConfig.MyGateway.v[1], AppConfig.MyGateway.v[2], AppConfig.MyGateway.v[3],
 					AppConfig.Flags.bIsDHCPReallyEnabled ? "Y" : "N");
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata_dns,
-					AppConfig.PrimaryDNSServer.v[0],AppConfig.PrimaryDNSServer.v[1],AppConfig.PrimaryDNSServer.v[2],AppConfig.PrimaryDNSServer.v[3],
-					AppConfig.SecondaryDNSServer.v[0],AppConfig.SecondaryDNSServer.v[1],AppConfig.SecondaryDNSServer.v[2],AppConfig.SecondaryDNSServer.v[3]);
+					AppConfig.PrimaryDNSServer.v[0], AppConfig.PrimaryDNSServer.v[1], AppConfig.PrimaryDNSServer.v[2], AppConfig.PrimaryDNSServer.v[3],
+					AppConfig.SecondaryDNSServer.v[0], AppConfig.SecondaryDNSServer.v[1], AppConfig.SecondaryDNSServer.v[2], AppConfig.SecondaryDNSServer.v[3]);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(oprdata_svr,
-					CurVoterAddr.v[0],CurVoterAddr.v[1],CurVoterAddr.v[2],CurVoterAddr.v[3],
+					CurVoterAddr.v[0], CurVoterAddr.v[1], CurVoterAddr.v[2], CurVoterAddr.v[3],
 					AppConfig.VoterServerPort,
 					AppConfig.MyPort,
 					connected ? "Y" : "N");
@@ -6886,16 +7075,16 @@ int main(void)
 				main_processing_loop();
 				secondary_processing_loop();
 				if (AppConfig.Sqpot) {
-					printf(oprdata_sq,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,AppConfig.Squelch,AppConfig.Hysteresis);
+					printf(oprdata_sq, AppConfig.SqlNoiseGain, AppConfig.SqlDiode, AppConfig.Squelch, AppConfig.Hysteresis);
 				} else {
-					printf(oprdata_sq,AppConfig.SqlNoiseGain,AppConfig.SqlDiode,adcothers[ADCSQPOT],AppConfig.Hysteresis);
+					printf(oprdata_sq, AppConfig.SqlNoiseGain, AppConfig.SqlDiode, adcothers[ADCSQPOT], AppConfig.Hysteresis);
 				}
 				main_processing_loop();
 				secondary_processing_loop();
-				strftime(cmdstr,sizeof(cmdstr) - 1,"%a  %b %d, %Y  %H:%M:%S",gmtime(&t));
+				strftime(cmdstr, sizeof(cmdstr) - 1, "%a  %b %d, %Y  %H:%M:%S", gmtime(&t));
 				/* If we have a curent system time, print it. */
 				if (((gps_state == GPS_STATE_SYNCED) || (!VOTER_CLIENT)) && system_time.vtime_sec) {
-					printf(curtimeis,cmdstr,(unsigned long)system_time.vtime_nsec/1000000L);
+					printf(curtimeis, cmdstr, (unsigned long) system_time.vtime_nsec/1000000L);
 				}
 
 				main_processing_loop();
@@ -6910,7 +7099,7 @@ int main(void)
 				mydiff1 = system_time.vtime_nsec - last_rxpacket_sys_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Last time pkt rcvd to TX: %s, which was %ld ms ago\n",logtime_p(&last_rxpacket_sys_time),mydiff);
+				printf("Last time pkt rcvd to TX: %s, which was %ld ms ago\n", logtime_p(&last_rxpacket_sys_time), mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
 				/* last_rxpacket_time is the HOST timestamp sent in the last audio packet header we received to TX
@@ -6922,15 +7111,15 @@ int main(void)
 				mydiff1 = last_rxpacket_sys_time.vtime_nsec - last_rxpacket_time.vtime_nsec;
 				mydiff1 /= 1000000;
 				mydiff += mydiff1;
-				printf("Host timestamp of last pkt rcvd to TX: %s, diff from our time: %ld ms\n",logtime_p(&last_rxpacket_time),mydiff);
+				printf("Host timestamp of last pkt rcvd to TX: %s, diff from our time: %ld ms\n", logtime_p(&last_rxpacket_time), mydiff);
 				main_processing_loop();
 				secondary_processing_loop();
-				printf("Index of last pkt rcvd to TX: %ld, inbounds: %s\n",last_rxpacket_index,last_rxpacket_inbounds ? "yes" : "no");
+				printf("Index of last pkt rcvd to TX: %ld, inbounds: %s\n", last_rxpacket_index, last_rxpacket_inbounds ? "yes" : "no");
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				continue;
 
 			case 99:
@@ -6939,31 +7128,33 @@ int main(void)
 				continue;
 
 			case 111:
-				printf("Elkes (11780): %lu, Glasers (1103): %u, Sawyer (1170): %d\n", AppConfig.Elkes,AppConfig.Glasers,AppConfig.Sawyer);
+				printf("Elkes (11780): %lu, Glasers (1103): %u, Sawyer (1170): %d\n", AppConfig.Elkes, AppConfig.Glasers, AppConfig.Sawyer);
 				main_processing_loop();
 				secondary_processing_loop();
 				printf(paktc);
 				fflush(stdout);
-				myfgets(cmdstr,sizeof(cmdstr) - 1);
+				myfgets(cmdstr, sizeof(cmdstr) - 1);
 				continue;
 
 			case 11780: /* Elkes */
-				if ((sscanf(cmdstr,"%lu",&l) == 1) && (l >=0)) {
+				if ((sscanf(cmdstr, "%lu", &l) == 1) && (l >=0)) {
 					AppConfig.Elkes = l * 9677ul;
 					ok = 1;
 				}
 				break;
 
 			case 1103: /* Glasers */
-				if (sscanf(cmdstr,"%u",&i1) == 1) {
+				if (sscanf(cmdstr, "%u", &i1) == 1) {
 					AppConfig.Glasers = i1;
-					if (glasertimer > i1) glasertimer = i1;
+					if (glasertimer > i1) {
+						glasertimer = i1;
+					}
 					ok = 1;
 				}
 				break;
 
 			case 1170: /* Sawyer Mode */
-				if ((sscanf(cmdstr,"%u",&i1) == 1) && (i1 <= 1)) {
+				if ((sscanf(cmdstr, "%u", &i1) == 1) && (i1 <= 1)) {
 					AppConfig.Sawyer = i1;
 					ok = 1;
 				}
@@ -6974,8 +7165,11 @@ int main(void)
 				continue;
 		}
 
-		if (ok) printf(newvalchanged);
-		else printf(newvalerror);
+		if (ok) {
+			printf(newvalchanged);
+		} else {
+			printf(newvalerror);
+		}
 	}
 }
 
@@ -7002,7 +7196,6 @@ int main(void)
 //*******************************************************************************/
 static void InitializeBoard(void)
 {	
-
 	/* Setup the system clock. We are going to use the PLL in the PIC.
 	 * Fin is input frequency (from crystal)
 	 * Fosc is output frequency of PLL (System Clock)
@@ -7135,9 +7328,9 @@ static void InitializeBoard(void)
 	 * 0x7 = 0111 (RC3:RC0)
 	 * RC0-RC2 set to 1 (Chip Select (CS) pins on)
 	 */
-	PORTA=0;
-	PORTB=0x3c00;
-	PORTC=7;
+	PORTA = 0;
+	PORTB = 0x3c00;
+	PORTC = 7;
 	/* Configure PORTA (all inputs)
 	 * 0xFFFF = 1111 1111 1111 1111 (RA10:RA7, RA4:RA0) 0=OUT, 1=IN(or analog)
 	 * RA4 (Pin 34) is CN0/PPS pulse input
@@ -7181,8 +7374,8 @@ static void InitializeBoard(void)
 	__builtin_write_OSCCONL(OSCCON | 0x40); /* Set the bit 6 of OSCCONL to lock pin re-map */
 #else /* VOTER (through-hole) board */
 	/* Initialize all output pins on PORTA and PORTB to 0. */
-	PORTA=0;
-	PORTB=0;
+	PORTA = 0;
+	PORTB = 0;
 
 	/* RA1 is not connected on the VOTER, and RA3 is configured 
 	 * as an oscillato input... so we shouldn't need to configure TRISA, and 
@@ -7262,16 +7455,17 @@ static void InitializeBoard(void)
  * at 0x1FFF0. Syntax below is for MPLAB C Compiler for PIC18 MCUs. Syntax will vary for other compilers.
  */
 /* #pragma romdata MACROM=0x1FFF0 */
-static ROM BYTE SerializedMACAddress[6] = {MY_DEFAULT_MAC_BYTE1, MY_DEFAULT_MAC_BYTE2, MY_DEFAULT_MAC_BYTE3, MY_DEFAULT_MAC_BYTE4, MY_DEFAULT_MAC_BYTE5, MY_DEFAULT_MAC_BYTE6};
+static ROM BYTE SerializedMACAddress[6] = { MY_DEFAULT_MAC_BYTE1, MY_DEFAULT_MAC_BYTE2, MY_DEFAULT_MAC_BYTE3,
+	MY_DEFAULT_MAC_BYTE4, MY_DEFAULT_MAC_BYTE5, MY_DEFAULT_MAC_BYTE6 };
 /* #pragma romdata */
 
 static void InitAppConfig(void)
 {
-	memset(&AppConfig,0,sizeof(AppConfig));
+	memset(&AppConfig, 0, sizeof(AppConfig));
 	AppConfig.Flags.bIsDHCPEnabled = TRUE;
 	AppConfig.Flags.bIsDHCPReallyEnabled = TRUE;
 	AppConfig.Flags.bInConfigMode = TRUE;
-	memcpypgm2ram((void*)&AppConfig.MyMACAddr, (ROM void*)SerializedMACAddress, sizeof(AppConfig.MyMACAddr));
+	memcpypgm2ram((void *) &AppConfig.MyMACAddr, (ROM void *) SerializedMACAddress, sizeof(AppConfig.MyMACAddr));
 	AppConfig.SerialNumber = 1234;
 	AppConfig.DefaultIPAddr.v[0] = 192;
 	AppConfig.DefaultIPAddr.v[1] = 168;
@@ -7302,21 +7496,21 @@ static void InitAppConfig(void)
 	AppConfig.TxBufferLength = DEFAULT_TX_BUFFER_LENGTH;
 	AppConfig.VoterServerPort = DEFAULT_VOTER_PORT;
 	AppConfig.GPSBaudRate = BAUD_RATE2;
-	strcpy(AppConfig.Password,"radios");
-	strcpy(AppConfig.HostPassword,"BLAH");
-	strcpy(AppConfig.VoterServerFQDN,"voter-demo.allstarlink.org");
+	strcpy(AppConfig.Password, "radios");
+	strcpy(AppConfig.HostPassword, "BLAH");
+	strcpy(AppConfig.VoterServerFQDN, "voter-demo.allstarlink.org");
 	AppConfig.TelnetPort = 23;
-	strcpy((char *)AppConfig.TelnetUsername,"admin");
-	strcpy((char *)AppConfig.TelnetPassword,"radios");
+	strcpy((char *) AppConfig.TelnetUsername, "admin");
+	strcpy((char *) AppConfig.TelnetPassword, "radios");
 	AppConfig.DynDNSEnable = 0;
-	strcpy((char *)AppConfig.DynDNSUsername,"wb6nil");
-	strcpy((char *)AppConfig.DynDNSPassword,"radios42");
-	strcpy((char *)AppConfig.DynDNSHost,"voter-test.dyndns.org");
+	strcpy((char *) AppConfig.DynDNSUsername, "wb6nil");
+	strcpy((char *) AppConfig.DynDNSPassword, "radios42");
+	strcpy((char *) AppConfig.DynDNSHost, "voter-test.dyndns.org");
 	AppConfig.CWSpeed = 400;
 	AppConfig.CWBeforeTime = 4000;
 	AppConfig.CWAfterTime = 4000;
-	strcpy((char *)AppConfig.FailString,"OFF LINE");
-	strcpy((char *)AppConfig.UnFailString,"OK");
+	strcpy((char *) AppConfig.FailString, "OFF LINE");
+	strcpy((char *) AppConfig.UnFailString, "OK");
 	AppConfig.HangTime = 15;
 	AppConfig.CTCSSTone = 0.0;
 	AppConfig.CTCSSLevel = 3000;
@@ -7341,7 +7535,14 @@ static void InitAppConfig(void)
 		XEEReadArray(0x0000, &c, 1); /* SaveAppConfig(); */
 
 		if (c == 0x60u) {
-			XEEReadArray(0x0001, (BYTE*)&AppConfig, sizeof(AppConfig));
+			XEEReadArray(0x0001, (BYTE *) &AppConfig, sizeof(AppConfig));
+			/* If the Hysteresis setting is not initialized in the EEPROM (0), 
+			 * initialize it with the default value.
+			 */
+			if (AppConfig.Hysteresis == 0) {
+				AppConfig.Hysteresis = 24;
+				SaveAppConfig();
+			}
 		} else {
 			SaveAppConfig();
 		}
@@ -7352,7 +7553,13 @@ static void InitAppConfig(void)
 		
 		SPIFlashReadArray(0x0000, &c, 1);
 		if (c == 0x60u) {
-			SPIFlashReadArray(0x0001, (BYTE*)&AppConfig, sizeof(AppConfig));
+			SPIFlashReadArray(0x0001, (BYTE *) &AppConfig, sizeof(AppConfig));
+			/* If the Hysteresis setting is not initialized in the EEPROM (0), 
+			 * initialize it with the default value.
+			 */
+			if (AppConfig.Hysteresis == 0) {
+				AppConfig.Hysteresis = 24;
+				SaveAppConfig();
 		} else {
 			SaveAppConfig();
 		}
@@ -7373,7 +7580,7 @@ static void InitAppConfig(void)
 	AppConfig.Flags.bIsDHCPEnabled = TRUE;
 
 	if (AppConfig.AltVoterServerFQDN[0] == -1) {
-		memset(AppConfig.AltVoterServerFQDN,0,sizeof(AppConfig.AltVoterServerFQDN));
+		memset(AppConfig.AltVoterServerFQDN, 0, sizeof(AppConfig.AltVoterServerFQDN));
 		AppConfig.AltVoterServerPort = 0;
 	}
 }
@@ -7384,11 +7591,11 @@ void SaveAppConfig(void)
 	#if defined(EEPROM_CS_TRIS)
 	XEEBeginWrite(0x0000);
 	XEEWrite(0x60);
-	XEEWriteArray((BYTE*)&AppConfig, sizeof(AppConfig));
+	XEEWriteArray((BYTE *) &AppConfig, sizeof(AppConfig));
 	#else
 	SPIFlashBeginWrite(0x0000);
 	SPIFlashWrite(0x60);
-	SPIFlashWriteArray((BYTE*)&AppConfig, sizeof(AppConfig));
+	SPIFlashWriteArray((BYTE *) &AppConfig, sizeof(AppConfig));
 	#endif
 }
 #endif
