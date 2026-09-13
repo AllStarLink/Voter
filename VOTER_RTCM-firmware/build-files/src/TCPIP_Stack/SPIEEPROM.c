@@ -62,7 +62,7 @@
 // in HardwareProfile.h
 #if defined(EEPROM_CS_TRIS)
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 #if defined(SPICS_EEPROM)
 #define	ASSERT_EEPROM_CS_IO SPISel(SPICS_EEPROM);

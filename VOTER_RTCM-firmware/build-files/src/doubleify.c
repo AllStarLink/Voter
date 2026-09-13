@@ -20,7 +20,7 @@
 *   along with this project.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 // Return a 32-bit float of a  big-endian byte order
 // double pointed to by p

@@ -66,16 +66,16 @@
 ********************************************************************/
 #define __STACKTSK_C
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 #if defined( WF_CS_TRIS )
     #if defined( WF_CONFIG_CONSOLE )
-        #include "TCPIP Stack/WFConsole.h"
+        #include "TCPIP_Stack/WFConsole.h"
     #endif
     #if defined( STACK_USE_EZ_CONFIG ) || defined( EZ_CONFIG_SCAN )
-        #include "TCPIP Stack/WFEasyConfig.h"
+        #include "TCPIP_Stack/WFEasyConfig.h"
     #endif
-	#include "TCPIP Stack/WFApi.h"
+	#include "TCPIP_Stack/WFApi.h"
 #endif
 
 // Stack FSM states.

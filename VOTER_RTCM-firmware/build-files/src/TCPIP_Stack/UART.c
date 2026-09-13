@@ -54,7 +54,7 @@
 
 #if defined(STACK_USE_UART)
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 
 static BYTE txBuf[UART_TXBUF_SIZE];

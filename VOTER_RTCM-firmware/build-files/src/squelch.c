@@ -23,7 +23,7 @@
 
 #include <string.h>
 #include "HardwareProfile.h"
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 /* Tunable constants */
 #define CALNOISE	900		/* Peak noise amplitude to look for during calibration */

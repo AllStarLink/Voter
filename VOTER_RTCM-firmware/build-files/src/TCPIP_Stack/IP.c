@@ -60,7 +60,7 @@
  ********************************************************************/
 #define __IP_C
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 // This is left shifted by 4.  Actual value is 0x04.
 #define IPv4                (0x40u)

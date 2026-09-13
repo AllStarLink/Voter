@@ -203,8 +203,8 @@
 #include <math.h>
 #include <dsp.h>
 
-/* Include all headers for any enabled TCPIP Stack functions */
-#include "TCPIP Stack/TCPIP.h"
+/* Include all headers for any enabled TCPIP_Stack functions */
+#include "TCPIP_Stack/TCPIP.h"
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW

@@ -56,7 +56,7 @@
 
 #if defined STACK_USE_DYNAMICDNS_CLIENT
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 // Delimiter to locate IP address from CheckIP server
 static ROM BYTE _checkIpSrvrResponse[] = "Address:";
