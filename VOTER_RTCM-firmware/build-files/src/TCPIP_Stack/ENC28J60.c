@@ -1047,7 +1047,7 @@ WORD CalcIPBufferChecksum(WORD len)
  *****************************************************************************/
 void MACMemCopyAsync(PTR_BASE destAddr, PTR_BASE sourceAddr, WORD len)
 {
-    WORD_VAL ReadSave, WriteSave;
+    WORD_VAL ReadSave = {0}, WriteSave;
     BOOL UpdateWritePointer = FALSE;
     BOOL UpdateReadPointer = FALSE;
 
