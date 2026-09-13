@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.20 BEW 9/11/2026";
+	char	VERSION[] = "3.30 BEW 9/12/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.20 9/11/2026";
+	char	VERSION[] = "3.30 9/12/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -517,7 +517,7 @@ BOOL connected;		/* Connected to host */
 BOOL bootdone;		/* Set when main menu prints, so we can start GPS acquisition */
 BYTE rssi;		
 BYTE rssiheld;		
-BYTE gps_buf[160];	/* GPS receive buffer array */
+BYTE gps_buf[82];	/* GPS receive buffer array (max size of a sentence we will process) */
 BYTE gps_bufindex;	/* GPS receive buffer array index pointer */
 BYTE TSIPwasdle;
 BYTE gps_state;		/* Current GPS state (idle, receiving, valid, synched) */ 
@@ -2592,8 +2592,13 @@ BOOL getTSIPPacket(void)
         return 0;
     }
 
+	/* If our packet is bigger than our buffer, reset. Be sure
+	 * to reset TSIPwasdle as well so we don't carry over the
+	 * DLE state into the next packet.
+	 */
     if (gps_bufindex > sizeof(gps_buf)) {
         gps_bufindex = 0;
+		TSIPwasdle = 0;
         return 0;
     }
 
