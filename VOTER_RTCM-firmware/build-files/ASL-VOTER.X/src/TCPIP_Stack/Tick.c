@@ -52,6 +52,7 @@
  * Nilesh Rajbharti     5/22/02     Rev 2.0 (See version.log for detail)
  * Howard Schlunder		6/13/07		Changed to use timer without 
  *									writing for perfect accuracy.
+ *                      6/17/13     Updated to remove compile warnings
 ********************************************************************/
 #define __TICK_C
 
@@ -64,7 +65,7 @@
 static volatile DWORD dwInternalTicks = 0;
 
 // 6-byte value to store Ticks.  Allows for use over longer periods of time.
-static BYTE vTickReading[6];
+static volatile BYTE vTickReading[6] __attribute__ ((aligned));
 
 static void GetTickCopy(void);
 
@@ -171,18 +172,23 @@ static void GetTickCopy(void)
 	do
 	{
 		DWORD dwTempTicks;
+        WORD_VAL wTemp;
 		
 		IEC0bits.T1IE = 1;			// Enable interrupt
 		Nop();
 		IEC0bits.T1IE = 0;			// Disable interrupt
 
 		// Get low 2 bytes
-		((WORD*)vTickReading)[0] = TMR1;
+        wTemp.Val = TMR1;
+        vTickReading[0] = wTemp.v[0];
+        vTickReading[1] = wTemp.v[1];
+		//((WORD*)vTickReading)[0] = TMR1;
 		
 		// Correct corner case where interrupt increments byte[4+] but 
 		// TMR1 hasn't rolled over to 0x0000 yet
 		dwTempTicks = dwInternalTicks;
-		if(((WORD*)vTickReading)[0] == 0xFFFFu)
+        //if(((WORD*)vTickReading)[0] == 0xFFFFu)
+        if(wTemp.Val == 0xFFFFu)
 			dwTempTicks--;
 		
 		// Get high 4 bytes
@@ -196,13 +202,17 @@ static void GetTickCopy(void)
 	do
 	{
 		DWORD dwTempTicks;
+        WORD_VAL wTemp;
 		
 		IEC0SET = _IEC0_T1IE_MASK;	// Enable interrupt
 		Nop();
 		IEC0CLR = _IEC0_T1IE_MASK;	// Disable interrupt
 		
 		// Get low 2 bytes
-		((volatile WORD*)vTickReading)[0] = TMR1;
+        wTemp.Val = TMR1;
+        vTickReading[0] = wTemp.v[0];
+        vTickReading[1] = wTemp.v[1];
+		//((volatile WORD*)vTickReading)[0] = TMR1;
 		
 		// Correct corner case where interrupt increments byte[4+] but 
 		// TMR1 hasn't rolled over to 0x0000 yet
@@ -215,7 +225,8 @@ static void GetTickCopy(void)
 		// triggered when TMR1 increments from PR1 to 0x0000, making no special 
 		// corner case.
 		#if __PIC32_FEATURE_SET__ <= 460
-			if(((WORD*)vTickReading)[0] == 0xFFFFu)
+			//if(((WORD*)vTickReading)[0] == 0xFFFFu)
+            if(wTemp.Val == 0xFFFFu)
 				dwTempTicks--;
 		#elif !defined(__PIC32_FEATURE_SET__)
 			#error __PIC32_FEATURE_SET__ macro must be defined.  You need to download a newer C32 compiler version.
@@ -258,8 +269,14 @@ static void GetTickCopy(void)
   ***************************************************************************/
 DWORD TickGet(void)
 {
+    DWORD dw;
+    
 	GetTickCopy();
-	return *((DWORD*)&vTickReading[0]);
+	((BYTE*)&dw)[0] = vTickReading[0];	// Note: This copy must be done one 
+	((BYTE*)&dw)[1] = vTickReading[1];	// byte at a time to prevent misaligned 
+	((BYTE*)&dw)[2] = vTickReading[2];	// memory reads, which will reset the PIC.
+	((BYTE*)&dw)[3] = vTickReading[3];
+	return dw;
 }
 
 /*****************************************************************************
