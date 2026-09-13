@@ -54,7 +54,6 @@
 
 #include "GenericTypeDefs.h"
 #include "Compiler.h"
-#include "xc.h" /* Include the header file for the XC16 compiler, gives is Nop()/ClrWDT() */
 
 extern char dummy_loc;
 
@@ -62,45 +61,43 @@ extern char dummy_loc;
 #define SMT_BOARD
 #endif
 
-
 /* Set configuration fuses (but only once) */
 #ifdef THIS_IS_STACK_APPLICATION
 
-/* Set Configuration Registers
- * Code Protect off, Code Protect disabled, Write Protect disabled
- */
-_FGS( GSS_OFF & GCP_OFF & GWRP_OFF )
+/* Set Configuration Registers */
+#pragma config GWRP = OFF               /* General Code Segment Write Protect (User program memory is not write-protected) */
+#pragma config GSS = OFF                /* General Segment Code Protection (User program memory is not code-protected) */
 
-/* Primary (XT, HS, EC) oscillator with PLL
- * Start-up device with user-selected oscillator source
- */
-_FOSCSEL( FNOSC_PRIPLL & IESO_OFF )
+/* FOSCSEL */
+#pragma config FNOSC = PRIPLL           /* Oscillator Mode (Primary Oscillator (XT, HS, EC) w/ PLL) */
+#pragma config IESO = OFF               /* Internal External Switch Over Mode (Start-up device with user-selected oscillator source) */
 
-/* Clock switching and clock monitor both disabled
- * Single configuration for remappable I/O OFF
- * OSC2 is clock O/P
- * XT oscillator (3-10MHz)
- */
-_FOSC( FCKSM_CSDCMD & IOL1WAY_OFF & OSCIOFNC_OFF & POSCMD_XT )
+/* FOSC */
+#pragma config POSCMD = XT              /* Primary Oscillator Source (XT Oscillator Mode 3-10MHz) */
+#pragma config OSCIOFNC = OFF           /* OSC2 Pin Function (OSC2 pin has clock out function) */
+#pragma config IOL1WAY = OFF            /* Peripheral Pin Select Configuration (Allow Multiple Re-configurations) */
+#pragma config FCKSM = CSDCMD           /* Clock Switching and Monitor (Both Clock Switching and Fail-Safe Clock Monitor are disabled) */
 
-/* Watchdog Timer disabled (enabled/disabled by user software)
- * Windowed Watchdog Timer disabled (non-window mode)
- * Watchdog Timer Prescaler 1:32
- * Watchdog Timer Postscaler 1:4096
- */
-_FWDT( FWDTEN_OFF & WINDIS_OFF & WDTPRE_PR32 & WDTPOST_PS4096)
+/* FWDT */
+#pragma config WDTPOST = PS4096         /* Watchdog Timer Postscaler (1:4,096) */
+#pragma config WDTPRE = PR32            /* WDT Prescaler (1:32) */
+#pragma config WINDIS = OFF             /* Watchdog Timer Window (Watchdog Timer in Non-Window mode) */
+#pragma config FWDTEN = OFF             /* Watchdog Timer Enable (Watchdog timer enabled/disabled by user software) */
 
-/* I2C mapped to SDA1/SCL1
- * Power-on Reset Value disabled
- */
-_FPOR(ALTI2C_OFF & FPWRT_PWR1 )	
+/* FPOR */
+#pragma config FPWRT = PWR1             /* Power-on Reset (POR) Timer Value (Disabled) */
+#pragma config ALTI2C = OFF             /* Alternate I2C  pins (I2C mapped to SDA1/SCL1 pins) */
 
-/* JTAG disabled
- * ICD communication channel communicate on PGC3/EMUC3 and PGD3/EMUD3
- */
-_FICD(JTAGEN_OFF & ICS_PGD3 )
+/* FICD */
+#pragma config ICS = PGD3               /* Comm Channel Select (Communicate on PGC3/EMUC3 and PGD3/EMUD3) */
+#pragma config JTAGEN = OFF             /* JTAG Port Enable (JTAG is Disabled) */
 
 #endif /* Prevent more than one set of config fuse definitions */
+
+/* #pragma config statements should precede project file includes.
+ * Use project enums instead of #define for ON and OFF.
+*/
+#include "xc.h" /* Include the header file for the XC16 compiler, gives is Nop()/ClrWDT() */
 
 /* Clock frequency value.
  * This value is used to calculate Tick Counter value
