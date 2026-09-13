@@ -54,6 +54,7 @@
 
 #include "GenericTypeDefs.h"
 #include "Compiler.h"
+#include "xc.h" /* Include the header file for the XC16 compiler, gives is Nop()/ClrWDT() */
 
 extern char dummy_loc;
 
