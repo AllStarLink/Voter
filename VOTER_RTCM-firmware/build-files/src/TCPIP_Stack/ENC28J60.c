@@ -72,7 +72,7 @@
 // Make sure that this hardware profile has an ENC28J60 in it
 #if defined(ENC_CS_TRIS)
 
-#include "TCPIP Stack/TCPIP.h"
+#include "TCPIP_Stack/TCPIP.h"
 
 #if defined(SPICS_ENC)
 #define	ASSERT_ENC_CS_IO SPISel(SPICS_ENC);
