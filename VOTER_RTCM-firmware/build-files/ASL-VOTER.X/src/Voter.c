@@ -208,10 +208,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "3.30 BEW 9/15/2026";
+	char	VERSION[] = "4.00 BEW 9/12/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "3.30 9/15/2026";
+	char	VERSION[] = "4.00 9/12/2026";
 	#define ROMNOBEW ROM
 #endif
 
