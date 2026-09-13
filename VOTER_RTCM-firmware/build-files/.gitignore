@@ -1,0 +1,25 @@
+# MPLAB X standard outputs
+**/build/
+**/dist/
+**/disassembly/
+**/.generated_files/
+
+# Machine-specific settings
+**/nbproject/private/
+**/nbproject/Makefile-*
+**/nbproject/Package-*
+
+# Intermediate tool logs
+*.log
+*.inx
+
+# Object files & compiled binaries
+*.o
+*.ko
+*.obj
+*.elf
+*.hex
+*.cof
+*.d
+*.p1
+*.pre
