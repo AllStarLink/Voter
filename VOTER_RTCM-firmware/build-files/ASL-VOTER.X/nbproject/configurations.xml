@@ -32,6 +32,8 @@
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
                    projectFiles="true">
+      <itemPath>src/p33FJ128GP802-voter.gld</itemPath>
+      <itemPath>src/p33FJ128GP804-rtcm.gld</itemPath>
     </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
@@ -69,7 +71,6 @@
     </logicalFolder>
   </logicalFolder>
   <sourceRootList>
-    <Elem>src\TCPIP_Stack</Elem>
     <Elem>..</Elem>
     <Elem>src</Elem>
     <Elem>src\DSP_Library</Elem>
@@ -248,16 +249,90 @@
         <property key="save-temps" value="false"/>
       </C30Global>
       <item path="src/DSP_Library/bitrev.s" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/cplxsqrmag.s" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/dspcommon.inc" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/fft.s" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/flt2frct.c" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/inittwid.c" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
+      </item>
+      <item path="src/p33FJ128GP804-rtcm.gld" ex="true" overriding="false">
       </item>
     </conf>
     <conf name="VOTER_DSPBEW" type="2">
@@ -432,6 +507,8 @@
         <property key="relaxed-math" value="false"/>
         <property key="save-temps" value="false"/>
       </C30Global>
+      <item path="src/p33FJ128GP804-rtcm.gld" ex="true" overriding="false">
+      </item>
     </conf>
     <conf name="RTCM" type="2">
       <toolsSet>
@@ -605,16 +682,90 @@
         <property key="save-temps" value="false"/>
       </C30Global>
       <item path="src/DSP_Library/bitrev.s" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/cplxsqrmag.s" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/dspcommon.inc" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/fft.s" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/flt2frct.c" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
       <item path="src/DSP_Library/inittwid.c" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
+      </item>
+      <item path="src/p33FJ128GP802-voter.gld" ex="true" overriding="false">
       </item>
     </conf>
     <conf name="RTCM_DSPBEW" type="2">
@@ -789,6 +940,8 @@
         <property key="relaxed-math" value="false"/>
         <property key="save-temps" value="false"/>
       </C30Global>
+      <item path="src/p33FJ128GP802-voter.gld" ex="true" overriding="false">
+      </item>
     </conf>
   </confs>
 </configurationDescriptor>
