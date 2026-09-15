@@ -1,4 +1,38 @@
-## Firmware Changelog
+# Firmware Changelog
+
+## 3.30 09/15/2026
+Version 3.30 is a maintenance release, focusing on resource and compiler optimization to reduce code size in the PIC.
+
+This is likely the last of the version 3.xx code versions. Work is underway to transition to the MPLAB X IDE and newer XC16 compiler. While that won't change any interoperability, it will require some significant changes to how things get built.
+
+### Bug Fixes
+A potential issue was identified in the TSIP routines. Resetting TSIPwasdle at the same time is important: an overlength/corrupt TSIP packet should return the parser to its idle state rather than carrying the DLE state into the next packet.
+
+This fixes parser-state recovery after an overlong TSIP packet, not an actual buffer overflow.
+
+### Code Cleanup
+Remove inclusion/compilation of the ICMP client. We can't send pings from the device, we only respond to them, which uses the ICMP server code. Remove the code inclusion to reduce code size.
+
+Fix compiler optimizations in the project files to reduce code size.
+
+Reduce the number of TCP/IP sockets allocated. This was set to the default (10), but there is no way we could ever open that many sockets. Each extra reserved socket used up resources on the PIC. Reduced the default number of sockets to free up resources. It can probably be reduced further, but this is a good start.
+
+## 3.20 09/11/2026
+
+Version 3.20 is a bug fix update, with some minor feature enhancements.
+
+### Bug Fixes
+Back around version 3.0, the Squelch menu, along with the Hysteresis parameter were added. The default Hysteresis is supposed to be 24, but that default value never got checked/updated/written into the EEPROM... so it always remained 0 (as that was how the EEPROM is initialized). This version checks to see if the EEPROM address is 0, and updates it to 24 if it is. If there is already a non-zero value there, it does nothing.
+
+Code analysis found that the GPS Serial Polarity (Menu 9) and GPS Baud Rate (Menu 11) didn't update when changed, requiring a reboot to take effect. This release will cause those items to update immediately when changed (you still need to save the changes though to write them into the EEPROM).
+
+### Feature Enhancement
+Code analysis found that there is an un-documented "Mode 2" of DSP-BEW that makes the DSP-BEW mode twice as sensitive to energy in the passband (Mode 1 halves the amplitude of the samples before operating on them). This release updates Menu 17 to show both modes.
+
+### Code Documentation/Cleanup
+Voter.c was run through the ASL Clang formatter, and a significant number of formatting updates were made to bring it closer to ASL coding standards.
+
+A significant amount of commenting was added to sections of Voter.c to better explain RSSI and DSP-BEW operation.
 
 ## 3.10 01/11/2026
 This version is a long overdue code cleanup and optimization.
