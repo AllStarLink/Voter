@@ -48,6 +48,7 @@
  * Author               Date    Comment
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Howard Schlunder     9/12/06	Original
+ * VE7FET				9/20/26 Add comments for VOTER project
  ********************************************************************/
 #ifndef __TELNET_H
 #define __TELNET_H
@@ -58,6 +59,7 @@
 	#define TelnetTask()
 #endif	
 
+/* Functions used by VOTER TELNET Console. */
 BYTE GetTelnetConsole(void);
 BOOL PutTelnetConsole(char c);
 void CloseTelnetConsole(void);

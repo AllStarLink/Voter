@@ -48,6 +48,7 @@
  * Author               Date    Comment
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Nilesh Rajbharti     3/19/01  Original        (Rev 1.0)
+ * VE7FET               9/18/26  Add compatibility macro for VOTER
  ********************************************************************/
 #ifndef __UDP_H
 #define __UDP_H
@@ -58,12 +59,37 @@ typedef WORD UDP_PORT;
 // Provides a handle to a UDP Socket
 typedef BYTE UDP_SOCKET;
 
+// UDP States 
+typedef enum
+{
+	UDP_DNS_IS_RESOLVED,		// Special state for UDP client mode sockets
+	UDP_DNS_RESOLVE,		// Special state for UDP client mode sockets
+	UDP_GATEWAY_SEND_ARP,	// Special state for UDP client mode sockets
+	UDP_GATEWAY_GET_ARP,		// Special state for UDP client mode sockets	
+    UDP_CLOSED,				// Socket is idle and unallocated
+	UDP_OPENED
+} UDP_STATE;
+
+
 // Stores information about a current UDP socket
 typedef struct
 {
-    NODE_INFO   remoteNode;		// IP and MAC of remote node
+	union
+	{
+		NODE_INFO	remoteNode;		// 10 bytes for MAC and IP address
+		DWORD		remoteHost;		// RAM or ROM pointer to a hostname string (ex: "www.microchip.com")
+	} remote;
+    //NODE_INFO   remoteNode;		// IP and MAC of remote node
     UDP_PORT    remotePort;		// Remote node's UDP port number
     UDP_PORT    localPort;		// Local UDP port number, or INVALID_UDP_PORT when free
+    UDP_STATE smState;			// State of this socket
+    DWORD retryInterval;
+	BYTE retryCount;
+	struct
+	{
+		unsigned char bRemoteHostIsROM : 1;	// Remote host is stored in ROM
+	}flags;
+	WORD eventTime;
 } UDP_SOCKET_INFO;
 
 
@@ -90,14 +116,46 @@ typedef struct
     WORD        Checksum;				// UDP checksum of the data
 } UDP_HEADER;
 
+
+// Create a server socket and ignore dwRemoteHost.
+#define UDP_OPEN_SERVER		0u
+#if defined(STACK_CLIENT_MODE)
+	#if defined(STACK_USE_DNS)
+		// Create a client socket and use dwRemoteHost as a RAM pointer to a hostname string.
+		#define UDP_OPEN_RAM_HOST	1u
+		// Create a client socket and use dwRemoteHost as a ROM pointer to a hostname string.
+		#define UDP_OPEN_ROM_HOST	2u
+	#else
+		// Emit an undeclared identifier diagnostic if code tries to use UDP_OPEN_RAM_HOST while the DNS client module is not enabled. 
+		#define UDP_OPEN_RAM_HOST	You_need_to_enable_STACK_USE_DNS_to_use_UDP_OPEN_RAM_HOST
+		// Emit an undeclared identifier diagnostic if code tries to use UDP_OPEN_ROM_HOST while the DNS client module is not enabled. 
+		#define UDP_OPEN_ROM_HOST	You_need_to_enable_STACK_USE_DNS_to_use_UDP_OPEN_ROM_HOST
+	#endif
+	// Create a client socket and use dwRemoteHost as a literal IP address.
+	#define UDP_OPEN_IP_ADDRESS	3u
+#endif
+
+// Create a client socket and use dwRemoteHost as a pointer to a NODE_INFO structure containing the exact remote IP address and MAC address to use.
+#define UDP_OPEN_NODE_INFO	4u
+
+
 /****************************************************************************
   Section:
 	Function Prototypes
   ***************************************************************************/
 void UDPInit(void);
 void UDPTask(void);
+UDP_SOCKET UDPOpenEx(DWORD remoteHost, BYTE remoteHostType, UDP_PORT localPort,UDP_PORT remotePort);
 
-UDP_SOCKET UDPOpen(UDP_PORT localPort, NODE_INFO *remoteNode, UDP_PORT remotePort);
+/* UDPOpen as bee replaced as a compatibility macro, see below. */
+//UDP_SOCKET UDPOpen(UDP_PORT localPort, NODE_INFO *remoteNode, UDP_PORT remotePort);
+
+/*
+ * VOTER compatibility:
+ * VOTER performs ARP resolution outside of the UDP state machine.
+*/
+void UDPSetRemoteNode(UDP_SOCKET socket, NODE_INFO *remoteNode);
+
 void UDPClose(UDP_SOCKET s);
 BOOL UDPProcess(NODE_INFO *remoteNode, IP_ADDR *localIP, WORD len);
 
@@ -122,5 +180,52 @@ WORD UDPIsGetReady(UDP_SOCKET s);
 BOOL UDPGet(BYTE *v);
 WORD UDPGetArray(BYTE *cData, WORD wDataLen);
 void UDPDiscard(void);
+BOOL UDPIsOpened(UDP_SOCKET socket);
+
+/*****************************************************************************
+  Function:
+    UDP_SOCKET UDPOpen(UDP_PORT localPort, NODE_INFO* remoteNode, 
+                        UDP_PORT remotePort)
+
+  Summary:
+    Macro of the legacy version of UDPOpen.
+    
+  Description:
+    UDPOpen is a macro replacement of the legacy implementation of UDPOpen.
+    Creates a UDP socket handle for transmiting or receiving UDP packets.  
+    Call this function to obtain a handle required by other UDP function.
+
+  Precondition:
+    UDPInit() must have been previously called.
+
+  Parameters:
+    localPort - UDP port number to listen on.  If 0, stack will dynamically 
+        assign a unique port number to use.
+    remoteNode - Pointer to remote node info (MAC and IP address) for this
+        connection.  If this is a server socket (receives the first packet) 
+        or the destination is the broadcast address, then this parameter
+        should be NULL.
+    remotePort - For client sockets, the remote port number.
+
+  Return Values:
+    Success -
+        A UDP socket handle that can be used for subsequent UDP API calls.
+    Failure -
+        INVALID_UDP_SOCKET.  This function fails when no more UDP socket 
+        handles are available.  Increase MAX_UDP_SOCKETS to make more sockets 
+        available.
+    
+  Remarks:
+    When finished using the UDP socket handle, call the UDPClose() function 
+    to free the socket and delete the handle.
+  ***************************************************************************/
+  /* Revised from:
+   * UDPOpenEx((DWORD)remoteNode,UDP_OPEN_NODE_INFO,localPort,remotePort)
+   * to:
+   * UDPOpenEx((DWORD)(PTR_BASE)remoteNode,UDP_OPEN_NODE_INFO,localPort,remotePort)
+   *
+   * To resolve compiler warning: "warning: cast from pointer to integer of different size"
+   */
+#define UDPOpen(localPort,remoteNode,remotePort)  UDPOpenEx((DWORD)(PTR_BASE)remoteNode,UDP_OPEN_NODE_INFO,localPort,remotePort)
 
 #endif

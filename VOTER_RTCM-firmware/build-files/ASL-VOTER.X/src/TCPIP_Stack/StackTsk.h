@@ -54,15 +54,18 @@
  								EEPROM_BUFFER_SIZE, USE_LCD
  * Howard Schlunder		8/09/06	Removed MCHP_MAC, added STACK_USE_NBNS, 
  *								STACK_USE_DNS, and STACK_USE_GENERIC_TCP_EXAMPLE
- * VE7FET		12/05/20 Add GPSTBolt
- * VE7FET		12/13/20 Add GPSOffset
- * VE7FET		 3/24/21 Add Squelch and Hysteresis and Sqpot
+ * VE7FET              12/05/20 Add GPSTBolt
+ * VE7FET              12/13/20 Add GPSOffset
+ * VE7FET               3/24/21 Add Squelch and Hysteresis and Sqpot
+ * VE7FET				9/20/26	5.42.08 changes merged in
+ *
+ * THIS IS A CUSTOMIZED FILE FOR THE VOTER/RTCM APPLICATION!
  ********************************************************************/
 #ifndef __STACK_TSK_H
 #define __STACK_TSK_H
 
 #if defined (WF_CS_TRIS)
-    #include "WF_Config.h" // pull in additional defines from wireless settings
+    #include "WF_Config.h"     
 #endif
 
 // Check for potential configuration errors in "TCPIPConfig.h"
@@ -91,8 +94,11 @@ typedef struct __attribute__((__packed__))
     MAC_ADDR    MACAddr;
 } NODE_INFO;
 
-// Application-dependent structure used to contain address information
-typedef struct __attribute__((__packed__)) 
+/* Application-dependent structure used to contain address information
+ *
+ * These are the variables stored in EEPROM for VOTER
+ */
+typedef struct __attribute__((__packed__)) appConfigStruct 
 {
 	WORD		SerialNumber;			// Serial #
 	IP_ADDR		MyIPAddr;               // IP address
@@ -115,14 +121,14 @@ typedef struct __attribute__((__packed__))
 	} Flags;                            // Flag structure
 	MAC_ADDR	MyMACAddr;              // Application MAC address
 
-	BYTE SqlNoiseGain;		// Squelch Noise Gain Setting
-	WORD SqlDiode;			// Diode Calibration setting
-	WORD TxBufferLength;	// Tx buffer length
-	WORD TxBufferDelay;		// Tx buffer Delay
-	char VoterServerFQDN[50];  // FQDN of Voter Server
-	WORD VoterServerPort;	// UDP Port of Voter Server
-	WORD DefaultPort;		// Default local port
-	WORD MyPort;			// My UDP Port
+	BYTE SqlNoiseGain;              // Squelch Noise Gain Setting
+	WORD SqlDiode;                  // Diode Calibration setting
+	WORD TxBufferLength;    		// Tx buffer length
+	WORD TxBufferDelay;             // Tx buffer Delay
+	char VoterServerFQDN[50];  		// FQDN of Voter Server
+	WORD VoterServerPort;   		// UDP Port of Voter Server
+	WORD DefaultPort;               // Default local port
+	WORD MyPort;                    // My UDP Port
 	char Password[20];
 	char HostPassword[20];
 	BYTE GPSPolarity;
@@ -142,7 +148,7 @@ typedef struct __attribute__((__packed__))
 	BYTE CORType;
 	DWORD Elkes;
 	BYTE Filler1;
-	IP_ADDR		BootIPAddr;               // IP address
+	IP_ADDR         BootIPAddr;               // IP address
 	BYTE BootIPCheck;
 	WORD CWBeforeTime;
 	WORD CWAfterTime;
@@ -156,7 +162,7 @@ typedef struct __attribute__((__packed__))
 	WORD CTCSSLevel;
 	BOOL OffLineNoDeemp;
 	char AltVoterServerFQDN[50];  // FQDN of Voter Server
-	WORD AltVoterServerPort;	// UDP Port of Voter Server
+	WORD AltVoterServerPort;        // UDP Port of Voter Server
 	BOOL BEWMode;
 	BYTE Duplex3;
 	WORD Glasers;
@@ -171,6 +177,32 @@ typedef struct __attribute__((__packed__))
 	WORD Hysteresis;
 	BOOL Sqpot;
 	BYTE Zeros[553];
+#if defined(WF_CS_TRIS)
+    BYTE	MySSID[32];             // Wireless SSID (if using MRF24W)
+    BYTE        SsidLength;             // number of bytes in SSID
+    BYTE        SecurityMode;           // WF_SECURITY_OPEN or one of the other security modes
+    BYTE        SecurityKey[64];        // WiFi Security key, or passphrase.
+    BYTE        SecurityKeyLength;      // number of bytes in security key (can be 0)
+    BYTE        WepKeyIndex;            // WEP key index (only valid for WEP)
+    BYTE        dataValid;
+    BYTE        networkType;
+    #if defined(EZ_CONFIG_STORE)        // WLAN configuration data stored to NVM
+    BYTE        saveSecurityInfo;       // Save 32-byte PSK
+    #endif
+#endif
+	
+#if defined(STACK_USE_SNMP_SERVER) || defined(STACK_USE_SNMPV3_SERVER)
+	// SNMPv2C Read community names
+	// SNMP_COMMUNITY_MAX_LEN (8) + 1 null termination byte
+	BYTE readCommunity[SNMP_MAX_COMMUNITY_SUPPORT][SNMP_COMMUNITY_MAX_LEN+1]; 
+
+	// SNMPv2C Write community names
+	// SNMP_COMMUNITY_MAX_LEN (8) + 1 null termination byte
+	BYTE writeCommunity[SNMP_MAX_COMMUNITY_SUPPORT][SNMP_COMMUNITY_MAX_LEN+1];
+
+	UINT32 SnmpEngineBootRcrd;
+#endif
+
 } APP_CONFIG;
 
 #ifndef THIS_IS_STACK_APPLICATION
@@ -181,5 +213,4 @@ typedef struct __attribute__((__packed__))
 void StackInit(BOOL fulldup);
 void StackTask(void);
 void StackApplications(void);
-
 #endif

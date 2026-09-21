@@ -52,6 +52,8 @@
  *                                  frequency whenever EEPROM accessed
  *                                  to allow bus sharing with different
  *                                  frequencies.
+ * VE7FET               9/20/26     Merge in 5.42.08 changes but keep 
+ *                                  old VOTER-specific CS handling
 ********************************************************************/
 #define __SPIEEPROM_C
 
@@ -64,6 +66,7 @@
 
 #include "TCPIP_Stack/TCPIP.h"
 
+/* VOTER This is legacy CS handling that we will keep. */
 #if defined(SPICS_EEPROM)
 #define	ASSERT_EEPROM_CS_IO SPISel(SPICS_EEPROM);
 #define	DEASSERT_EEPROM_CS_IO SPISel(SPICS_IDLE);
@@ -72,44 +75,31 @@
 #define	DEASSERT_EEPROM_CS_IO EEPROM_CS_IO=1;
 #endif
 
-
-
 // IMPORTANT SPI NOTE: The code in this file expects that the SPI interrupt
 //      flag (EEPROM_SPI_IF) be clear at all times.  If the SPI is shared with
 //      other hardware, the other code should clear the EEPROM_SPI_IF when it is
 //      done using the SPI.
 
+// EEPROM_BUFFER_SIZE
+// SPI Serial EEPROM buffer size.  To enhance performance while
+// cooperatively sharing the SPI bus with other peripherals, bytes
+// read and written to the memory are locally buffered. Legal
+// sizes are 1 to the EEPROM page size.
+
+// EEPROM_PAGE_SIZE
+// Must be the EEPROM write page size, or any binary power of 2 divisor.  If 
+// using a smaller number, make sure it is at least EEPROM_BUFFER_SIZE big for 
+// max performance.  Microchip 25LC256 uses 64 byte page size, 25LC1024 uses 
+// 256 byte page size, so 64 is compatible with both.
+
+/* VOTER Customization. */
 #if defined(SMT_BOARD)
-
-// SPI Serial EEPROM buffer size.  To enhance performance while
-// cooperatively sharing the SPI bus with other peripherals, bytes
-// read and written to the memory are locally buffered. Legal
-// sizes are 1 to the EEPROM page size.
-#define EEPROM_BUFFER_SIZE              (16)
-
-// Must be the EEPROM write page size, or any binary power of 2 divisor.  If 
-// using a smaller number, make sure it is at least EEPROM_BUFFER_SIZE big for 
-// max performance.  Microchip 25LC256 uses 64 byte page size, 25LC1024 uses 
-// 256 byte page size, so 64 is compatible with both.
-#define EEPROM_PAGE_SIZE				(16)
-
+    #define EEPROM_BUFFER_SIZE              (16)
+    #define EEPROM_PAGE_SIZE				(16)
 #else
-
-// SPI Serial EEPROM buffer size.  To enhance performance while
-// cooperatively sharing the SPI bus with other peripherals, bytes
-// read and written to the memory are locally buffered. Legal
-// sizes are 1 to the EEPROM page size.
-#define EEPROM_BUFFER_SIZE              (32)
-
-// Must be the EEPROM write page size, or any binary power of 2 divisor.  If 
-// using a smaller number, make sure it is at least EEPROM_BUFFER_SIZE big for 
-// max performance.  Microchip 25LC256 uses 64 byte page size, 25LC1024 uses 
-// 256 byte page size, so 64 is compatible with both.
-#define EEPROM_PAGE_SIZE				(32)
-
+    #define EEPROM_BUFFER_SIZE              (32)
+    #define EEPROM_PAGE_SIZE				(32)
 #endif
-
-
 
 // EEPROM SPI opcodes
 #define OPCODE_READ    0x03    // Read data from memory array beginning at selected address
@@ -168,8 +158,20 @@ static BYTE vBytesInBuffer;
  * Note:            Code sets SPI clock to Fosc/16.
  ********************************************************************/
 
-#define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
 
+#if (defined(HPC_EXPLORER) || defined(PIC18_EXPLORER)) && !defined(__18F87J10) && !defined(__18F87J11) && !defined(__18F87J50)
+    #define PROPER_SPICON1  (0x20)      /* SSPEN bit is set, SPI in master mode, FOSC/4, IDLE state is low level */
+#elif defined(__PIC24F__) || defined(__PIC24FK__)
+    #define PROPER_SPICON1  (0x0013 | 0x0120)   /* 1:1 primary prescale, 4:1 secondary prescale, CKE=1, MASTER mode */
+#elif defined(__dsPIC30F__)
+    #define PROPER_SPICON1  (0x0017 | 0x0120)   /* 1:1 primary prescale, 3:1 secondary prescale, CKE=1, MASTER mode */
+#elif defined(__dsPIC33F__) || defined(__PIC24H__) || defined (__dsPIC33E__)|| defined(__PIC24E__)
+    #define PROPER_SPICON1  (0x0003 | 0x0120)   /* 1:1 primary prescale, 8:1 secondary prescale, CKE=1, MASTER mode */
+#elif defined(__PIC32MX__)
+    #define PROPER_SPICON1  (_SPI2CON_ON_MASK | _SPI2CON_CKE_MASK | _SPI2CON_MSTEN_MASK)
+#else
+    #define PROPER_SPICON1  (0x21)      /* SSPEN bit is set, SPI in master mode, FOSC/16, IDLE state is low level */
+#endif
 
 void XEEInit(void)
 {

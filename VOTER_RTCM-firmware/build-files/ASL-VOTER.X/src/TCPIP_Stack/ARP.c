@@ -192,6 +192,70 @@ BOOL ARPDeRegisterCallbacks(CHAR reg_id)
 
 /*****************************************************************************
   Function:
+	void ARPProcessRxPkt(ARP_PACKET* packet)
+
+  Summary:
+	Processes Received-ARP packet (ARP request/Reply).
+	
+  Description:
+  	This function is to pass-on the ARP-packet to registered application,
+    with the notification of Rx-ARP packet. 
+
+  Precondition:
+	ARP packet is received completely from MAC
+
+  Parameters:
+	packet - Rx packet to be processed     
+
+  Returns:
+    None   
+  ***************************************************************************/
+void ARPProcessRxPkt(ARP_PACKET* packet)
+{
+    BYTE pass_on = 0; // Flag to indicate whether need to be forwarded
+    BYTE i;
+
+    // Probing Stage
+    if(AppConfig.MyIPAddr.Val == 0x00)
+    {
+        pass_on = 1; // Pass to Registered-Application for further processing        
+		// putsUART("ARPProcessRxPkt: MyIPAddr=0  -> pass_on = 1 \r\n"); 
+	}
+    else if ((AppConfig.MyIPAddr.Val != 0x00) && (AppConfig.networkType == WF_SOFT_AP)) // SOFTAP_ZEROCONF_SUPPORT
+    {
+		//putsUART("ARPProcessRxPkt: MyIPAddr!=0 & SoftAP  -> pass_on = 1 \r\n"); 
+        pass_on = 1; // Pass to Registered-Application for further processing        
+    }
+    else if(AppConfig.MyIPAddr.Val)
+    {
+        /* Late-conflict */
+        if(packet->SenderIPAddr.Val == AppConfig.MyIPAddr.Val)
+        {
+            pass_on = 1;
+			// putsUART("ARPProcessRxPkt: SenderIPAddr = MyIPAddr \r\n");
+        }
+    }
+	
+    if(pass_on)
+    {    
+        for(i =0; i< MAX_REG_APPS; i++)
+        {
+            if(reg_apps[i].used)
+            {
+                 //putsUART("ARPProcessRxPkt: pass_on \r\n");
+                reg_apps[i].ARPPkt_notify(packet->SenderIPAddr.Val,
+                                      packet->TargetIPAddr.Val,
+                                      &packet->SenderMACAddr,
+                                      &packet->TargetMACAddr,
+                                      packet->Operation);                
+            }
+        }
+    }
+}
+#endif
+
+/*****************************************************************************
+  Function:
 	void ARPSendPkt(IP_ADDR* SrcIPAddr, IP_ADDR* DestIPAddr, int op_req )
 
   Summary:
@@ -221,13 +285,29 @@ BOOL ARPSendPkt(DWORD SrcIPAddr, DWORD DestIPAddr, BYTE op_req )
 {
     ARP_PACKET packet;
 
-    if(op_req == ARP_REQ)
-        packet.Operation = ARP_OPERATION_REQ;
-    else if (op_req == ARP_RESP) 
-        packet.Operation = ARP_OPERATION_RESP;
-    else
-        return FALSE; // Invalid op-code
+#ifdef STACK_USE_ZEROCONF_LINK_LOCAL
+#define KS_ARP_IP_MULTICAST_HACK y
+#ifdef KS_ARP_IP_MULTICAST_HACK
+	DWORD_VAL *DestAddr = (DWORD_VAL *)&DestIPAddr;
+	if ((DestAddr->v[0] >= 224) &&(DestAddr->v[0] <= 239)) {
+		// "Resolve" the IP to MAC address mapping for
+		// IP multicast address range from 224.0.0.0 to 239.255.255.255
+	
+		Cache.MACAddr.v[0] = 0x01;
+		Cache.MACAddr.v[1] = 0x00;
+		Cache.MACAddr.v[2] = 0x5E;
+		Cache.MACAddr.v[3] = 0x7f & DestAddr->v[1];
+		Cache.MACAddr.v[4] = DestAddr->v[2];
+		Cache.MACAddr.v[5] = DestAddr->v[3];
+	
+		Cache.IPAddr.Val = DestAddr->Val;
+	
+		return TRUE;
+	}
+#endif
+#endif
 
+    packet.Operation = op_req;
 	packet.TargetMACAddr.v[0]   = 0xff;
 	packet.TargetMACAddr.v[1]   = 0xff;
 	packet.TargetMACAddr.v[2]   = 0xff;
@@ -240,62 +320,6 @@ BOOL ARPSendPkt(DWORD SrcIPAddr, DWORD DestIPAddr, BYTE op_req )
 
     return ( ARPPut(&packet) );
 }
-
-/*****************************************************************************
-  Function:
-	void ARPProcessRxPkt(ARP_PACKET* packet)
-
-  Summary:
-	Processes Received-ARP packet (ARP request/Reply).
-	
-  Description:
-  	This function is to pass-on the ARP-packet to registered application,
-    with the notification of Rx-ARP packet. 
-
-  Precondition:
-	ARP packet is received completely from MAC
-
-  Parameters:
-	packet - Rx packet to be processed     
-
-  Returns:
-    None   
-  ***************************************************************************/
-void ARPProcessRxPkt(ARP_PACKET* packet)
-{
-    BYTE pass_on = 0; // Flag to indicate whether need to be forwarded
-    BYTE i;
-
-    // Probing Stage
-    if(AppConfig.MyIPAddr.Val == 0x00)
-    {
-        pass_on = 1; // Pass to Registered-Application for further processing        
-    }
-    else if(AppConfig.MyIPAddr.Val)
-    {
-        /* Late-conflict */
-        if(packet->SenderIPAddr.Val == AppConfig.MyIPAddr.Val)
-        {
-            pass_on = 1;
-        }
-    }
-    if(pass_on)
-    {
-    
-        for(i =0; i< MAX_REG_APPS; i++)
-        {
-            if(reg_apps[i].used)
-            {
-                reg_apps[i].ARPPkt_notify(packet->SenderIPAddr.Val,
-                                      packet->TargetIPAddr.Val,
-                                      &packet->SenderMACAddr,
-                                      &packet->TargetMACAddr,
-                                      packet->Operation);                
-            }
-        }
-    }
-}
-#endif
 
 
 /*****************************************************************************
@@ -379,7 +403,7 @@ void ARPInit(void)
     Cache.MACAddr.v[4] = 0xff;
     Cache.MACAddr.v[5] = 0xff;
 
-	Cache.IPAddr.Val = 0x0;
+	Cache.IPAddr.Val = 0xfffffffful;
 }
 #endif
 
@@ -441,17 +465,27 @@ BOOL ARPProcess(void)
 			ARPProcessRxPkt(&packet);
 #endif
 
+#ifdef STACK_USE_AUTO_IP
+            if (packet.SenderIPAddr.Val == AppConfig.MyIPAddr.Val)
+            {
+                AutoIPConflict(0);
+                return TRUE;                
+            }
+#endif
+
 			// Handle incoming ARP responses
 #ifdef STACK_CLIENT_MODE
 			if(packet.Operation == ARP_OPERATION_RESP)
 			{
-                #if defined(STACK_USE_AUTO_IP)
+/*                #if defined(STACK_USE_AUTO_IP)
                 for (i = 0; i < NETWORK_INTERFACES; i++)
                     if (AutoIPConfigIsInProgress(i))
                         AutoIPConflict(i);
-                #endif
+                #endif*/
 				Cache.MACAddr = packet.SenderMACAddr;
 				Cache.IPAddr = packet.SenderIPAddr;
+				
+				//putsUART("ARPProcess: SM_ARP_IDLE: ARP_OPERATION_RESP  \r\n"); 
 				return TRUE;
 			}
 #endif
@@ -477,7 +511,7 @@ BOOL ARPProcess(void)
 #endif
                 #if defined(STACK_USE_AUTO_IP)
                 for (i = 0; i < NETWORK_INTERFACES; i++)
-                    if ((packet.SenderIPAddr.Val == AppConfig.MyIPAddr.Val) || AutoIPConfigIsInProgress(i))
+                    if (AutoIPConfigIsInProgress(i))
                     {
                         AutoIPConflict(i);
                         return TRUE;
@@ -485,6 +519,8 @@ BOOL ARPProcess(void)
                 #endif
 				Target.IPAddr = packet.SenderIPAddr;
 				Target.MACAddr = packet.SenderMACAddr;
+
+				//putsUART("ARPProcess: SM_ARP_IDLE: ARP_OPERATION_REQ  \r\n"); 
 
 				smARP = SM_ARP_REPLY;
 			}
@@ -509,6 +545,7 @@ BOOL ARPProcess(void)
 #ifdef STACK_USE_ZEROCONF_LINK_LOCAL
             packet.SenderIPAddr		= AppConfig.MyIPAddr;
 #endif
+			//putsUART("ARPProcess: SM_ARP_REPLY  \r\n"); 
 
 			// Send an ARP response to a previously received request
 			if(!ARPPut(&packet))
@@ -523,8 +560,6 @@ BOOL ARPProcess(void)
 
     return TRUE;
 }
-
-
 
 /*****************************************************************************
   Function:
@@ -588,6 +623,7 @@ void ARPResolve(IP_ADDR* IPAddr)
 	packet.TargetMACAddr.v[4]   = 0xff;
 	packet.TargetMACAddr.v[5]   = 0xff;
 
+	//putsUART("ARPResolve() \r\n"); 
 
     // ARP query either the IP address directly (on our subnet), or do an ARP query for our Gateway if off of our subnet
 	packet.TargetIPAddr			= ((AppConfig.MyIPAddr.Val ^ IPAddr->Val) & AppConfig.MyMask.Val) ? AppConfig.MyGateway : *IPAddr;
@@ -598,6 +634,7 @@ void ARPResolve(IP_ADDR* IPAddr)
     ARPPut(&packet);
 }
 #endif
+
 
 
 
@@ -642,9 +679,13 @@ BOOL ARPIsResolved(IP_ADDR* IPAddr, MAC_ADDR* MACAddr)
     if((Cache.IPAddr.Val == IPAddr->Val) || 
 	  ((Cache.IPAddr.Val == AppConfig.MyGateway.Val) && ((AppConfig.MyIPAddr.Val ^ IPAddr->Val) & AppConfig.MyMask.Val)))
     {
-        *MACAddr = Cache.MACAddr;
+        *MACAddr = Cache.MACAddr;		
+		//putsUART("ARPIsResolved  \r\n"); 
         return TRUE;
     }
+
+	//putsUART("ARPIs  NOT Resolved  \r\n"); 
+
     return FALSE;
 }
 #endif

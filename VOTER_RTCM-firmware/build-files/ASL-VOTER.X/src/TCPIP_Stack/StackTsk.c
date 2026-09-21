@@ -62,7 +62,10 @@
  *                                  clear statically IP address if link is
  *                                  removed and DHCP module is disabled
  *                                  at runtime.
- * Howard Schlunder		03/16/07	Rewrote stack manager to be linear
+ * Howard Schlunder		03/16/07    Rewrote stack manager to be linear
+ * V5.36 ---- STACK_USE_MPFS has been removed.
+ *
+ * VE7FET				9/18/26		Merge VOTER customizations into 5.42.08
 ********************************************************************/
 #define __STACKTSK_C
 
@@ -76,6 +79,10 @@
         #include "TCPIP_Stack/WFEasyConfig.h"
     #endif
 	#include "TCPIP_Stack/WFApi.h"
+	
+	#if defined(CONFIG_WPA_ENTERPRISE)
+	#include "wpa_eap/utils/eloop.h"
+	#endif
 #endif
 
 // Stack FSM states.
@@ -92,14 +99,19 @@ static SM_STACK smStack;
 
 NODE_INFO remoteNode;
 
+#if defined (WF_CS_TRIS) && defined (STACK_USE_DHCP_CLIENT)
+BOOL g_DhcpRenew = FALSE;
+extern void SetDhcpProgressState(void);
+UINT32 g_DhcpRetryTimer = 0;
+#endif
 
 
 /*********************************************************************
- * Function:        void StackInit(void)
+ * Function:        void StackInit(BOOL fulldup)
  *
  * PreCondition:    None
  *
- * Input:           None
+ * Input:           fulldup, allow for runtime duplex setting
  *
  * Output:          Stack and its componets are initialized
  *
@@ -111,6 +123,7 @@ NODE_INFO remoteNode;
  ********************************************************************/
 void StackInit(BOOL fulldup)
 {
+	static BOOL once = FALSE;
     smStack                     = SM_STACK_IDLE;
 
 #if defined(STACK_USE_IP_GLEANING) || defined(STACK_USE_DHCP_CLIENT)
@@ -122,13 +135,25 @@ void StackInit(BOOL fulldup)
 
 #endif
 
+#if defined (WF_CS_TRIS) && defined (STACK_USE_DHCP_CLIENT)
+	g_DhcpRenew = FALSE;
+	g_DhcpRetryTimer = 0;
+#endif
 
-	// Seed the LFSRRand() function
-	LFSRSeedRand(GenerateRandomDWORD());
+	if (!once) {
+		// Seed the LFSRRand() function
+		LFSRSeedRand(GenerateRandomDWORD());
+		once = TRUE;
+	}
 
+	/* VOTER allows setting duplex at runtime. */
     MACInit(fulldup);
 
-#if defined(WF_CS_TRIS) && defined(STACK_USE_EZ_CONFIG)
+#if defined (WF_AGGRESSIVE_PS) && defined (WF_CS_TRIS)
+	WFEnableAggressivePowerSave();
+#endif
+
+#if defined(WF_CS_TRIS) && defined(STACK_USE_EZ_CONFIG) && !defined(__18CXX)
     WFEasyConfigInit();
 #endif    
 
@@ -146,7 +171,7 @@ void StackInit(BOOL fulldup)
 	BerkeleySocketInit();
 #endif
 
-#if defined(STACK_USE_HTTP_SERVER) || defined(STACK_USE_HTTP2_SERVER)
+#if defined(STACK_USE_HTTP2_SERVER)
     HTTPInit();
 #endif
 
@@ -158,7 +183,7 @@ void StackInit(BOOL fulldup)
     SSLInit();
 #endif
 
-#if defined(STACK_USE_FTP_SERVER) && defined(STACK_USE_MPFS)
+#if defined(STACK_USE_FTP_SERVER) && defined(STACK_USE_MPFS2)
     FTPInit();
 #endif
 
@@ -174,7 +199,7 @@ void StackInit(BOOL fulldup)
     }
 #endif
 
-#if defined(STACK_USE_AUTOIP)
+#if defined(STACK_USE_AUTO_IP)
     AutoIPInit(0);
 #endif
 
@@ -214,19 +239,56 @@ void StackTask(void)
 	BYTE cFrameType;
 	BYTE cIPFrameType;
 
+	/* VOTER/RTCM-specific ENC28J60 receive-path recovery routine. */
 	MACBurp();
 
    
     #if defined( WF_CS_TRIS )
-        // This task performs low-level MAC processing specific to the MRF24WB0M
+        // This task performs low-level MAC processing specific to the MRF24W
         MACProcess();
-        #if defined( STACK_USE_EZ_CONFIG )
+        #if defined( STACK_USE_EZ_CONFIG ) && !defined(__18CXX)
             WFEasyConfigMgr();
         #endif
-    #endif
+        
+    	#if defined(STACK_USE_DHCP_CLIENT)
+        	// Normally, an application would not include  DHCP module
+        	// if it is not enabled. But in case some one wants to disable
+        	// DHCP module at run-time, remember to not clear our IP
+        	// address if link is removed.
+        	if(AppConfig.Flags.bIsDHCPEnabled)
+        	{
+        		if(g_DhcpRenew == TRUE)
+        		{
+        			g_DhcpRenew = FALSE;
+            		AppConfig.MyIPAddr.Val = AppConfig.DefaultIPAddr.Val;
+        			AppConfig.MyMask.Val = AppConfig.DefaultMask.Val;
+        			AppConfig.Flags.bInConfigMode = TRUE;
+        			DHCPInit(0);
+					g_DhcpRetryTimer = (UINT32)TickGet();
+        		} else {
+        			if (g_DhcpRetryTimer && TickGet() - g_DhcpRetryTimer >= TICKS_PER_SECOND * 8) {
+						DHCPInit(0);
+						g_DhcpRetryTimer = (UINT32)TickGet();
+        			}
+        		}
+        	
+        		// DHCP must be called all the time even after IP configuration is
+        		// discovered.
+        		// DHCP has to account lease expiration time and renew the configuration
+        		// time.
+        		DHCPTask();
+        		
+        		if(DHCPIsBound(0)) {
+        			AppConfig.Flags.bInConfigMode = FALSE;
+					g_DhcpRetryTimer = 0;
+        		}
+        	}
+    	#endif // STACK_USE_DHCP_CLIENT
+        
+    #endif // WF_CS_TRIS
 
 
-	#if defined(STACK_USE_DHCP_CLIENT)
+	#if defined(STACK_USE_DHCP_CLIENT) && !defined(WF_CS_TRIS)
 	// Normally, an application would not include  DHCP module
 	// if it is not enabled. But in case some one wants to disable
 	// DHCP module at run-time, remember to not clear our IP
@@ -293,7 +355,7 @@ void StackTask(void)
 		// yet)
 		if(!MACGetHeader(&remoteNode.MACAddr, &cFrameType))
 			break;
-
+		
 		// When using a WiFi module, filter out all incoming packets that have 
 		// the same source MAC address as our own MAC address.  This is to 
 		// prevent receiving and passing our own broadcast packets up to other 
@@ -302,7 +364,19 @@ void StackTask(void)
 		#if defined(WF_CS_TRIS)
 			if(memcmp((void*)&remoteNode.MACAddr, (void*)&AppConfig.MyMACAddr, 6) == 0u)
 				continue;
-		#endif
+
+			#if defined(CONFIG_WPA_ENTERPRISE)
+			if (cFrameType == MAC_UNKNOWN) {
+				static unsigned char buf[2300];
+				struct ieee8021xhdr *hdr = (struct ieee8021xhdr *)buf;
+				MACGetArray((BYTE*)hdr, sizeof(*hdr));
+				if (SWAP16(hdr->length) > 0)
+					MACGetArray((BYTE*)(hdr + 1), SWAP16(hdr->length));
+				l2_packet_receive(hdr, SWAP16(hdr->length) + sizeof(*hdr), &remoteNode.MACAddr);
+				continue;
+			}
+			#endif /* defined(CONFIG_WPA_ENTERPRISE) */
+		#endif	/* defined(WF_CS_TRIS) */
 
 		// Dispatch the packet to the appropriate handler
 		switch(cFrameType)
@@ -388,11 +462,11 @@ void StackTask(void)
  ********************************************************************/
 void StackApplications(void)
 {
-	#if defined(STACK_USE_HTTP_SERVER) || defined(STACK_USE_HTTP2_SERVER)
+	#if defined(STACK_USE_HTTP2_SERVER)
 	HTTPServer();
 	#endif
 	
-	#if defined(STACK_USE_FTP_SERVER) && defined(STACK_USE_MPFS)
+	#if defined(STACK_USE_FTP_SERVER) && defined(STACK_USE_MPFS2)
 	FTPServer();
 	#endif
 	
@@ -448,3 +522,12 @@ void StackApplications(void)
 	UART2TCPBridgeTask();
 	#endif
 }
+
+#if defined(WF_CS_TRIS) && defined(STACK_USE_DHCP_CLIENT)
+void RenewDhcp(void)
+{
+    g_DhcpRenew = TRUE;
+    SetDhcpProgressState();
+}    
+    
+#endif

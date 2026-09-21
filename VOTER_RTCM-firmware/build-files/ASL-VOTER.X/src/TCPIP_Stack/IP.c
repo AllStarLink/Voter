@@ -57,6 +57,7 @@
  * Howard Schlunder		1/5/06	Improved DMA checksum efficiency
  * Darren Rook			9/21/06	Corrected IPHeaderLen not being 
  * 								initialized when NON_MCHP_MAC defined.
+ * VE7FET               9/20/26 Add comments for VOTER customization
  ********************************************************************/
 #define __IP_C
 
@@ -87,7 +88,7 @@
 #define IP_SERVICE_N_RELIB  (0x00)
 #define IP_SERVICE_H_RELIB  (0x20)
 
-// Debug Level 16 will disable TOS/DSCP (48) marking of packets, normally mark all packets with DSCP 48
+/* VOTER Debug Level 16 will disable TOS/DSCP (48) marking of packets, normally mark all packets with DSCP 48 */
 #define IP_SERVICE         ((AppConfig.DebugLevel & 16) ? (IP_SERVICE_ROUTINE | IP_SERVICE_N_DELAY) : 0xc0)
 
 #if defined(STACK_USE_ZEROCONF_MDNS_SD)

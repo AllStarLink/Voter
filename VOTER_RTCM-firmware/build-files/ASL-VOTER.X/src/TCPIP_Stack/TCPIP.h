@@ -44,14 +44,16 @@
  * (INCLUDING NEGLIGENCE), BREACH OF WARRANTY, OR OTHERWISE.
  *
  *
- * Author               Date    	Comment
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * Howard Schlunder		12/20/06	Original
+ * V5.36 ---- STACK_USE_MPFS has been removed.
+ *
+ * VE7FET				9/20/26		VOTER comments out SPIFlash.h and SPIRAM.h
+ *									as they are un-necessary dependencies 
+ *									for this project.
  ********************************************************************/
 #ifndef __TCPIP_HITECH_WORKAROUND_H
 #define __TCPIP_HITECH_WORKAROUND_H
 
-#define TCPIP_STACK_VERSION 		"v5.31"		// TCP/IP stack version
+#define TCPIP_STACK_VERSION 		"v5.42"		// TCP/IP stack version
 
 #include <string.h>
 #include <stdlib.h>
@@ -95,12 +97,9 @@
 
 #ifndef STACK_USE_MDD
 
-	// Make sure MPFS included for modules that require it
-	#if defined(STACK_USE_FTP_SERVER) || defined(STACK_USE_HTTP_SERVER)
-		#define STACK_USE_MPFS
-	#endif
 	
-	#if defined(STACK_USE_HTTP2_SERVER)
+	
+	#if defined(STACK_USE_HTTP2_SERVER) || defined(STACK_USE_FTP_SERVER)
 		#define STACK_USE_MPFS2
 	#endif
 
@@ -108,7 +107,7 @@
 		#define STACK_USE_SNMP_SERVER
 	#endif
 
-	#if defined(STACK_USE_SNMP_SERVER) && !defined(STACK_USE_MPFS) && !defined(STACK_USE_MPFS2)
+	#if defined(STACK_USE_SNMP_SERVER) //&& !defined(STACK_USE_MPFS) && !defined(STACK_USE_MPFS2)
 		#define STACK_USE_MPFS2
 	#endif
 
@@ -159,7 +158,8 @@
 	#if defined(STACK_USE_GENERIC_TCP_CLIENT_EXAMPLE) || \
 		defined(STACK_USE_SNTP_CLIENT) || \
 		defined(STACK_USE_DYNAMICDNS_CLIENT) || \
-		defined(STACK_USE_SMTP_CLIENT)
+		defined(STACK_USE_SMTP_CLIENT) || \
+		defined(STACK_USE_AUTOUPDATE_TCPCLIENT)
 	    #if !defined(STACK_USE_DNS)
 	        #define STACK_USE_DNS
 	    #endif
@@ -177,7 +177,8 @@
 		defined(STACK_USE_DYNAMICDNS_CLIENT) || \
 		defined(STACK_USE_SNTP_CLIENT) || \
 		defined(STACK_USE_BERKELEY_API) || \
-		defined(STACK_USE_SSL_CLIENT)
+		defined(STACK_USE_SSL_CLIENT) || \
+        defined(STACK_USE_AUTO_IP)
 		#if !defined(STACK_CLIENT_MODE)
 		    #define STACK_CLIENT_MODE
 		#endif
@@ -186,7 +187,6 @@
 	// Make sure that STACK_USE_TCP is defined if a service 
 	// depends on it
 	#if defined(STACK_USE_UART2TCP_BRIDGE) || \
-		defined(STACK_USE_HTTP_SERVER) || \
 		defined(STACK_USE_HTTP2_SERVER) || \
 		defined(STACK_USE_FTP_SERVER) || \
 		defined(STACK_USE_TELNET_SERVER) || \
@@ -276,7 +276,7 @@
 	#endif
 	
 	// SPI Flash MPFS images must start on a block boundary
-	#if (defined(STACK_USE_MPFS2) || defined(STACK_USE_MPFS)) && \
+	#if (defined(STACK_USE_MPFS2)) && \
 		defined(MPFS_USE_SPI_FLASH) && ((MPFS_RESERVE_BLOCK & 0x0fff) != 0)
 		#error MPFS_RESERVE_BLOCK must be a multiple of 4096 for SPI Flash storage
 	#endif
@@ -321,7 +321,9 @@
 #endif
 
 	#include "TCPIP_Stack/XEEPROM.h"
-
+	/* VOTER does not require these dependencies. */
+	// #include "TCPIP_Stack/SPIFlash.h"
+	// #include "TCPIP_Stack/SPIRAM.h"
 
 #if defined(STACK_USE_UDP)
 	#include "TCPIP_Stack/UDP.h"
@@ -355,10 +357,6 @@
 	#include "TCPIP_Stack/DNS.h"
 #endif
 
-#if defined(STACK_USE_MPFS)
-	#include "TCPIP_Stack/MPFS.h"
-#endif
-
 #if defined(STACK_USE_MPFS2)
 	#include "TCPIP_Stack/MPFS2.h"
 #endif
@@ -367,9 +365,6 @@
 	#include "TCPIP_Stack/FTP.h"
 #endif
 
-#if defined(STACK_USE_HTTP_SERVER)
-	#include "TCPIP_Stack/HTTP.h"
-#endif
 
 #if defined(STACK_USE_HTTP2_SERVER)
 	#ifdef STACK_USE_MDD

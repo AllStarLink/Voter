@@ -24,8 +24,6 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this project.  If not, see <http://www.gnu.org/licenses/>.
  *
- *   NOTE: Now works with latest (v3.30) MPLAB C30 compiler
- *
  *   ****mktime() is broken in MPLAB C30 for dates past 12/31/2020 23:59:59***
  *   This version now uses an alternate routine in substitution for mktime(). 
  *   All previous versions that use mktime() WILL be broken, not able to tell 
@@ -208,10 +206,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "4.00 BEW 9/12/2026";
+	char	VERSION[] = "4.00 BEW 9/20/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "4.00 9/12/2026";
+	char	VERSION[] = "4.00 9/20/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -3713,7 +3711,7 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 			 * We also send keepalive packets (with or without GPS), as noted below.
 			 */
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
-				UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+				UDPSetRemoteNode(activeUDPSocket, udpServerNode);
 				memclr(&audio_packet, sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
 				audio_packet.vph.curtime.vtime_nsec = (!VOTER_CLIENT) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
@@ -3826,7 +3824,7 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 	 */
 	if (connected && (sendgps || (!VOTER_CLIENT)) && ((gps_fix || !VOTER_CLIENT) && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
-			UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+			UDPSetRemoteNode(activeUDPSocket, udpServerNode);
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
 			gps_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 			strcpy((char *)gps_packet.vph.challenge, challenge);
@@ -4027,7 +4025,7 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 						/* If okay to respond to a ping */
 						if (!pingtimer) {
 					        if (UDPIsPutReady(*udpSocketUser)) {
-								UDPSocketInfo[activeUDPSocket].remoteNode.MACAddr = udpServerNode->MACAddr;
+								UDPSetRemoteNode(activeUDPSocket, udpServerNode);
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
 								audio_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 								strcpy((char *) audio_packet.vph.challenge, challenge);
@@ -4323,6 +4321,10 @@ void main_processing_loop(void)
 			memclr(&udpServerNode, sizeof(udpServerNode));
 
 			udpServerNode.IPAddr = vaddr;
+			/*
+			 * Keep the legacy VOTER call.  MLA 5.42.08 implements
+			 * this through its UDPOpen() compatibility macro.
+			*/
 			udpSocketUser = UDPOpen(AppConfig.MyPort, &udpServerNode, 
 				(althost && AppConfig.AltVoterServerPort) ? AppConfig.AltVoterServerPort : AppConfig.VoterServerPort);
 			smUdp = SM_UDP_SEND_ARP;
@@ -4373,6 +4375,13 @@ void main_processing_loop(void)
 					 * node at 10.1.0.101
 					 */
 					if (ARPIsResolved(&udpServerNode.IPAddr, &udpServerNode.MACAddr)) {
+						/*
+						 * MLA 5.42 UDP sockets cache the complete NODE_INFO.
+						 * VOTER performs ARP resolution itself, so refresh the
+						 * socket's destination information after ARP completes,
+						 * using a helper function.
+						*/
+						UDPSetRemoteNode(udpSocketUser, &udpServerNode);
 						smUdp = SM_UDP_RESOLVED;
 					} else { /* If not resolved after 2 seconds, send next request */
 						if ((TickGet() - tsecWait) >= TICK_SECOND / 2ul) {
@@ -7542,9 +7551,9 @@ static void InitAppConfig(void)
 		if (c == 0x60u) {
 			XEEReadArray(0x0001, (BYTE *) &AppConfig, sizeof(AppConfig));
 			/* If the Hysteresis setting is not initialized in the EEPROM (0), 
-			 * initialize it with the default value.
+			 * or is irrational, initialize it with the default value.
 			 */
-			if (AppConfig.Hysteresis == 0) {
+			if (AppConfig.Hysteresis == 0 || AppConfig.Hysteresis > 100) {
 				AppConfig.Hysteresis = 24;
 				SaveAppConfig();
 			}

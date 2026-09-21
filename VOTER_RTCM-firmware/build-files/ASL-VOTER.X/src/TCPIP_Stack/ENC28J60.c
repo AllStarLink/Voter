@@ -64,6 +64,9 @@
  * Howard Schlunder     6/16/06 Synchronized with PIC18F97J60 code
  * Howard Schlunder     7/17/06 Updated TestMemory() for C30
  * Howard Schlunder     8/07/06 Added SetRXHashTableEntry() function
+ * VE7FET               9/20/26 Add comments for VOTER compatibility,
+ *                              add some v5.42.08 modifications, fix
+ *                              changing MAC duplex based on fulldup.
 ********************************************************************/
 #define __ENC28J60_C
 
@@ -74,6 +77,7 @@
 
 #include "TCPIP_Stack/TCPIP.h"
 
+/* VOTER This is legacy CS handling that we will keep. */
 #if defined(SPICS_ENC)
 #define	ASSERT_ENC_CS_IO SPISel(SPICS_ENC);
 #define	DEASSERT_ENC_CS_IO SPISel(SPICS_IDLE);
@@ -92,6 +96,10 @@
 // not compatible with most switches/routers.  If a dedicated network is used
 // where the duplex of the remote node can be manually configured, you may
 // change this configuration.  Otherwise, half duplex should always be used.
+/* VOTER sets duplex at runtime with a configuration variable from EEPROM. */
+//#define HALF_DUPLEX
+//#define FULL_DUPLEX
+//#define LEDB_DUPLEX
 
 // Pseudo Functions
 #define LOW(a)                  ((a) & 0xFF)
@@ -167,6 +175,9 @@ static WORD_VAL CurrentPacketLocation;
 static BOOL WasDiscarded;
 static BYTE ENCRevID;
 
+/* VOTER helper function to ensure RX is enabled and TX/RX Pause is enabled 
+ * each time StackTsk is serviced.
+ */
 void MACBurp(void)
 {
 
@@ -180,11 +191,11 @@ void MACBurp(void)
 //NOTE: All code in this module expects Bank 0 to be currently selected.  If code ever changes the bank, it must restore it to Bank 0 before returning.
 
 /******************************************************************************
- * Function:        void MACInit(void)
+ * Function:        void MACInit(BOOL fulldup)
  *
  * PreCondition:    None
  *
- * Input:           None
+ * Input:           fulldup, allows runtime changing full/half duplex
  *
  * Output:          None
  *
@@ -225,7 +236,7 @@ void MACInit(BOOL fulldup)
     ENC_SPISTATbits.SMP = 0;// Input sampled at middle of data output time
 #elif defined(__C30__)
     ENC_SPISTAT = 0;        // clear SPI
-    #if defined(__PIC24H__) || defined(__dsPIC33F__)
+    #if defined(__PIC24H__) || defined(__dsPIC33F__) || defined(__dsPIC33E__)|| defined(__PIC24E__)
         ENC_SPICON1 = 0x0F;     // 1:1 primary prescale, 5:1 secondary prescale (8MHz  @ 40MIPS)
     //    ENC_SPICON1 = 0x1E;   // 4:1 primary prescale, 1:1 secondary prescale (10MHz @ 40MIPS, Doesn't work.  CLKRDY is incorrectly reported as being clear.  Problem caused by dsPIC33/PIC24H ES silicon bug.)
     #elif defined(__PIC24F__) || defined(__PIC24FK__)
@@ -294,14 +305,15 @@ void MACInit(BOOL fulldup)
     // Enable the receive portion of the MAC
     WriteReg((BYTE)MACON1, MACON1_TXPAUS | MACON1_RXPAUS | MACON1_MARXEN);
 
-    // Pad packets to 60 bytes, add CRC, and check Type/Length field.
-#if defined(FULL_DUPLEX)
+    // Pad packets to 60 bytes, add CRC, check Type/Length field, set MAC duplex.
+    /* VOTER allows changing this at runtime. */
+if (fulldup) {
     WriteReg((BYTE)MACON3, MACON3_PADCFG0 | MACON3_TXCRCEN | MACON3_FRMLNEN | MACON3_FULDPX);
     WriteReg((BYTE)MABBIPG, 0x15);
-#else
+} else {
     WriteReg((BYTE)MACON3, MACON3_PADCFG0 | MACON3_TXCRCEN | MACON3_FRMLNEN);
     WriteReg((BYTE)MABBIPG, 0x12);
-#endif
+}
 
     // Allow infinite deferals if the medium is continuously busy
     // (do not time out a transmission if the half duplex medium is
@@ -347,7 +359,7 @@ void MACInit(BOOL fulldup)
     // Configure LEDA to display LINK status, LEDB to display TX/RX activity
     SetLEDConfig(0x3472);
 
-    // Set the MAC and PHY into the proper duplex state
+    /* VOTER Set the PHY into the proper duplex state */
 	if (fulldup)
 	{
     	WritePHYReg(PHCON1, PHCON1_PDPXMD);
@@ -356,6 +368,7 @@ void MACInit(BOOL fulldup)
 	{
     	WritePHYReg(PHCON1, 0x0000);
 	}
+/* Don't need this now, since we're manually configuring duplex at runtime. */
 #if 0
     // Use the external LEDB polarity to determine weather full or half duplex
     // communication mode should be set.
@@ -1034,7 +1047,7 @@ WORD CalcIPBufferChecksum(WORD len)
  *
  * Side Effects:    None
  *
- * Overview:        Bytes are asynchrnously transfered within the buffer.  Call
+ * Overview:        Bytes are asynchronously transferred within the buffer.  Call
  *                  MACIsMemCopyDone() to see when the transfer is complete.
  *
  * Note:            If a prior transfer is already in progress prior to
@@ -1047,7 +1060,7 @@ WORD CalcIPBufferChecksum(WORD len)
  *****************************************************************************/
 void MACMemCopyAsync(PTR_BASE destAddr, PTR_BASE sourceAddr, WORD len)
 {
-    WORD_VAL ReadSave = {0}, WriteSave;
+    WORD_VAL ReadSave = {0}, WriteSave = {0};
     BOOL UpdateWritePointer = FALSE;
     BOOL UpdateReadPointer = FALSE;
 
@@ -2351,6 +2364,7 @@ void SetRXHashTableEntry(MAC_ADDR DestMACAddr)
 //
 //}
 
+/* VOTER debugging. */
 #ifdef DUMPENCREGS
 
 	#define DUMPETHREG(x) {BankSel(x); c = ReadETHReg(x & 0xff); printf("ETHREG %s is %02x hex\n",#x,c.Val); } 

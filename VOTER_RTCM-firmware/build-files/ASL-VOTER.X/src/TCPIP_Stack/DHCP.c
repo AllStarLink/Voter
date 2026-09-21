@@ -79,6 +79,8 @@
 *								untested Host Name option to DHCP request
 * Howard Schlunder		1/09/06	Fixed a DHCP renewal not renewing lease time bug
 * Howard Schlunder		3/16/07 Rewrote DHCP state machine
+*                       6/14/13 Increased DHCP_TIMEOUT to random exponential back-off.
+* VE7FET				9/20/26 Add VOTER customizations.
 ********************************************************************/
 #define __DHCP_C
 
@@ -89,7 +91,7 @@
 #include "TCPIP_Stack/TCPIP.h"
 
 // Defines how long to wait before a DHCP request times out
-#define DHCP_TIMEOUT				(2ul*TICK_SECOND)
+#define DHCP_BASE_TIMEOUT                (2ul)
 
 // Unique variables per interface
 typedef struct
@@ -109,6 +111,7 @@ typedef struct
 	    BYTE val;
 	} flags;
 	DWORD 				dwTimer;		// Tick timer value used for triggering future events after a certain wait period.
+	DWORD                dwBaseTime;        // Base timer for timeouts in seconds
 	DWORD				dwLeaseTime;	// DHCP lease time remaining, in seconds
 	DWORD				dwServerID;		// DHCP Server ID cache
 	IP_ADDR				tempIPAddress;	// Temporary IP address to use when no DHCP lease
@@ -139,6 +142,10 @@ BOOL DHCPClientInitializedOnce = FALSE;
 static BYTE _DHCPReceive(void);
 static void _DHCPSend(BYTE messageType, BOOL bRenewing);
 
+#if defined (WF_CS_IO)
+extern void SignalDHCPSuccessful(void);
+extern void SetDhcpProgressState(void);
+#endif
 
 /*****************************************************************************
   Function:
@@ -176,6 +183,7 @@ static DHCP_CLIENT_VARS	*SelectedDHCPClient;
 #else
 
 static DHCP_CLIENT_VARS DHCPClient;
+
 #define LoadState(v)
 
 #endif
@@ -232,6 +240,7 @@ void DHCPInit(BYTE vInterface)
 	}
 
 	// Reset state machine and flags to default values
+    DHCPClient.dwBaseTime = DHCP_BASE_TIMEOUT;
 	DHCPClient.smState = SM_DHCP_GET_SOCKET;
 	DHCPClient.flags.val = 0;
 	DHCPClient.flags.bits.bUseUnicastMode = TRUE;	// This flag toggles before use, so this statement actually means to start out using broadcast mode.
@@ -309,6 +318,7 @@ void DHCPEnable(BYTE vInterface)
 
 	if(DHCPClient.smState == SM_DHCP_DISABLED)
 	{
+        DHCPClient.dwBaseTime = DHCP_BASE_TIMEOUT;
 		DHCPClient.smState = SM_DHCP_GET_SOCKET;
 		DHCPClient.flags.bits.bIsBound = FALSE;
 	}
@@ -442,6 +452,30 @@ BOOL DHCPIsServerDetected(BYTE vInterface)
 	return DHCPClient.flags.bits.bDHCPServerDetected;
 }
 
+/*****************************************************************************
+  Function:
+	void DHCPTempIPAddr(void)
+
+  Summary:
+	Copy DHCPClient.tempIPAddress into AppConfig.MyIPAddr.  SOFTAP_ZEROCONF_SUPPORT.
+
+  Description:
+  	Copy DHCPClient.tempIPAddress into AppConfig.MyIPAddr. 
+	
+  Precondition:
+	None
+
+  Parameters:
+	None
+
+  Returns:
+	None
+***************************************************************************/
+void DHCPTempIPAddr(void)
+{
+	AppConfig.MyIPAddr = DHCPClient.tempIPAddress;  
+}
+
 
 /*****************************************************************************
   Function:
@@ -479,8 +513,15 @@ void DHCPTask(void)
 			
 			case SM_DHCP_GET_SOCKET:
 				// Open a socket to send and receive broadcast messages on
-				DHCPClient.hDHCPSocket = UDPOpen(DHCP_CLIENT_PORT, NULL, 
-					(AppConfig.Flags.bIsDHCPReallyEnabled) ? DHCP_SERVER_PORT : 2233);
+				//DHCPClient.hDHCPSocket = UDPOpen(DHCP_CLIENT_PORT, NULL, DHCP_SERVER_PORT);
+				
+				//putrsUART("\r\nDHCPTask: SM_DHCP_GET_SOCKET\r\n");	 
+				
+				/* VOTER Customization, was:
+				 *
+				 * DHCPClient.hDHCPSocket = UDPOpenEx(0,UDP_OPEN_SERVER,DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+				 */
+				DHCPClient.hDHCPSocket = UDPOpenEx(0,UDP_OPEN_SERVER,DHCP_CLIENT_PORT, (AppConfig.Flags.bIsDHCPReallyEnabled) ? DHCP_SERVER_PORT : 2233);
 				if(DHCPClient.hDHCPSocket == INVALID_UDP_SOCKET)
 					break;
 	
@@ -497,6 +538,8 @@ void DHCPTask(void)
 				DHCPClient.flags.bits.bIsBound = FALSE;	
 				DHCPClient.flags.bits.bOfferReceived = FALSE;
 	
+				// putrsUART("DHCPTask: SM_DHCP_SEND_DISCOVERY\r\n");     
+
 				// No point in wasting time transmitting a discovery if we are 
 				// unlinked.  No one will see it.  
 				if(!MACIsLinked())
@@ -514,13 +557,13 @@ void DHCPTask(void)
 	
 				// Ensure that we transmit to the broadcast IP and MAC addresses
 				// The UDP Socket remembers who it was last talking to
-				memset((void*)&UDPSocketInfo[DHCPClient.hDHCPSocket].remoteNode, 0xFF, sizeof(UDPSocketInfo[0].remoteNode));
+				memset((void*)&UDPSocketInfo[DHCPClient.hDHCPSocket].remote.remoteNode, 0xFF, sizeof(UDPSocketInfo[0].remote.remoteNode));
 	
 				// Send the DHCP Discover broadcast
 				_DHCPSend(DHCP_DISCOVER_MESSAGE, FALSE);
 	
 				// Start a timer and begin looking for a response
-				DHCPClient.dwTimer = TickGet();
+                DHCPClient.dwTimer = TickGet() + ((DHCPClient.dwBaseTime * TICK_SECOND) + (LFSRRand() % TICK_SECOND));
 				DHCPClient.smState = SM_DHCP_GET_OFFER;
 				break;
 	
@@ -528,10 +571,19 @@ void DHCPTask(void)
 				// Check to see if a packet has arrived
 				if(UDPIsGetReady(DHCPClient.hDHCPSocket) < 250u)
 				{
-					// Go back and transmit a new discovery if we didn't get an offer after 2 seconds
-					if(TickGet() - DHCPClient.dwTimer >= DHCP_TIMEOUT)
-						if (AppConfig.Flags.bIsDHCPReallyEnabled)
-							DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+					// Go back and transmit a new discovery if we didn't get an offer after the timeout
+                    if((long)(TickGet() - DHCPClient.dwTimer) > 0)
+                    {
+                        // Double the backoff time
+                        if (DHCPClient.dwBaseTime < 64ul)
+                        {
+                            DHCPClient.dwBaseTime <<= 1;
+                        }
+						/* VOTER Customization. Only send discovery if DHCP is really enabled. */
+						if (AppConfig.Flags.bIsDHCPReallyEnabled) {
+                        	DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+						}
+                    }
 					break;
 				}
 	
@@ -542,6 +594,8 @@ void DHCPTask(void)
 				// Check to see if we received an offer
 				if(_DHCPReceive() != DHCP_OFFER_MESSAGE)
 					break;
+	
+				// putrsUART("DHCPTask: SM_DHCP_GET_OFFER: Receive offer. Go to SM_DHCP_SEND_REQUEST \r\n");     
 	
 				DHCPClient.smState = SM_DHCP_SEND_REQUEST;
 				// No break
@@ -555,13 +609,15 @@ void DHCPTask(void)
 				// we must set this back to the broadcast address since the 
 				// current socket values are the unicast addresses of the DHCP 
 				// server.
-				memset((void*)&UDPSocketInfo[DHCPClient.hDHCPSocket].remoteNode, 0xFF, sizeof(UDPSocketInfo[0].remoteNode));
+				memset((void*)&UDPSocketInfo[DHCPClient.hDHCPSocket].remote.remoteNode, 0xFF, sizeof(UDPSocketInfo[0].remote.remoteNode));
 	
 				// Send the DHCP request message
 				_DHCPSend(DHCP_REQUEST_MESSAGE, FALSE);
 	
+				// putrsUART("DHCPTask: SM_DHCP_SEND_REQUEST \r\n");	 
+				
 				// Start a timer and begin looking for a response
-				DHCPClient.dwTimer = TickGet();
+                DHCPClient.dwTimer = TickGet() + ((DHCPClient.dwBaseTime * TICK_SECOND) + (LFSRRand() % TICK_SECOND));;
 				DHCPClient.smState = SM_DHCP_GET_REQUEST_ACK;
 				break;
 	
@@ -569,10 +625,18 @@ void DHCPTask(void)
 				// Check to see if a packet has arrived
 				if(UDPIsGetReady(DHCPClient.hDHCPSocket) < 250u)
 				{
-					// Go back and transmit a new discovery if we didn't get an ACK after 2 seconds
-					if(TickGet() - DHCPClient.dwTimer >= DHCP_TIMEOUT)
-						if (AppConfig.Flags.bIsDHCPReallyEnabled)
-							DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+					// Go back and transmit a new discovery if we didn't get an ACK after the timeout
+					if((long)(TickGet() - DHCPClient.dwTimer) > 0)
+                    {
+                        if (DHCPClient.dwBaseTime < 64)
+                        {
+                            DHCPClient.dwBaseTime <<= 1;
+                        }
+						/* VOTER Customization. Only send discovery if DHCP is really enabled. */
+						if (AppConfig.Flags.bIsDHCPReallyEnabled) {
+                        	DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+						}
+                    }
 					break;
 				}
 	
@@ -587,8 +651,20 @@ void DHCPTask(void)
 						DHCPClient.flags.bits.bEvent = 1;
 						DHCPClient.flags.bits.bIsBound = TRUE;	
 
+						// putrsUART("DHCPTask: SM_DHCP_GET_REQUEST_ACK: Receive DHCP_ACK_MESSAGE \r\n");	 
+
 						if(DHCPClient.validValues.bits.IPAddress)
+						{
 							AppConfig.MyIPAddr = DHCPClient.tempIPAddress;
+							
+							#if defined(WF_CS_IO) 
+							    #if defined(STACK_USE_UART )
+							        putrsUART("DHCP client successful\r\n");
+							    #endif
+    							SignalDHCPSuccessful();
+							#endif
+							
+						}	
 						if(DHCPClient.validValues.bits.Mask)
 							AppConfig.MyMask = DHCPClient.tempMask;
 						if(DHCPClient.validValues.bits.Gateway)
@@ -606,6 +682,7 @@ void DHCPTask(void)
 						break;
 	
 					case DHCP_NAK_MESSAGE:
+						// putrsUART("DHCPTask: SM_DHCP_GET_REQUEST_ACK: Receive DHCP_NAK_MESSAGE \r\n");	 
 						DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
 						break;
 				}
@@ -617,7 +694,7 @@ void DHCPTask(void)
 	
 				// Check to see if our lease is still valid, if so, decrement lease 
 				// time
-				if(DHCPClient.dwLeaseTime >= 2ul)
+                if(DHCPClient.dwLeaseTime > (DHCPClient.dwBaseTime * 3))
 				{
 					DHCPClient.dwTimer += TICK_SECOND;
 					DHCPClient.dwLeaseTime--;
@@ -625,11 +702,16 @@ void DHCPTask(void)
 				}
 	
 				// Open a socket to send and receive DHCP messages on
-				DHCPClient.hDHCPSocket = UDPOpen(DHCP_CLIENT_PORT, NULL, DHCP_SERVER_PORT);
+				//DHCPClient.hDHCPSocket = UDPOpen(DHCP_CLIENT_PORT, NULL, DHCP_SERVER_PORT);
+				
+				DHCPClient.hDHCPSocket = UDPOpenEx(0,UDP_OPEN_SERVER,DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 				if(DHCPClient.hDHCPSocket == INVALID_UDP_SOCKET)
 					break;
 	
+				// putrsUART("DHCPTask: SM_DHCP_BOUND -> SM_DHCP_SEND_RENEW  \r\n");	 
+	
 				DHCPClient.smState = SM_DHCP_SEND_RENEW;
+				
 				// No break
 	
 			case SM_DHCP_SEND_RENEW:
@@ -637,13 +719,17 @@ void DHCPTask(void)
 			case SM_DHCP_SEND_RENEW3:
 				if(UDPIsPutReady(DHCPClient.hDHCPSocket) < 258u)
 					break;
-	
+
+                                #if defined(WF_CS_IO)
+                                    SetDhcpProgressState();
+                                #endif
+				
 				// Send the DHCP request message
 				_DHCPSend(DHCP_REQUEST_MESSAGE, TRUE);
 				DHCPClient.flags.bits.bOfferReceived = FALSE;
 	
 				// Start a timer and begin looking for a response
-				DHCPClient.dwTimer = TickGet();
+                DHCPClient.dwTimer = TickGet() + ((DHCPClient.dwBaseTime * TICK_SECOND) + (LFSRRand() % TICK_SECOND));
 				DHCPClient.smState++;
 				break;
 	
@@ -653,13 +739,15 @@ void DHCPTask(void)
 				// Check to see if a packet has arrived
 				if(UDPIsGetReady(DHCPClient.hDHCPSocket) < 250u)
 				{
-					// Go back and transmit a new discovery if we didn't get an ACK after 2 seconds
-					if(TickGet() - DHCPClient.dwTimer >=  DHCP_TIMEOUT)
+                    // Go back and transmit a new discovery if we didn't get an ACK after the timeout
+                    if((long)(TickGet() - DHCPClient.dwTimer) > 0)
 					{
-						if (AppConfig.Flags.bIsDHCPReallyEnabled) 
-						{
-							if(++DHCPClient.smState > SM_DHCP_GET_RENEW_ACK3)
+						/* VOTER Customization. Only send the discovery if DHCP is really enabled. */
+						if (AppConfig.Flags.bIsDHCPReallyEnabled) {
+							if(++DHCPClient.smState > SM_DHCP_GET_RENEW_ACK3) {
 								DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
+								//putrsUART("DHCPTask: SM_DHCP_GET_RENEW_ACK3 timeout -> SM_DHCP_SEND_DISCOVERY	\r\n");  
+							}
 						}
 					}
 					break;
@@ -674,9 +762,11 @@ void DHCPTask(void)
 						DHCPClient.dwTimer = TickGet();
 						DHCPClient.smState = SM_DHCP_BOUND;
 						DHCPClient.flags.bits.bEvent = 1;
+						//putrsUART("DHCPTask: SM_DHCP_GET_RENEW_ACK2/3: Receive DHCP_ACK_MESSAGE \r\n");  
 						break;
 		
 					case DHCP_NAK_MESSAGE:
+						//putrsUART("DHCPTask: SM_DHCP_GET_RENEW_ACK2/3: Receive DHCP_NAK_MESSAGE \r\n");  
 						DHCPClient.smState = SM_DHCP_SEND_DISCOVERY;
 						break;
 				}

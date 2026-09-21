@@ -47,6 +47,7 @@
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Howard Schlunder		4/04/06		Copied from dsPIC30 libraries
  * Howard Schlunder		6/16/06		Added PIC18
+ * VE7FET				9/20/26		Bugfix to U2RXInterrupt
 ********************************************************************/
 #define __UART_C
 
@@ -118,7 +119,11 @@ void __attribute__((interrupt, auto_psv)) _U2RXInterrupt(void)
 
 	while(U2STAbits.URXDA)
 	{
-		if (U1STAbits.PERR || U1STAbits.FERR || U1STAbits.OERR)
+		/* Bugfix, was:
+		 *
+		 *if (U1STAbits.PERR || U1STAbits.FERR || U1STAbits.OERR)
+		 */
+		if (U2STAbits.PERR || U2STAbits.FERR || U2STAbits.OERR)
 		{
 			U2STAbits.PERR = 0;
 			U2STAbits.FERR = 0;

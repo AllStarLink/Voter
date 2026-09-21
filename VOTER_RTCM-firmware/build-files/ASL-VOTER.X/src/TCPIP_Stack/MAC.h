@@ -52,6 +52,8 @@
  * Nilesh Rajbharti     5/22/02     Rev 2.0 (See version.log for detail)
  * Howard Schlunder     6/28/04     Added ENC28J60 specific features
  * Howard Schlunder		11/29/04	Added Get/SetLEDConfig macros
+ * VE7FET				9/20/26		Merge in 5.31->5.42.08 changes, 
+ *									add comments for VOTER customizations
  ********************************************************************/
 #ifndef __MAC_H
 #define __MAC_H
@@ -134,15 +136,16 @@ typedef struct  __attribute__((aligned(2), packed))
 	#define BASE_SSLB_ADDR	(BASE_HTTPB_ADDR + RESERVED_HTTP_MEMORY)
 	#define BASE_CRYPTOB_ADDR	(BASE_SSLB_ADDR + RESERVED_SSL_MEMORY)
 #elif defined(WF_CS_TRIS)
-    #define RAMSIZE			14170ul
-    #define TXSTART			(RAMSIZE - ((4ul + MAX_PACKET_SIZE + 4ul)*2) - TCP_ETH_RAM_SIZE - RESERVED_HTTP_MEMORY - RESERVED_SSL_MEMORY)
+    #define RAMSIZE			(14170ul - 8192ul - RESERVED_HTTP_MEMORY - RESERVED_SSL_MEMORY)
+    #define TXSTART			(RAMSIZE - (4ul + MAX_PACKET_SIZE + 4ul))
 	#define RXSTART			(0ul)
 	#define	RXSTOP			((TXSTART-2ul) | 0x0001ul)
 	#define RXSIZE			(RXSTOP-RXSTART+1ul)
     #define BASE_TX_ADDR	(TXSTART + 4ul)
-    #define BASE_TCB_ADDR	(BASE_TX_ADDR + ((MAX_PACKET_SIZE + 4ul)*2))
-	#define BASE_HTTPB_ADDR (BASE_TCB_ADDR + TCP_ETH_RAM_SIZE)
+    #define BASE_SCRATCH_ADDR (BASE_TX_ADDR + (MAX_PACKET_SIZE + 4ul))
+	#define BASE_HTTPB_ADDR  (BASE_SCRATCH_ADDR)
 	#define BASE_SSLB_ADDR	(BASE_HTTPB_ADDR + RESERVED_HTTP_MEMORY)
+	#define BASE_TCB_ADDR   (BASE_SSLB_ADDR + RESERVED_SSL_MEMORY)
 #elif defined(__PIC32MX__) && defined(_ETH) && !defined(ENC_CS_TRIS)
 	#define BASE_TX_ADDR	(MACGetTxBaseAddr())
 	#define BASE_HTTPB_ADDR	(MACGetHttpBaseAddr())
@@ -282,7 +285,7 @@ BYTE	GetCLKOUT(void);
  *****************************************************************************/
 #define GetLEDConfig()		ReadPHYReg(PHLCON).Val
 
-
+/* VOTER Allow runtime configuration of duplex. */
 void MACInit(BOOL fulldup);
 void MACProcess(void);
 BOOL MACIsLinked(void);
@@ -319,6 +322,9 @@ void MACFlush(void);
 	PTR_BASE MACGetSslBaseAddr(void);
 #endif
 
+/* VOTER helper function to ensure RX is enabled and TX/RX Pause is enabled 
+ * each time StackTsk is serviced for the ENC28J60.
+ */
 void MACBurp(void);
 
 	

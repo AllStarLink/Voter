@@ -381,7 +381,9 @@ BOOL DNSIsResolved(IP_ADDR* HostIP)
 			// No break: DNS_OPEN_SOCKET is the correct next state
 		
 		case DNS_OPEN_SOCKET:
-			MySocket = UDPOpen(0, &ResolvedInfo, DNS_PORT);
+			//MySocket = UDPOpen(0, &ResolvedInfo, DNS_PORT);
+			
+			MySocket = UDPOpenEx((DWORD)(PTR_BASE)&ResolvedInfo,UDP_OPEN_NODE_INFO,0, DNS_PORT);
 			if(MySocket == INVALID_UDP_SOCKET)
 				break;
 

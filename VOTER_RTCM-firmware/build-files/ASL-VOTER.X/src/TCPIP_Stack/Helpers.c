@@ -1,65 +1,66 @@
 /*********************************************************************
- *
- *           Helper Functions for Microchip TCP/IP Stack
- *
- *********************************************************************
- * FileName:		Helpers.C
- * Dependencies:	None
- * Processor:       PIC18, PIC24F, PIC24H, dsPIC30F, dsPIC33F, PIC32
- * Processor:       PIC18, PIC24F, PIC24H, dsPIC30F, dsPIC33F, PIC32
- * Compiler:        Microchip C32 v1.05 or higher
- *					Microchip C30 v3.12 or higher
- *					Microchip C18 v3.30 or higher
- *					HI-TECH PICC-18 PRO 9.63PL2 or higher
- * Company:         Microchip Technology, Inc.
- *
- * Software License Agreement
- *
- * Copyright (C) 2002-2009 Microchip Technology Inc.  All rights
- * reserved.
- *
- * Microchip licenses to you the right to use, modify, copy, and
- * distribute:
- * (i)  the Software when embedded on a Microchip microcontroller or
- *      digital signal controller product ("Device") which is
- *      integrated into Licensee's product; or
- * (ii) ONLY the Software driver source files ENC28J60.c, ENC28J60.h,
- *		ENCX24J600.c and ENCX24J600.h ported to a non-Microchip device
- *		used in conjunction with a Microchip ethernet controller for
- *		the sole purpose of interfacing with the ethernet controller.
- *
- * You should refer to the license agreement accompanying this
- * Software for additional information regarding your rights and
- * obligations.
- *
- * THE SOFTWARE AND DOCUMENTATION ARE PROVIDED "AS IS" WITHOUT
- * WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
- * LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS FOR A
- * PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO EVENT SHALL
- * MICROCHIP BE LIABLE FOR ANY INCIDENTAL, SPECIAL, INDIRECT OR
- * CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, COST OF
- * PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR SERVICES, ANY CLAIMS
- * BY THIRD PARTIES (INCLUDING BUT NOT LIMITED TO ANY DEFENSE
- * THEREOF), ANY CLAIMS FOR INDEMNITY OR CONTRIBUTION, OR OTHER
- * SIMILAR COSTS, WHETHER ASSERTED ON THE BASIS OF CONTRACT, TORT
- * (INCLUDING NEGLIGENCE), BREACH OF WARRANTY, OR OTHERWISE.
- *
- *
- * Author               Date    Comment
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * Nilesh Rajbharti     5/17/01 Original        (Rev 1.0)
- * Nilesh Rajbharti     2/9/02  Cleanup
- * Nilesh Rajbharti     6/25/02 Rewritten CalcIPChecksum() to avoid
- *                              multi-byte shift operation.
- * Howard Schlunder		2/9/05  Added hexatob(), btohexa_high(), and
- *							    btohexa_low()
- * Howard Schlunder    10/10/06 Optimized swapl()
- * Elliott Wood		   11/20/07	Added leftRotateDWORD()
+ 
+ Helper Functions for Microchip TCPIP_Stack
+ 
+ FileName:      Helpers.c
+ Dependencies:  See INCLUDES section
+ Processor:     PIC18, PIC24, dsPIC, PIC32
+ Compiler:      Microchip C18, C30, C32
+ Company:       Microchip Technology, Inc.
+
+ Software License Agreement
+
+ Copyright (C) 2002-2011 Microchip Technology Inc.  All rights
+ reserved.
+
+ Microchip licenses to you the right to use, modify, copy, and
+ distribute:
+ (i)  the Software when embedded on a Microchip microcontroller or
+      digital signal controller product ("Device") which is
+      integrated into Licensee's product; or
+ (ii) ONLY the Software driver source files ENC28J60.c, ENC28J60.h,
+		ENCX24J600.c and ENCX24J600.h ported to a non-Microchip device
+		used in conjunction with a Microchip ethernet controller for
+		the sole purpose of interfacing with the ethernet controller.
+
+ You should refer to the license agreement accompanying this
+ Software for additional information regarding your rights and
+ obligations.
+
+ THE SOFTWARE AND DOCUMENTATION ARE PROVIDED "AS IS" WITHOUT
+ WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
+ LIMITATION, ANY WARRANTY OF MERCHANTABILITY, FITNESS FOR A
+ PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ MICROCHIP BE LIABLE FOR ANY INCIDENTAL, SPECIAL, INDIRECT OR
+ CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, COST OF
+ PROCUREMENT OF SUBSTITUTE GOODS, TECHNOLOGY OR SERVICES, ANY CLAIMS
+ BY THIRD PARTIES (INCLUDING BUT NOT LIMITED TO ANY DEFENSE
+ THEREOF), ANY CLAIMS FOR INDEMNITY OR CONTRIBUTION, OR OTHER
+ SIMILAR COSTS, WHETHER ASSERTED ON THE BASIS OF CONTRACT, TORT
+ (INCLUDING NEGLIGENCE), BREACH OF WARRANTY, OR OTHERWISE.
+
+ ********************************************************************
+ File Description:
+ 
+ Change History:
+ 
+  Rev         Description
+  ----------  -------------------------------------------------------
+  1.0 - 5.31  Initial release; Rewritten CalcIPChecksum() to avoid
+              multi-byte shift operation; Added hexatob(),
+              btohexa_high(), and btohexa_low(); Optimized swapl();
+              Added leftRotateDWORD()
+  5.36        Updated compile time check for ultoa();
+
  ********************************************************************/
 #define __HELPERS_C
 
+#include <stdarg.h>
 #include "TCPIP_Stack/TCPIP.h"
 
+
+// Default Random Number Generator seed. 0x41FE9F9E corresponds to calling LFSRSeedRand(1)
+static DWORD dwLFSRRandSeed = 0x41FE9F9E;
 
 /*****************************************************************************
   Function:
@@ -96,7 +97,6 @@
 	dwSeed value of 0x0 will return the same sequence of random numbers as 
 	using the seed of 0x1.
   ***************************************************************************/
-static DWORD dwLFSRRandSeed = 0x41FE9F9E;	// 0x41FE9F9E corresponds to calling LFSRSeedRand(1)
 DWORD LFSRSeedRand(DWORD dwSeed)
 {
 	DWORD dwOldSeed;
@@ -500,7 +500,7 @@ BOOL StringToIPAddress(BYTE* str, IP_ADDR* IPAddress)
 	// Make sure the very last character is a valid termination character 
 	// (i.e., not more hostname, which could be legal and not an IP 
 	// address as in "10.5.13.233.picsaregood.com"
-	if(i != 0u && i != '/' && i != '\r' && i != '\n' && i != ' ' && i != '\t')
+	if(i != 0u && i != '/' && i != '\r' && i != '\n' && i != ' ' && i != '\t' && i != ':')
 		return FALSE;
 
 	// Verify and convert the last octet and return the result
@@ -874,10 +874,10 @@ void uitoa(WORD Value, BYTE* Buffer)
   Returns:
   	None
   ***************************************************************************/
-// HI-TECH PICC-18 PRO 9.63 and C30 v3.25 already have a ultoa() library function
+// HI-TECH PICC-18 PRO 9.63, C30 v3.25, and C32 v1.12 already have a ultoa() library function
 // C18 already has a ultoa() function that more-or-less matches this one
-// C32 and C30 < v3.25 need this function
-#if defined(__PIC32MX__) || (defined (__C30__) && (__C30_VERSION__ < 325)) || defined(__C30_LEGACY_LIBC__)
+// C32 < 1.12 and C30 < v3.25 need this function
+#if (defined(__PIC32MX__) && (__C32_VERSION__ < 112)) || (defined (__C30__) && (__C30_VERSION__ < 325)) || defined(__C30_LEGACY_LIBC__) || defined(__C32_LEGACY_LIBC__)
 void ultoa(DWORD Value, BYTE* Buffer)
 {
 	BYTE i;
@@ -1113,7 +1113,11 @@ WORD swaps(WORD v)
   Returns:
 	The swapped version of v.
   ***************************************************************************/
+#if defined(__C32__)
+DWORD   __attribute__((nomips16)) swapl(DWORD v)
+#else
 DWORD swapl(DWORD v)
+#endif
 {
 	// Swap bytes 0 and 3
 	((DWORD_VAL*)&v)->v[0] ^= ((DWORD_VAL*)&v)->v[3];
@@ -1178,7 +1182,7 @@ WORD CalcIPChecksum(BYTE* buffer, WORD count)
 		sum.dw += (DWORD)*(BYTE*)val;
 
 	// Do an end-around carry (one's complement arrithmatic)
-	sum.dw = sum.w[0] + sum.w[1];
+	sum.dw = (DWORD)sum.w[0] + (DWORD)sum.w[1];
 
 	// Do another end-around carry in case if the prior add 
 	// caused a carry out
@@ -1188,76 +1192,6 @@ WORD CalcIPChecksum(BYTE* buffer, WORD count)
 	return ~sum.w[0];
 }
 
-
-/*****************************************************************************
-  Function:
-	WORD CalcIPBufferChecksum(WORD len)
-
-  Summary:
-	Calculates an IP checksum in the MAC buffer itself.
-
-  Description:
-	This function calculates an IP checksum over an array of input data 
-	existing in the MAC buffer.  The checksum is the 16-bit one's complement 
-	of one's complement sum of all words in the data (with zero-padding if 
-	an odd number of bytes are summed).  This checksum is defined in RFC 793.
-
-  Precondition:
-	TCP is initialized and the MAC buffer pointer is set to the start of
-	the buffer.
-
-  Parameters:
-	len - number of bytes to be checksummed
-
-  Returns:
-	The calculated checksum.
-
-  Remarks:
-	All Microchip MACs should perform this function in hardware.
-  ***************************************************************************/
-#if defined(NON_MCHP_MAC)
-WORD CalcIPBufferChecksum(WORD len)
-{
-	DWORD_VAL Checksum = {0x00000000ul};
-	WORD ChunkLen;
-	BYTE DataBuffer[20];	// Must be an even size
-	WORD *DataPtr;
-
-	while(len)
-	{
-		// Obtain a chunk of data (less SPI overhead compared 
-		// to requesting one byte at a time)
-		ChunkLen = len > sizeof(DataBuffer) ? sizeof(DataBuffer) : len;
-		MACGetArray(DataBuffer, ChunkLen);
-		len -= ChunkLen;
-
-		// Take care of a last odd numbered data byte
-		if(((WORD_VAL*)&ChunkLen)->bits.b0)
-		{
-			DataBuffer[ChunkLen] = 0x00;
-			ChunkLen++;
-		}
-
-		// Calculate the checksum over this chunk
-		DataPtr = (WORD*)&DataBuffer[0];
-		while(ChunkLen)
-		{
-			Checksum.Val += *DataPtr++;
-			ChunkLen -= 2;
-		}
-	}
-	
-	// Do an end-around carry (one's complement arrithmatic)
-	Checksum.Val = (DWORD)Checksum.w[0] + (DWORD)Checksum.w[1];
-
-	// Do another end-around carry in case if the prior add 
-	// caused a carry out
-	Checksum.w[0] += Checksum.w[1];
-
-	// Return the resulting checksum
-	return ~Checksum.w[0];
-}
-#endif
 
 /*****************************************************************************
   Function:
@@ -1470,6 +1404,71 @@ char * strnchr(const char *searchString, size_t count, char c)
 	}
 	return NULL;
 }
+
+
+/*****************************************************************************
+  Function:
+	char* strncpy_m(char* destStr, size_t destSize, int nStrings, ...)
+
+  Summary:
+	Copies multiple strings to a destination
+
+  Description:
+	Copies multiple strings to a destination
+    but doesn't copy more than destSize characters.
+    Useful where the destination is actually an array and an extra \0
+    won't be appended to overflow the buffer
+    
+  Precondition:
+	- valid string pointers
+    - destSize should be > 0
+
+  Parameters:
+	destStr - Pointer to a string to be initialized with the multiple strings provided as arguments.
+
+    destSize    - the maximum size of the destStr field, that cannot be exceeded.
+                  An \0 won't be appended if the resulting size is > destSize
+
+    nStrings    - number of string parameters to be copied into destStr
+
+    ...         - variable number of arguments
+    
+	
+  Returns:
+	Length of the destination string, terminating \0 (if exists) not included
+  ***************************************************************************/
+size_t strncpy_m(char* destStr, size_t destSize, int nStrings, ...)
+{
+    va_list     args;
+    const char* str;
+    char*       end;
+    size_t      len;
+
+    destStr[0] = '\0';
+    end = destStr + destSize - 1;
+    *end = '\0';
+    len = 0;
+    
+    va_start( args, nStrings );
+    
+    while(nStrings--)
+    {
+        if(*end)
+        {   // if already full don't calculate strlen outside the string area
+            len = destSize;
+            break;
+        }
+        
+        str = va_arg(args, const char*);
+        strncpy(destStr + len, str, destSize - len);
+        len += strlen(str);
+    }
+
+    va_end( args );
+    
+    return len;
+}
+
 
 /*****************************************************************************
   Function:
