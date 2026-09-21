@@ -146,16 +146,16 @@ void __attribute__((interrupt, auto_psv)) _U2RXInterrupt(void)
 
 void __attribute__((interrupt, auto_psv)) _U2TXInterrupt(void)
 {
-    if (txputidx2 != txgetidx2) 
-	{
+    if (txputidx2 != txgetidx2) {
         U2TXREG = txBuf2[txgetidx2];
         txgetidx2++;
 		txgetidx2 &= UART_TXBUF_MASK;
-    }
-    else 
-	{
+    } else {
         IEC1bits.U2TXIE = 0;   
     }
+	
+	IFS1bits.U2TXIF = 0;
+
 }
 
 void InitUARTS(void)
