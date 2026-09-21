@@ -17,9 +17,6 @@
       <itemPath>src/TCPIP_Stack/Helpers.h</itemPath>
       <itemPath>src/TCPIP_Stack/IP.h</itemPath>
       <itemPath>src/TCPIP_Stack/MAC.h</itemPath>
-      <itemPath>src/TCPIP_Stack/Random.h</itemPath>
-      <itemPath>src/TCPIP_Stack/Reboot.h</itemPath>
-      <itemPath>src/TCPIP_Stack/regdef.h</itemPath>
       <itemPath>src/TCPIP_Stack/Tick.h</itemPath>
       <itemPath>src/TCPIP_Stack/UDP.h</itemPath>
       <itemPath>src/TCPIP_Stack/XEEPROM.h</itemPath>
@@ -45,7 +42,6 @@
       <itemPath>src/TCPIP_Stack/ENC28J60.c</itemPath>
       <itemPath>src/TCPIP_Stack/Helpers.c</itemPath>
       <itemPath>src/TCPIP_Stack/IP.c</itemPath>
-      <itemPath>src/TCPIP_Stack/Random.c</itemPath>
       <itemPath>src/TCPIP_Stack/SPIEEPROM.c</itemPath>
       <itemPath>src/TCPIP_Stack/StackTsk.c</itemPath>
       <itemPath>src/TCPIP_Stack/Tick.c</itemPath>
@@ -333,6 +329,18 @@
         </C30Global>
       </item>
       <item path="src/p33FJ128GP804-rtcm.gld" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
     </conf>
     <conf name="VOTER_DSPBEW" type="2">
@@ -508,6 +516,18 @@
         <property key="save-temps" value="false"/>
       </C30Global>
       <item path="src/p33FJ128GP804-rtcm.gld" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
     </conf>
     <conf name="RTCM" type="2">
@@ -766,6 +786,18 @@
         </C30Global>
       </item>
       <item path="src/p33FJ128GP802-voter.gld" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
     </conf>
     <conf name="RTCM_DSPBEW" type="2">
@@ -941,6 +973,18 @@
         <property key="save-temps" value="false"/>
       </C30Global>
       <item path="src/p33FJ128GP802-voter.gld" ex="true" overriding="false">
+        <C30>
+        </C30>
+        <C30-AR>
+        </C30-AR>
+        <C30-AS>
+        </C30-AS>
+        <C30-CO>
+        </C30-CO>
+        <C30-LD>
+        </C30-LD>
+        <C30Global>
+        </C30Global>
       </item>
     </conf>
   </confs>
