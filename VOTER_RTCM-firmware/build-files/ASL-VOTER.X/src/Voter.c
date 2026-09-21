@@ -7569,11 +7569,12 @@ static void InitAppConfig(void)
 		if (c == 0x60u) {
 			SPIFlashReadArray(0x0001, (BYTE *) &AppConfig, sizeof(AppConfig));
 			/* If the Hysteresis setting is not initialized in the EEPROM (0), 
-			 * initialize it with the default value.
+			 * or is irrational, initialize it with the default value.
 			 */
-			if (AppConfig.Hysteresis == 0) {
+			if (AppConfig.Hysteresis == 0 || AppConfig.Hysteresis > 100) {
 				AppConfig.Hysteresis = 24;
 				SaveAppConfig();
+			} 
 		} else {
 			SaveAppConfig();
 		}
