@@ -731,8 +731,6 @@ void DDNSTask(void)
 				smDDNS = SM_SYSTEM_ERROR;
 			else
 				smDDNS = SM_SOFT_ERROR;
-			
-			smDDNS++;
 			break;
 			
 		case SM_DONE:
