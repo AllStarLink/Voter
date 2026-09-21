@@ -1,5 +1,5 @@
 /*
- * Linker script for PIC33FJ128GP802
+ * Linker script for PIC33FJ128GP804
  * (c) Copyright 2013 Microchip Technology, Inc
  * Part support version 1.36.B(25-Jan-2019)
  *
@@ -33,14 +33,14 @@
  * 
  */
 
-/* CUSTOM MEMORY MAP FOR VOTER TO BE COMPATIBLE WITH BOOTLOADER
+/* CUSTOM MEMORY MAP FOR RTCM TO BE COMPATIBLE WITH BOOTLOADER
  * Was:
  * program (xr)   : ORIGIN = 0x200,         LENGTH = 0x15600'
  * Now:
  * program (xr)   : ORIGIN = 0x3400,         LENGTH = 0x12400
  */
 
-OUTPUT_ARCH("33FJ128GP802")
+OUTPUT_ARCH("33FJ128GP804")
 CRT0_STARTUP(crt0_standard.o)
 CRT1_STARTUP(crt1_standard.o)
 #if __XC16_VERSION__ > 1027
@@ -54,7 +54,7 @@ CRT1_STARTUP(crt1_standard.o)
 CRT_STARTMODE(crt_start_mode_normal)
 #endif
 
-OPTIONAL(-lp33FJ128GP802)
+OPTIONAL(-lp33FJ128GP804)
 OPTIONAL(-lfx)
 
 /*
@@ -1368,6 +1368,18 @@ _LATBbits     = 0x2CC;
  ODCB         = 0x2CE;
 _ODCB         = 0x2CE;
 _ODCBbits     = 0x2CE;
+ TRISC        = 0x2D0;
+_TRISC        = 0x2D0;
+_TRISCbits    = 0x2D0;
+ PORTC        = 0x2D2;
+_PORTC        = 0x2D2;
+_PORTCbits    = 0x2D2;
+ LATC         = 0x2D4;
+_LATC         = 0x2D4;
+_LATCbits     = 0x2D4;
+ ODCC         = 0x2D6;
+_ODCC         = 0x2D6;
+_ODCCbits     = 0x2D6;
  PADCFG1      = 0x2FC;
 _PADCFG1      = 0x2FC;
 _PADCFG1bits  = 0x2FC;
@@ -1851,6 +1863,21 @@ _RPOR6bits    = 0x6CC;
  RPOR7        = 0x6CE;
 _RPOR7        = 0x6CE;
 _RPOR7bits    = 0x6CE;
+ RPOR8        = 0x6D0;
+_RPOR8        = 0x6D0;
+_RPOR8bits    = 0x6D0;
+ RPOR9        = 0x6D2;
+_RPOR9        = 0x6D2;
+_RPOR9bits    = 0x6D2;
+ RPOR10       = 0x6D4;
+_RPOR10       = 0x6D4;
+_RPOR10bits   = 0x6D4;
+ RPOR11       = 0x6D6;
+_RPOR11       = 0x6D6;
+_RPOR11bits   = 0x6D6;
+ RPOR12       = 0x6D8;
+_RPOR12       = 0x6D8;
+_RPOR12bits   = 0x6D8;
  RCON         = 0x740;
 _RCON         = 0x740;
 _RCONbits     = 0x740;
