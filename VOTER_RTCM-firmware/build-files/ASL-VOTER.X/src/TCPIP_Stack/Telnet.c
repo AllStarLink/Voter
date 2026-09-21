@@ -225,7 +225,21 @@ void TelnetTask(void)
 				}
 				/* Search for the username -- case insensitive. */
 				w2 = TCPFindArray(MySocket, TELNET_USERNAME, strlen((char*)TELNET_USERNAME), 0, TRUE);
-				if ((w2 < 0) || !((w2 == ((w - strlen((char*)TELNET_USERNAME)) - 1)) ||
+				/* w2 is a WORD, so (w2 < 0) is always false and never rejects the 0xFFFF value that
+				 * TCPFindArray returns when the username is absent.
+				 *
+				 * w, w2, and strlen(TELNET_USERNAME) are all unsigned, so the remaining comparison wraps:
+				 *		- If the login line length before '\n' equals strlen(TELNET_USERNAME), then 
+				 *		(w - strlen) - 1 evaluates to 0xFFFF and matches the not-found sentinel.
+				 *		- If that length equals strlen(TELNET_USERNAME) - 1, then w - strlen evaluates
+				 *		to 0xFFFF and also matches.
+				 *
+				 * In both cases the state becomes SM_GET_PASSWORD instead of SM_GET_PASSWORD_BAD_LOGIN,
+				 * so a client that sends a wrong username of that exact length is authenticated on the password alone.
+				 *
+				 * Ensure we do the proper tests to prevent that from happening.
+				 */
+				if ((w2 == 0xFFFFu) || (w < strlen((char*)TELNET_USERNAME)) || !((w2 == ((w - strlen((char*)TELNET_USERNAME)) - 1)) ||
 					(w2 == (w - strlen((char*)TELNET_USERNAME))))) {
 					/* Did not find the username, but let's pretend we did so we don't leak the username
 					 * validity. Set the state machine accordingly.
