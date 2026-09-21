@@ -1851,11 +1851,14 @@ WORD TCPPeekArray(TCP_SOCKET hTCP, BYTE *vBuffer, WORD wLen, WORD wStart)
     
 	SyncTCBStub(hTCP);
 
-	// Find out how many bytes are in the RX FIFO and decrease read length 
-	// if the start offset + read length is beyond the end of the FIFO
+	// Find out how many bytes are in the RX FIFO and reject an invalid
+	// start offset before performing any subtraction.
 	w = TCPIsGetReady(hTCP);
-	if(wStart + wLen > w)
-		wLen = w - wStart;
+	if(wStart >= w)
+		return 0;
+	w -= wStart;
+	if(wLen > w)
+		wLen = w;
 
 	// Find the read start location
 	ptrRead = MyTCBStub.rxTail + wStart;
@@ -1899,8 +1902,8 @@ WORD TCPPeekArray(TCP_SOCKET hTCP, BYTE *vBuffer, WORD wLen, WORD wStart)
 
   Return Values:
 	Byte peeked from the RX FIFO.  If there is no data in the buffer or an 
-	illegal wStart starting offset is given, then an indeterminate value is 
-	returned.  The caller must ensure that valid parameters are passed to avoid 
+	illegal wStart starting offset is given, then 0xFF is returned.  The 
+	caller must ensure that valid parameters are passed to avoid 
 	(i.e ensure that TCPIsGetReady() returns a number that is less than wStart 
 	before calling TCPPeek()).
 
@@ -1910,7 +1913,7 @@ WORD TCPPeekArray(TCP_SOCKET hTCP, BYTE *vBuffer, WORD wLen, WORD wStart)
   ***************************************************************************/
 BYTE TCPPeek(TCP_SOCKET hTCP, WORD wStart)
 {
-	BYTE i;
+	BYTE i = 0xFFu;
 	
 	TCPPeekArray(hTCP, &i, 1, wStart);
 	return i;
@@ -1988,7 +1991,10 @@ WORD TCPFindArrayEx(TCP_SOCKET hTCP, BYTE* cFindArray, WORD wLen, WORD wStart, W
 
 	// Find out how many bytes are in the RX FIFO and return 
 	// immediately if we won't possibly find a match
-	wDataLen = TCPIsGetReady(hTCP) - wStart;
+	wDataLen = TCPIsGetReady(hTCP);
+	if(wStart >= wDataLen)
+		return 0xFFFFu;
+	wDataLen -= wStart;
 	if(wDataLen < wLen)
 		return 0xFFFFu;
 	if(wSearchLen && (wDataLen > wSearchLen))
@@ -2164,7 +2170,10 @@ WORD TCPFindROMArrayEx(TCP_SOCKET hTCP, ROM BYTE* cFindArray, WORD wLen, WORD wS
 
 	// Find out how many bytes are in the RX FIFO and return 
 	// immediately if we won't possibly find a match
-	wDataLen = TCPIsGetReady(hTCP) - wStart;
+	wDataLen = TCPIsGetReady(hTCP);
+	if(wStart >= wDataLen)
+		return 0xFFFFu;
+	wDataLen -= wStart;
 	if(wDataLen < wLen)
 		return 0xFFFFu;
 	if(wSearchLen && (wDataLen > wSearchLen))
@@ -3855,7 +3864,7 @@ static void HandleTCPSeg(TCP_HEADER* h, WORD len)
 			dwTemp = MyTCB.MySEQ + (DWORD)wTemp;
 
 			// Drop the packet if it ACKs something we haven't sent
-            dwTemp = (LONG)localAckNumber - (LONG)dwTemp;
+            dwTemp = localAckNumber - dwTemp;
             if((LONG)dwTemp > 0)
             {   // acknowledged more than we've sent??
                 if(!MyTCB.flags.bFINSent || dwTemp != 1)

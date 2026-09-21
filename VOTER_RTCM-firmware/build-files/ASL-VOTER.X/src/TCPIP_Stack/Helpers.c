@@ -1441,30 +1441,27 @@ size_t strncpy_m(char* destStr, size_t destSize, int nStrings, ...)
 {
     va_list     args;
     const char* str;
-    char*       end;
     size_t      len;
 
+	if (destSize == 0u) {
+		return 0u;
+	}
+
     destStr[0] = '\0';
-    end = destStr + destSize - 1;
-    *end = '\0';
     len = 0;
     
-    va_start( args, nStrings );
+    va_start(args, nStrings);
     
-    while(nStrings--)
-    {
-        if(*end)
-        {   // if already full don't calculate strlen outside the string area
-            len = destSize;
-            break;
-        }
-        
+    while (nStrings--) {
         str = va_arg(args, const char*);
-        strncpy(destStr + len, str, destSize - len);
-        len += strlen(str);
+
+		while(*str != '\0' && len < destSize - 1u) {
+            destStr[len++] = *str++;
+		}
+        destStr[len] = '\0';
     }
 
-    va_end( args );
+    va_end(args);
     
     return len;
 }
