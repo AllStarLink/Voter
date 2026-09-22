@@ -994,6 +994,17 @@ static WORD log2fix(WORD x)
 	short y = 0;
 	BYTE i;
 
+    /*
+     * log2fix(0) is undefined.  More importantly, the normalization loop
+     * below can never terminate when x is zero because left-shifting zero
+     * always produces zero.
+     *
+     * Return the minimum representable result rather than locking up.
+     */
+    if (x == 0) {
+        return 0;
+	}
+
 	while (x < 256) {
 		x <<= 1;
 		y -= 256;
