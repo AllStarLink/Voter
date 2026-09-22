@@ -316,29 +316,6 @@ UDP_SOCKET UDPOpenEx(DWORD remoteHost, BYTE remoteHostType, UDP_PORT localPort,
 
 }
 
-
-/*****************************************************************************
- *  Function:
- *   void UDPSetRemoteNode(UDP_SOCKET socket, NODE_INFO *remoteNode)
- *
- *  Summary:
- *   Updates the cached remote NODE_INFO for an already-open socket.
- *
- *  Description:
- *   VOTER performs ARP resolution outside the UDP state machine.  This
- *   function allows the resulting NODE_INFO to be installed into the
- *   5.42 UDP socket without exposing UDPSocketInfo to the application.
- *****************************************************************************/
-void UDPSetRemoteNode(UDP_SOCKET socket, NODE_INFO *remoteNode)
-{
-    if(socket >= MAX_UDP_SOCKETS || remoteNode == NULL)
-        return;
-
-    memcpy((void*)&UDPSocketInfo[socket].remote.remoteNode,
-           (const void*)remoteNode,
-           sizeof(NODE_INFO));
-}
-
 /******************************************************************************
 Function:
 	void UDPTask(void)

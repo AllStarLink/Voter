@@ -206,10 +206,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "4.00 BEW 9/20/2026";
+	char	VERSION[] = "4.00 BEW 9/21/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "4.00 9/20/2026";
+	char	VERSION[] = "4.00 9/21/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -382,7 +382,6 @@
 #define	DUPLEX3 			(AppConfig.Duplex3 != 0) /* Not supported in voting or simulcast configurations */
 #define	SIMULCAST_ENABLE 	(AppConfig.LaunchDelay > 0)	/* If the launch delay is anything but 0, use simulcast mode */
 #define	memclr(x, y) 		memset(x, 0, y)
-#define ARPIsTxReady()		MACIsTxReady()
 #define DISCFACTOR			1000
 
 /* Defines for GPS routines */
@@ -557,7 +556,6 @@ BYTE gpswarn;
 BOOL ppswarn;
 BOOL ppsx;
 UDP_SOCKET udpSocketUser;
-NODE_INFO udpServerNode;
 DWORD dwLastIP;
 BOOL aborted;
 BOOL inread;
@@ -3529,7 +3527,7 @@ void adpcm_decoder(BYTE *indata)
 //		Process UDP Packet Subroutine										//
 //																			//
 /****************************************************************************/
-void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
+void process_udp(UDP_SOCKET *udpSocketUser)
 {
 	BYTE n, c, i, j, *cp;
 
@@ -3711,7 +3709,6 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 			 * We also send keepalive packets (with or without GPS), as noted below.
 			 */
 			if ((((!connected) && (attempttimer >= ATTEMPT_TIME)) || tosend) && UDPIsPutReady(*udpSocketUser)) {
-				UDPSetRemoteNode(activeUDPSocket, udpServerNode);
 				memclr(&audio_packet, sizeof(VOTER_PACKET_HEADER));
 				audio_packet.vph.curtime.vtime_sec = htonl(system_time.vtime_sec);
 				audio_packet.vph.curtime.vtime_nsec = (!VOTER_CLIENT) ? htonl(mytxseqno) : htonl(system_time.vtime_nsec);
@@ -3824,7 +3821,6 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 	 */
 	if (connected && (sendgps || (!VOTER_CLIENT)) && ((gps_fix || !VOTER_CLIENT) && (gpsforcetimer >= GPS_FORCE_TIME))) {
 	    if (UDPIsPutReady(*udpSocketUser)) {
-			UDPSetRemoteNode(activeUDPSocket, udpServerNode);
 			gps_packet.vph.curtime.vtime_sec = htonl(real_time);
 			gps_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 			strcpy((char *)gps_packet.vph.challenge, challenge);
@@ -4025,7 +4021,6 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 						/* If okay to respond to a ping */
 						if (!pingtimer) {
 					        if (UDPIsPutReady(*udpSocketUser)) {
-								UDPSetRemoteNode(activeUDPSocket, udpServerNode);
 								audio_packet.vph.curtime.vtime_sec = htonl(real_time);
 								audio_packet.vph.curtime.vtime_nsec = htonl(0); /* non-critical packet, so nsec can be 0 */
 								strcpy((char *) audio_packet.vph.challenge, challenge);
@@ -4186,13 +4181,6 @@ void process_udp(UDP_SOCKET *udpSocketUser, NODE_INFO *udpServerNode)
 /****************************************************************************/
 void main_processing_loop(void)
 {
-	/* UDP State machine */
-	#define SM_UDP_SEND_ARP     0
-	#define SM_UDP_WAIT_RESOLVE 1
-	#define SM_UDP_RESOLVED     2
-
-	static BYTE smUdp = SM_UDP_SEND_ARP;
-	static DWORD  tsecWait = 0; /* General purpose wait timer */
 	IP_ADDR vaddr;
 
 	/* MACIsLinked should come from the TCP/IP Stack*/
@@ -4318,16 +4306,12 @@ void main_processing_loop(void)
 			if (udpSocketUser != INVALID_UDP_SOCKET) {
 				UDPClose(udpSocketUser);
 			}
-			memclr(&udpServerNode, sizeof(udpServerNode));
-
-			udpServerNode.IPAddr = vaddr;
 			/*
-			 * Keep the legacy VOTER call.  MLA 5.42.08 implements
-			 * this through its UDPOpen() compatibility macro.
-			*/
-			udpSocketUser = UDPOpen(AppConfig.MyPort, &udpServerNode, 
+			 * Let the UDP stack perform ARP resolution for the
+			 * destination IP address.
+			 */
+			udpSocketUser = UDPOpenEx(vaddr.Val, UDP_OPEN_IP_ADDRESS, AppConfig.MyPort, 
 				(althost && AppConfig.AltVoterServerPort) ? AppConfig.AltVoterServerPort : AppConfig.VoterServerPort);
-			smUdp = SM_UDP_SEND_ARP;
 			CurVoterAddr = vaddr;
 			altchange1 = 1;
 
@@ -4359,40 +4343,8 @@ void main_processing_loop(void)
 		}
 
 		if (udpSocketUser != INVALID_UDP_SOCKET) {
-			switch (smUdp) {
-				case SM_UDP_SEND_ARP:
-            		if (ARPIsTxReady()) {
-						/* Remember when we sent last request */
-						tsecWait = TickGet();
-						/* Send ARP request for given IP address */
-						ARPResolve(&udpServerNode.IPAddr);
-						smUdp = SM_UDP_WAIT_RESOLVE;
-					}
-					break;
-
-				case SM_UDP_WAIT_RESOLVE:
-					/* The IP address has been resolved, we now have the MAC address of the
-					 * node at 10.1.0.101
-					 */
-					if (ARPIsResolved(&udpServerNode.IPAddr, &udpServerNode.MACAddr)) {
-						/*
-						 * MLA 5.42 UDP sockets cache the complete NODE_INFO.
-						 * VOTER performs ARP resolution itself, so refresh the
-						 * socket's destination information after ARP completes,
-						 * using a helper function.
-						*/
-						UDPSetRemoteNode(udpSocketUser, &udpServerNode);
-						smUdp = SM_UDP_RESOLVED;
-					} else { /* If not resolved after 2 seconds, send next request */
-						if ((TickGet() - tsecWait) >= TICK_SECOND / 2ul) {
-							smUdp = SM_UDP_SEND_ARP;
-						}
-					}
-					break;
-
-				case SM_UDP_RESOLVED:
-					process_udp(&udpSocketUser, &udpServerNode);
-					break;
+			if (UDPIsOpened(udpSocketUser)) {
+				process_udp(&udpSocketUser);
 			}
 		}
 	}
