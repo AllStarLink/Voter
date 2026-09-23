@@ -1230,7 +1230,7 @@ void __attribute__((auto_psv, __interrupt__(__preprologue__("push W7\n\tmov PORT
 									/* Put the stepsizeTable index value into byte 162
 									 * of the payload.
 									 */
-									*cp = enc_index;
+									*cp = enc_prev_index;
 									enc_prev_valprev = enc_valprev;
 									enc_prev_index = enc_index;
 								}
@@ -3286,15 +3286,19 @@ BYTE adpcm_encode(WORD adc_sample)
 	short sign;		/* Current ADPCM sign bit */
 	long valpred;	/* Predicted output value */
 	int adpcm_index; /* Quantizer step size index from indexTable */
-	int diff;		/* Difference between adc_sample and valpred */
+	long diff;		/* Difference between adc_sample and valpred */
 	int vpdiff;		/* Current change to valpred (de-quantized predicted difference) */
 	int step;		/* Quantizer stepsize */
+	long sample; /* Converted 16-bit signed audio sample */
 
 	BYTE delta;		/* Current ADPCM output value */
-
-	/* Convert the 12-bit unsigned (0-4095) ADC value to a 16-bit signed value */
-	adc_sample -= 2048;
-	adc_sample *= 16;
+	
+	/* Convert the 12-bit (0-4095) unsigned ADC result to signed 16-bit audio.
+	 * The cast must precede the subtraction so values below midscale
+	 * become negative rather than wrapping as an unsigned WORD.
+	 */
+	 sample = (long)adc_sample - 2048L;
+	 sample *= 16;
 
 	/* Restore the previous values of quantizer step index
 	 * and predicted sample.
@@ -3310,7 +3314,7 @@ BYTE adpcm_encode(WORD adc_sample)
 	/* Compute the difference between the current and
 	 * previous value, and determine/set the sign.
 	 */
-	diff = adc_sample - valpred;
+	diff = sample - valpred;
 	sign = (diff < 0) ? 8 : 0;
 
 	/* If necessary, find the absolute difference. */
@@ -4130,7 +4134,7 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 
                             index += mytxindex;
 
-					   		if (index > AppConfig.TxBufferLength) { 
+					   		if (index >= AppConfig.TxBufferLength) { 
 								index -= AppConfig.TxBufferLength;
 							}
 							mydiff = AppConfig.TxBufferLength;
@@ -4139,9 +4143,9 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 							if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
 					  			mydiff -= ((short) index + (ADPCM_SAMPLE_SIZE));
 								/* Get the predictor value from bytes 160 and 161 of the payload
-								 * and re-assemble them (they are stored lowest nibble first).
+								 * and re-assemble them (high byte first).
 								 */
-								dec_valprev = (audio_packet.audio[160] << 8) + audio_packet.audio[161];
+								dec_valprev = (short)(((WORD) audio_packet.audio[160] << 8) | audio_packet.audio[161]);
 								/* Get the stepsizeTable index from byte 162 of the payload. */
 								dec_index = audio_packet.audio[162];
 								adpcm_decoder(audio_packet.audio);
