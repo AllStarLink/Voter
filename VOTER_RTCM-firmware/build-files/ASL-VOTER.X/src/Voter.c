@@ -35,7 +35,8 @@
  * CODEC work.
  *
  * If a host attempts to send ADPCM audio frames to this device, it will
- * display a "ADPCM Not Supported" message on the console.
+ * display an "ADPCM is not supported in this version. Fix voter.conf!" message
+ * on the console.
  *
  * Debug values:
  * 1 - Alt/Main Host change notifications
@@ -3570,32 +3571,7 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 						SetAudioSrc(); /* Reconfigure our audio filtering, based on connection status. */
 					}
 				} else { /* If this isn't part of the auth process (something other than Payload 0) */
-
-					/*! \todo VE7FET this seems odd. connected should only be set once we've completed
-					 * authentication, why are we setting it here? We should already be connected? Not
-					 * sure what the purpose of wconnected is supposed to be.. we should only be here
-					 * if we are connected to the host? I can see tickling the lastrxtimer every time
-					 * we receive a packet, that makes sense. Not sure why we do it twice though?
-					 *
-					 * Commenting this code out for potential later removal if no anomolies observed.
-					 */
-					/*
-					BYTE wconnected;
-					wconnected = connected;
-
-					if (!connected) {
-						gpsforcetimer = 0;
-					}
-
-					connected = 1;
-					lastrxtimer = 0;
-
-					if (!wconnected) {
-						SetAudioSrc();
-					}
-					*/
-
-					/* We've got a packet, so reset the timer. */
+					/* We've got a packet, so reset the watchdog timer. */
 					lastrxtimer = 0;
 
 					/* Is this a ping packet we received on the wire? */
