@@ -1,5 +1,38 @@
 # Firmware Changelog
 
+## 4.00 9/30/2026
+Version 4.00 is a major code change, focusing on updating the TCP/IP Stack, removing the (broken) ADPCM audio support, and changing the project to use the newer MPLAB X IDE and XC16 compiler.
+
+### Feature Updates
+This version removes support for ADPCM audio. See https://github.com/AllStarLink/app_rpt/issues/878 for further details of why this was removed.
+
+Upgrade the TCP/IP stack to Microchip Libraries for Applications (MLA) v2013-06-15 (aka version 5.42.08). This is the most recent TCP/IP stack available for the Ethernet chip used in this project. It brings a number of upstream bug fixes to how UDP and ARP are handled, and allowed for some firmware optimization by utilizing the Microchip ARP functions, instead of custom ones.
+
+Added .hex files for manually loading the bootloader into a fresh dsPIC. The previous method required using the legacy MPLAB IDE, which may be difficult moving forward.
+
+### Code Cleanup
+Address outstanding "todo" items in the code (cleaning up comments and removing dead code).
+
+Refactor the code base to move away from the legacy MPLAB IDE and C30 compiler, and move to using the MPLAB X IDE (v5.5) and XC16 Compiler (v1.36b). This lets the firmware continue development on newer operating systems. Some firmware modifications were required (configuration bit setting in particular) to be compliant with new requirements. New customized linker script files (`.gld`) were also required for the new compiler, as we are using a custom firmware map due to the addition of a bootloader.
+
+Removed extraneous TCP/IP stack files that were included in the project build, but not actually used for any of their functions.
+
+### Bug Fixes
+Back when the Software Squelch menu was added, the Hysteresis variable was exposed as a tunable. Another bug was identified where on a blank configuration EEPROM, the Hysteresis value could get set to an out of range value. This update sets the value to the default of 24, if the value read from the EEPROM is >100.
+
+Fixed a bug identified during the TCP/IP stack upgrade that may have not properly been setting the duplex of the Ethernet chip (it may have only change the PHY and not the MAC layers).
+
+Fixed a Telnet login security issue that could have lead to an un-authenticated login.
+
+Fixed issues identified with UART flag handling.
+
+Fixed upstream bugs found in the Microchip TCP/IP stack (Helpers.c and TCP.c).
+
+Fixed a potential crash if `log2fix(0)` is called (it shouldn't ever be), which is undefined behaviour. Added a guard against that situation.
+
+Guard against receiving malformed (short) ulaw audio packets.
+
+
 ## 3.30 09/15/2026
 Version 3.30 is a maintenance release, focusing on resource and compiler optimization to reduce code size in the PIC.
 
