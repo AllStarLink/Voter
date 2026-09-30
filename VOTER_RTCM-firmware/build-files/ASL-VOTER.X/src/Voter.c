@@ -1154,8 +1154,12 @@ void __attribute__((auto_psv, __interrupt__(__preprologue__("push W7\n\tmov PORT
 							}
 						}
 
-						/* Assert gpssync only once we reach GPS_STATE_VALID */
-						/*! \todo VE7FET why do we add 1 second to gps_time? */
+						/* Assert gpssync only once we reach GPS_STATE_VALID
+						 *
+						 * Our internal clocks are initialized to 1 second after GPS time, since
+						 * we have been accumulating 1 second of audio before we now assert
+						 * gpssync.
+						 */
 						if ((!gpssync) && (gps_state == GPS_STATE_VALID)) {
 							system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 							gpssync = 1;
@@ -2765,8 +2769,10 @@ void process_gps(void)
 			}
 			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
 			 * We don't need to qualify PPS (and set gpssync).
+			 *
+			 * We add 1 second to gps_time to make the mix-mode client's software
+			 * clock use the same epoch convention as a PPS-synchronized VOTER client.
 			 */
-			/*! \todo VE7FET why do we add 1 second to gps_time? */
 			if (!VOTER_CLIENT) {
 				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
@@ -3024,8 +3030,10 @@ void process_gps(void)
 
 			/* For a mix mode client, set the following vars to gps_time + 1 seconds.
 			 * We don't need to qualify PPS (and set gpssync).
+			 *
+			 * We add 1 second to gps_time to make the mix-mode client's software
+			 * clock use the same epoch convention as a PPS-synchronized VOTER client.
 			 */
-			/*! \todo VE7FET why do we add 1 second to gps_time? */
 			if (!VOTER_CLIENT) {
 				system_time.vtime_sec = timing_time = real_time = gps_time + 1;
 			}
@@ -4238,10 +4246,19 @@ void secondary_processing_loop(void)
 				g1 = 0;
 			}
 
+			/* For mix mode clients, PTT is permitted only when qualtx is true.
+			 *
+			 * For voting clients, PTT is permitted only while host audio is sufficiently recent and qualtx
+			 * is true.
+			 *
+			 * qualtx is inhibited by the Elkes timer or by the Glassers timer/condition. When either
+			 * condition becomes false, the code releases PTT via SetPTT(0).
+			*/
 			qualtx = ((!AppConfig.Elkes) || (AppConfig.Elkes == 0xffffffff) || (elketimer < AppConfig.Elkes));
 			qualtx &= (!((AppConfig.Glasers && (AppConfig.Glasers != 0xffff)) && (glasertimer || g1)));
 
 			if (connected) {
+				/* For mix mode clients. */
 				if (!VOTER_CLIENT) {
 					if (ptt && ((txseqno > (txseqno_ptt + 2)) || (!qualtx))) {
 						host_ptt = 0;
@@ -4252,39 +4269,45 @@ void secondary_processing_loop(void)
 						ptt = 1;
 						SetPTT(1);
 					}
-				} else {
-					/*! \todo VE7FET what does this do? It has something to do with disabling PTT
-					 * if we are using the "Glassers" or "Elketimer" options.
-					 */
-					/* x has been set to the difference between NOW and the last
-					 * time we received and audio packet (in seconds).
+				} else { /* For voting clients. */
+					/* Determine if the host audio is sufficiently recent.
 					 *
-					 * z is always 100000 (set above) when we get here, that seems like this test
-					 * is useless.
+					 * x is the whole-second component of the difference between the current
+					 * VOTER time and the timestamp of the last host audio packet.
 					 *
-					 * We enter this IF if we have something in vtime_sec, and the difference
-					 * between NOW and the last time we received and audio packet from the
-					 * host is less than 100 seconds.
-					 */
-					if (lastrxtime.vtime_sec && (x < 100) && (z <= 100000)) {
+					 * z is initialized to 100000 above.
+					 *
+					 * If lastrxtime.vtime_sec is nonzero and the seconds-field difference is
+					 * less than 100 seconds, calculate z from the complete seconds and
+					 * nanoseconds timestamp difference, then subtract the configured transmit
+					 * buffer delay. If the test fails, z remains 100000, which subsequently
+					 * prevents the host-audio PTT qualification test from treating the host
+					 * audio as recent.
+					 *
+					 * Effectively, z is the buffer-delay-adjusted age of the last received host
+					 * audio. A value greater than 60ms causes an active VOTER-client PTT to be
+					 * released, and a value of 60ms or less is required to establish PTT (along
+					 * with qualtx). So, if we miss 3 audio frames (20ms each), kill the PTT.
+ 					*/
+					if (lastrxtime.vtime_sec && (x < 100)) {
 						/* Set y to the number of nsec difference between NOW and
 						 * the last time we received an audio packet from the host.
-						 */
+						*/
 						y = system_time.vtime_nsec - lastrxtime.vtime_nsec;
 						/* Convert x (seconds difference) to ms and stuff it in z. */
 						z = x * 1000;
 						/* Add the nsec difference to z (after converting it to nsec). */
 						z += y / 1000000;
-						/* z is in ms (with nsec added).
+						/*
+						 * z is the elapsed host-audio time in milliseconds.
 						 *
-						 * Subtract (TxBufferLength - FRAMESIZE) /2 /2 /2 from z. This appears to
-						 * effectively take take TxBufferLength, subtract a FRAMESIZE from it, and
-						 * divide by 8 (which should make it time in ms).
+						 * TxBufferLength is in samples. At 8 kHz, 8 samples = 1 ms,
+						 * so subtract the configured transmit-buffer delay beyond one
+						 * FRAMESIZE frame from z.
 						 *
-						 * So, subtract TxBufferLength - FRAMESIZE (in ms) from z and store
-						 * it in z.
-						 *
-						 */
+						 * The resulting z will be the "freshness" of our audio from the host
+						 * (in ms).
+						*/
 						z -= (AppConfig.TxBufferLength - 160) >> 3;
 					}
 
