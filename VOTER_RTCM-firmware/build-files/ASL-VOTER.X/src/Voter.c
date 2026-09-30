@@ -3621,7 +3621,8 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 							adpcm_warn_uptimer = uptimer;
 						}
 					}
-					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW)) {
+					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) &&
+						(n == (sizeof(VOTER_PACKET_HEADER) + 1 + ULAW_FRAME_SIZE))) {
 						long index, ndiff;
 						short mydiff;
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
