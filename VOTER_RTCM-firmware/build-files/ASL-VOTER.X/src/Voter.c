@@ -29,39 +29,13 @@
  *   All previous versions that use mktime() WILL be broken, not able to tell 
  *   the current time. See https://www.microchip.com/forums/m653169.aspx
  *
- * ADPCM encode/decode routines are based on the Microchip Application 
- * Note AN643, "Adaptive Differential Pulse Code Modulation using 
- * PICmicro Microcontrollers"
+ * NOTE: As of Version 4.00, ADPCM support is no longer supported in the
+ * firmware. The code was broken/non-functional and there is no practical
+ * benefit to go through all troubleshooting and testing to make an inferior
+ * CODEC work.
  *
- * For IMA ADPCM Codec:
- *
- * Copyright 1992 by Stichting Mathematisch Centrum, Amsterdam, The
- * Netherlands.
- *
- *                        All Rights Reserved
- *
- * Permission to use, copy, modify, and distribute this software and its 
- * documentation for any purpose and without fee is hereby granted, 
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in 
- * supporting documentation, and that the names of Stichting Mathematisch
- * Centrum or CWI not be used in advertising or publicity pertaining to
- * distribution of the software without specific, written prior permission.
- * 
- * STICHTING MATHEMATISCH CENTRUM DISCLAIMS ALL WARRANTIES WITH REGARD TO
- * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
- * FITNESS, IN NO EVENT SHALL STICHTING MATHEMATISCH CENTRUM BE LIABLE
- * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
- * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * 
- * *******************************************************************
- * NOTE: It would have been nicer to (1) use G.726 rather than this
- * ancient version of ADPCM, but G.726 was a bit too computationally
- * complex for this hardware platform, and (2) *not* to have to transcode
- * the TX audio into ulaw before outputting it, but there is no room in
- * RAM for signed linear audio of the necessary buffer size; sigh!
+ * If a host attempts to send ADPCM audio frames to this device, it will
+ * display a "ADPCM Not Supported" message on the console.
  *
  * Debug values:
  * 1 - Alt/Main Host change notifications
@@ -72,10 +46,6 @@
  * 32 - GPS Debug
  * 64 - Fix GPS 1 second off
  * 128 - not currently used
- * 
- * NOTE: By default, audio between the host and the client will be 
- * encoded in ulaw, UNLESS specifically set by the adpcm option 
- * in voter.conf on the host.
  *
  * NOTE: The VOTER and RTCM use different dsPIC devices:
  * VOTER (through-hole) runs on:	dsPIC33FJ128GP802 (28-pin SPDIP)
@@ -206,10 +176,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "4.00 BEW 9/21/2026";
+	char	VERSION[] = "4.00 BEW 9/30/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "4.00 9/21/2026";
+	char	VERSION[] = "4.00 9/30/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -301,7 +271,12 @@
 #define	DIAG_WAIT_UART 		(TICK_SECOND / 3ul)	
 #define	DIAG_WAIT_MEAS 		(TICK_SECOND * 2)
 
-/* Define payload types (payload type 4 is currently unused) */
+/* Define payload types (payload type 4 is currently unused). 
+ * Payload type 3 was used for ADPCM audio, but is not longer supported. It
+ * is retained in the event an outdated host (chan_voter) sends an ADPCM
+ * payload, to allow detection and response via console that ADPCM is not
+ * supported.
+ */
 #define PAYLOAD_AUTH 	0
 #define PAYLOAD_ULAW 	1
 #define PAYLOAD_GPS 	2
@@ -313,7 +288,7 @@
 #define	OPTION_FLAG_SENDALWAYS 		2 /* Send audio always (master) */
 #define OPTION_FLAG_NOCTCSSFILTER 	4 /* Do not filter CTCSS (noplfilter) */
 #define	OPTION_FLAG_MASTERTIMING 	8 /* Master timing source (do not delay sending audio packet) (master) */
-#define	OPTION_FLAG_ADPCM 			16 /* Use ADPCM rather than ulaw (adpcm) */
+/* OPTION_FLAG_ADPCM 			16 for sending ADPCM audio is no longer supported, this is for reference only */
 #define	OPTION_FLAG_MIX 			32 /* Request "mix" option to host (mixminus) */
 
 /* Define the "offline" modes */
@@ -328,8 +303,6 @@
 /* Define our audio frame sizes */
 #define ULAW_FRAME_SIZE		160 /* Size of a ulaw packet */
 #define ULAW_SAMPLE_SIZE	160 /* How many ulaw audio samples in a ulaw packet */
-#define ADPCM_FRAME_SIZE	163 /* Size of an ADPCM packet */
-#define ADPCM_SAMPLE_SIZE	320 /* How many ADPCM audio samples in a ulaw packet */
 
 /* Define our TX buffer sizes */
 #ifdef DSPBEW
@@ -403,11 +376,10 @@ enum {
 	GPS_TSIP
 };
 
-/* Defines for ulaw and ADPCM */
+/* Defines for ulaw */
 #define BIAS 				0x84 /* Define the add-in bias for 16-bit ulaw samples */
 #define CLIP 				32635 /* Clip ulaw samples to max value */
 #define	ULAW_SILENCE 		0xff /* Clamp audio for ulaw silence */
-#define	ADPCM_SILENCE 		0 /* Clamp audio for ADPCM silence */
 
 /* Defines for DSP */
 #ifdef DSPBEW
@@ -450,7 +422,7 @@ typedef struct {
 static struct {
 	VOTER_PACKET_HEADER vph;
 	BYTE rssi;
-	BYTE audio[ADPCM_FRAME_SIZE]; /* Audio packet will be a max of 163 bytes (when using ADPCM) */
+	BYTE audio[ULAW_FRAME_SIZE];
 } audio_packet;
 
 static struct {
@@ -495,7 +467,6 @@ void init_squelch(void);
 void main_processing_loop(void);
 int myfgets(char *buffer, unsigned int len);
 BYTE ulaw_encode(WORD adc_sample);
-BYTE adpcm_encode(WORD adc_sample);
 
 /****************************************************************************/
 //																			//
@@ -508,7 +479,7 @@ BYTE inputs2;		/* GPB I/O on IO Expander */
 BYTE filling_buffer;
 WORD fillindex;
 BOOL filled;
-BYTE audio_buf[2][ADPCM_FRAME_SIZE]; /* Audio buffer array will be max 326 bytes (when using ADPCM) */
+BYTE audio_buf[2][ULAW_FRAME_SIZE]; /* Audio buffer array will be max 320 bytes */
 BOOL set_atten(BYTE val);
 BOOL connected;		/* Connected to host */
 BOOL bootdone;		/* Set when main menu prints, so we can start GPS acquisition */
@@ -588,16 +559,6 @@ short amin;			/* Keep track of the maximum audio peak value (s/b negative?)*/
 WORD apeak;			/* Peak un-signed audio value */
 BOOL indisplay;
 BOOL indipsw;
-/* ADPCM globals, most are used to keep track of previous values for the predictor. */
-short enc_valprev;		/* Previous output value */
-char enc_index;			/* Index into stepsize table */
-short enc_prev_valprev;	/* Previous previous output value */
-char enc_prev_index;	/* Index into stepsize table */
-BYTE enc_lastdelta;		/* The last ADPCM sample */
-BYTE dec_buffer[ADPCM_SAMPLE_SIZE]; /* ADPCM decoded audio buffer translated to ulaw */
-short dec_valprev;	/* Previous output value */
-char dec_index;		/* Index into stepsize table */
-/* End ADPCM globals */
 BOOL time_filled;
 long host_txseqno;
 long txseqno_ptt;
@@ -651,6 +612,8 @@ BOOL altchange;
 BOOL altchange1;
 WORD glasertimer;
 DWORD uptimer;
+DWORD adpcm_warn_uptimer; /* Timer for sending ADPCM console warning */
+BOOL gotadpcm; /* Flag if we receive an ADPCM payload packet to send warning */
 WORD pingtimer;
 WORD secondtimer;
 long missed;
@@ -855,25 +818,6 @@ ROM short ulawtabletx[] = {
 56,48,40,32,24,16,8,0
 };
 
-/* Intel ADPCM step variation table */
-ROM static int indexTable[16] = {
-    -1, -1, -1, -1, 2, 4, 6, 8,
-    -1, -1, -1, -1, 2, 4, 6, 8,
-};
-
-/* ADPCM quantizer step size lookup table */
-ROM static int stepsizeTable[89] = {
-    7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
-    19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
-    50, 55, 60, 66, 73, 80, 88, 97, 107, 118,
-    130, 143, 157, 173, 190, 209, 230, 253, 279, 307,
-    337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
-    876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066,
-    2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358,
-    5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899,
-    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
-};
-
 /* Configure CW/Morse tone settings used for ID in Offline Mode */
 #define CWTONELEN 10 /* 10 samples of tone? */
 
@@ -963,6 +907,7 @@ ROM char 	gpsmsg1[] = "  GPS receiver active, waiting for acquisition",
 
 char 	newvalerror[] = "Invalid Entry, Value Not Changed\n",
 		newvalnotchanged[] = "No Entry Made, Value Not Changed\n",
+		badadpcm[] = "  ADPCM is not supported in this version. Fix voter.conf!\n",
 		badmix[] = "  ERROR! Host rejecting mix mode connection",
 		hosttmomsg[] = "  ERROR! Host response timeout";
 
@@ -1107,8 +1052,6 @@ static BYTE calcrssi(WORD val)
  */ 
 void __attribute__((auto_psv, __interrupt__(__preprologue__("push W7\n\tmov PORTA, w7\n\tmov W7, _portasave\n\tpop W7")))) _CNInterrupt(void)
 {
-	BYTE *cp;
-
 	CORCONbits.PSV = 1; /* Program space visible in data space */
 	/* This IF is where the PPS magic happens.
 	 *
@@ -1196,45 +1139,11 @@ void __attribute__((auto_psv, __interrupt__(__preprologue__("push W7\n\tmov PORT
 						 * 8000 samples (1 second) of audio. Only if we're not simulcasting.
 						 */
 						if ((samplecnt < 8000) && (!SIMULCAST_ENABLE)) {
-							if (option_flags & OPTION_FLAG_ADPCM) { /* Encode audio in ADPCM */
-								BYTE adpcm_sample;
+							/* Fill the audio buffer (audio_buf) with ulaw audio samples. */
+							audio_buf[filling_buffer][fillindex++] = ulaw_encode(last_adcsample);
 
-								adpcm_sample = adpcm_encode(last_adcsample);
-								
-								/* Put the ADPCM value into the audio buffer, bottom nibble first. */
-								if (fillindex & 1) {
-									audio_buf[filling_buffer][fillindex >> 1] = (enc_lastdelta << 4) | adpcm_sample;
-								} else {
-									enc_lastdelta = adpcm_sample;
-								}
-								fillindex++;
-							} else  { /* Encode audio in ulaw */
-								/* We're using ulaw instead of ADPCM, so fill the
-								 * audio buffer (audio_buf) with ulaw audio samples
-								 * instead.
-								 */
-								audio_buf[filling_buffer][fillindex++] = ulaw_encode(last_adcsample);
-							}
-
-							/* Once we have a full packet frame (320 bytes of ADPCM or 160 bytes of ulaw),
-							 * set filled = 1...
-							 */
-							if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
-								if (option_flags & OPTION_FLAG_ADPCM) {
-									/* Put the predictor value into bytes 160 and 161 of the
-									 * payload, high byte first.
-									 */
-									cp = &audio_buf[filling_buffer][fillindex >> 1];
-									*cp++ = (enc_prev_valprev & 0xff00) >> 8;
-									*cp++ = enc_prev_valprev & 0xff;
-									/* Put the stepsizeTable index value into byte 162
-									 * of the payload.
-									 */
-									*cp = enc_prev_index;
-									enc_prev_valprev = enc_valprev;
-									enc_prev_index = enc_index;
-								}
-
+							/* Once we have a full packet frame (160 bytes of ulaw), set filled = 1. */
+							if (fillindex >= ULAW_SAMPLE_SIZE) {
 								filled = 1;
 								fillindex = 0;
 								filling_buffer ^= 1;
@@ -1303,7 +1212,6 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 	long accum;
 	short saccum;
 	BYTE i;
-	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
 	index = ADC1BUF0; /* Copy the current ADC buffer value */
@@ -1416,48 +1324,16 @@ void __attribute__((interrupt, auto_psv)) _ADC1Interrupt(void)
 					samplecnt = 0;
 				}
 	
+				/* Fill the audio buffer until we have 8000 samples. */
 				if (samplecnt++ < 8000) {
-					if (option_flags & OPTION_FLAG_ADPCM) { /* Encode audio in ADPCM */
-						BYTE adpcm_sample;
-
-						adpcm_sample = adpcm_encode(index);
-
-						/* Put the ADPCM value into the audio buffer, bottom nibble first. */
-						if (fillindex & 1) {
-							audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | adpcm_sample;
-						} else {
-							enc_lastdelta = adpcm_sample;
-						}
-						fillindex++;
-					} else { /* Encode audio in ulaw */
-						audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
-					}
+					 /* Encode audio in ulaw */
+					audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
 					
 					if (txseqno == 0) {
 						txseqno = 3;
 					}
 					
-					if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
-						if (option_flags & OPTION_FLAG_ADPCM) {
-							cp = &audio_buf[filling_buffer][fillindex >> 1];
-							/* Put the predictor value into bytes 160 and 161 of the
-							 * payload, high byte first.
-							 */
-							*cp++ = (enc_prev_valprev & 0xff00) >> 8;
-							*cp++ = enc_prev_valprev & 0xff;
-							/* Put the stepsizeTable index value into byte 162
-							 * of the payload.
-							 */
-							*cp = enc_prev_index;
-							enc_prev_valprev = enc_valprev;
-							enc_prev_index = enc_index;
-							txseqno++;
-							
-							if (host_txseqno) {
-								host_txseqno++;
-							}
-						}
-						
+					if (fillindex >= ULAW_SAMPLE_SIZE) {
 						txseqno++;
 							
 						if (host_txseqno) {
@@ -1509,7 +1385,6 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 	long accum;
 	short saccum;
 	BYTE i;
-	BYTE *cp;
 
 	CORCONbits.PSV = 1; /* Program space visible in data space */
 	IFS4bits.DAC1LIF = 0; /* Clear the DAC1Left Interrupt Flag */
@@ -1693,48 +1568,16 @@ void __attribute__((interrupt, auto_psv)) _DAC1LInterrupt(void)
 				samplecnt = 0;
 			}
 		
+			/* Fill the audio buffer until we have 8000 samples. */
 			if (samplecnt++ < 8000) {
-				if (option_flags & OPTION_FLAG_ADPCM) {
-					BYTE adpcm_sample;
-
-					adpcm_sample = adpcm_encode(last_adcsample);
-
-					/* Put the ADPCM value into the audio buffer, bottom nibble first. */
-					if (fillindex & 1) {
-						audio_buf[filling_buffer][fillindex >> 1]	= (enc_lastdelta << 4) | adpcm_sample;
-					} else {
-						enc_lastdelta = adpcm_sample;
-					}
-					fillindex++;
-				} else {  /* Encode audio in ulaw */
-					audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
-				}
+				/* Encode audio in ulaw */
+				audio_buf[filling_buffer][fillindex++] = ulaw_encode(index);
 				
 				if (txseqno == 0) {
 					txseqno = 3;
 				}
 
-				if (fillindex >= ((option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SAMPLE_SIZE : ULAW_SAMPLE_SIZE)) {
-					if (option_flags & OPTION_FLAG_ADPCM) {
-						cp = &audio_buf[filling_buffer][fillindex >> 1];
-						/* Put the predictor value into bytes 160 and 161 of the
-						 * payload, high byte first.
-						 */
-						*cp++ = (enc_prev_valprev & 0xff00) >> 8;
-						*cp++ = enc_prev_valprev & 0xff;
-						/* Put the stepsizeTable index value into byte 162
-						 * of the payload.
-						 */
-						*cp = enc_prev_index;
-						enc_prev_valprev = enc_valprev;
-						enc_prev_index = enc_index;
-						txseqno++;
-						
-						if (host_txseqno) {
-							host_txseqno++;
-						}
-					}
-
+				if (fillindex >= ULAW_SAMPLE_SIZE) {
 					txseqno++;
 	
 					if (host_txseqno) {
@@ -3274,277 +3117,12 @@ BYTE ulaw_encode(WORD adc_sample)
 
 /****************************************************************************/
 //																			//
-//		ADPCM Encoder Subroutine											//
-// 																			//
-// 		Description: Ingest a 12-bit sample from the ADC, convert			//
-//					 it to a 16-bit signed value, convert it to				//
-//					 an ADPCM sample, and return it.						//
-//																			//
-/****************************************************************************/
-BYTE adpcm_encode(WORD adc_sample)
-{
-	short sign;		/* Current ADPCM sign bit */
-	long valpred;	/* Predicted output value */
-	int adpcm_index; /* Quantizer step size index from indexTable */
-	long diff;		/* Difference between adc_sample and valpred */
-	int vpdiff;		/* Current change to valpred (de-quantized predicted difference) */
-	int step;		/* Quantizer stepsize */
-	long sample; /* Converted 16-bit signed audio sample */
-
-	BYTE delta;		/* Current ADPCM output value */
-	
-	/* Convert the 12-bit (0-4095) unsigned ADC result to signed 16-bit audio.
-	 * The cast must precede the subtraction so values below midscale
-	 * become negative rather than wrapping as an unsigned WORD.
-	 */
-	 sample = (long)adc_sample - 2048L;
-	 sample *= 16;
-
-	/* Restore the previous values of quantizer step index
-	 * and predicted sample.
-	 */
-	adpcm_index = enc_index;
-	valpred = enc_valprev;
-
-	/* Find the quantizer step size from the lookup table,
-	 * using the quantizer step size index.
-	 */
-	step = stepsizeTable[adpcm_index];
-								
-	/* Compute the difference between the current and
-	 * previous value, and determine/set the sign.
-	 */
-	diff = sample - valpred;
-	sign = (diff < 0) ? 8 : 0;
-
-	/* If necessary, find the absolute difference. */
-	if (sign) {
-		diff = (-diff);
-	}
-
-	/* Quantize the difference into the ADPCM code using
-	 * the quantizer step size.
-	 * Note:
-	 * This code *approximately* computes:
-	 *    delta = diff*4/step;
-	 *    vpdiff = (delta+0.5)*step/4;
-	 * but in shift step bits are dropped. The net result of this is
-	 * that even if you have fast mul/div hardware you cannot put it to
-	 * good use since the fixup would be too expensive.
-	 */
-	delta = 0;
-	vpdiff = (step >> 3);
-								
-	if (diff >= step) {
-		delta = 4;
-		diff -= step;
-		vpdiff += step;
-	}
-								
-	step >>= 1;
-								
-	if (diff >= step) {
-		delta |= 2;
-		diff -= step;
-		vpdiff += step;
-	}
-								
-	step >>= 1;
-								
-	if (diff >= step) {
-		delta |= 1;
-		vpdiff += step;
-	}
-							
-	/* Fixed predictor computes new predicted sample by adding
-	 * the old predicted sample to the predicted difference.
-	 */
-	if (sign) {
-		valpred -= vpdiff;
-		} else {
-		valpred += vpdiff;
-	}
-							
-	/* Check for overflow of the new predicted sample which
-	 * is a signed 16-bit sample, must be in the range of
-	 * 32767 to -32768.
-	 */
-	if (valpred > 32767) {
-		valpred = 32767;
-	} else if (valpred < -32768) {
-		valpred = -32768;
-	}
-							
-	/* Add the sign to the current ADPCM value. */
-	delta |= sign;
-								
-	/* Find the new quantizer step size index by adding the
-	 * previous index and a table lookup using the ADPCM value.
-	 */
-	adpcm_index += indexTable[delta];
-								
-	/* Check for overflow of the new quantizer step size index. */
-	if (adpcm_index < 0) { 
-		adpcm_index = 0;
-	}
-								
-	if (adpcm_index > 88) { 
-		adpcm_index = 88;
-	}
-
-	/* Save the new predicted sample and quantizer step index
-	 * for the next iteration via global vars.
-	 */
-	enc_valprev = valpred;
-	enc_index = adpcm_index;
-
-	/* Output a 4-bit ADPCM encoded sample (0-15). */
-	return delta;
-}
-
-/****************************************************************************/
-//																			//
-//		ADPCM Decoder Subroutine											//
-// 																			//
-// 		Description: Injest the audio_packet.audio buffer, which is 160		//
-// 					 bytes of ADPCM audio (320 samples) + 3 pointer bytes	//
-// 					 and decode the ADPCM and translate it to ulaw.	Put		//
-// 					 the decoded ulaw audio in dec_buffer.				    //
-//																			//
-/****************************************************************************/
-void adpcm_decoder(BYTE *indata)
-{
-	BYTE *inp;		/* Input buffer pointer */ 
-	int sign;		/* Current adpcm sign bit */ 
-	BYTE delta;		/* Current adpcm output value */ 
-	int step;		/* Stepsize */ 
-	long valpred;	/* Predicted value */ 
-	int vpdiff;		/* Current change to valpred */ 
-	int index;		/* Current step change index */ 
-	BYTE inputbuffer;	/* Place to keep next 4-bit value */ 
-	BOOL bufferstep;	/* Toggle between inputbuffer/input */ 
-	WORD i;
-	short sample, musign, exponent, mantissa;
-	BYTE ulawbyte;
-	inp = indata;
-	valpred = dec_valprev;
-	index = dec_index;
-	step = stepsizeTable[index];
-	bufferstep = 0;
-	inputbuffer = 0;
-
-	for (i = 0; i < ADPCM_SAMPLE_SIZE; i++) {
-		/* Step 1 - get the delta value */
-		if (bufferstep) {
-			delta = inputbuffer & 0xf;
-		} else {
-			inputbuffer = *inp++;
-			delta = (inputbuffer >> 4) & 0xf;
-		}
-
-		bufferstep = !bufferstep;
-	
-		/* Step 2 - Find new index value (for later) */
-		index += indexTable[delta];
-		
-		/* Check for overflow of the new quantizer step size index */
-		if (index < 0) {
-			index = 0;
-		}
-		
-		if (index > 88) {
-			index = 88;
-		}
-	
-		/* Step 3 - Separate sign and magnitude */
-		sign = delta & 8;
-		delta = delta & 7;
-	
-		/* Step 4 - Compute difference and new predicted value
-		 *
-		 * Computes 'vpdiff = (delta+0.5)*step/4', but see comment
-		 * in adpcm_coder.
-		 */
-		vpdiff = step >> 3;
-	
-		if (delta & 4) {
-			vpdiff += step;
-		}
-	
-		if (delta & 2) {
-			vpdiff += step >> 1;
-		}
-	
-		if (delta & 1) {
-			vpdiff += step >> 2;
-		}
-	
-		if (sign) {
-			valpred -= vpdiff;
-		} else {
-			valpred += vpdiff;
-		}
-	
-		/* Step 5 - Check for overflow of the new predicted sample
-		 * which is a signed 16-bit sample, must be in the range of
-		 * 32767 to -32767.
-		 */
-		if (valpred > 32767) {
-			valpred = 32767;
-		} else if (valpred < -32768) {
-			valpred = -32768;
-		}
-	
-		/* Step 6 - Find the quantizer step size from a table lookup
-		 * using the quantizer step size index.
-		 */
-		step = stepsizeTable[index];
-	
-		/* Step 7 - Output value
-		 * vout = valpred + 32768;
-		 */
-		sample = valpred;
-        
-		/* Get the sample into sign-magnitude. */
-		musign = (sample >> 8) & 0x80;	/* Set aside the sign */
-        
-		/* Get magnitude */
-		if (musign != 0) {
-			sample = -sample;
-		}
-        
-		/* Clip the magnitude */
-		if (sample > CLIP) {
-			sample = CLIP;
-		}
-
-		/* Convert from 16-bit linear to ulaw. */
-		sample = sample + BIAS;
-		exponent = exp_lut[(sample >> 7) & 0xFF];
-		mantissa = (sample >> (exponent + 3)) & 0x0F;
-		ulawbyte = ~(musign | (exponent << 4) | mantissa);
-
-		/* Put the result in the decoded buffer. dec_buffer
-		 * will have 40ms (320 samples) of decoded ulaw audio.
-		 */
-		dec_buffer[i] = ulawbyte;
-    }
-
-	/* Save the new predicted sample and quantizer step index
-	 * for the next iteration
-	 */
-    dec_valprev = valpred;
-    dec_index = index;
-}
-
-/****************************************************************************/
-//																			//
 //		Process UDP Packet Subroutine										//
 //																			//
 /****************************************************************************/
 void process_udp(UDP_SOCKET *udpSocketUser)
 {
-	BYTE n, c, i, j, *cp;
+	BYTE n, c, i, *cp;
 
 #ifdef	DSPBEW
 	short x;
@@ -3563,8 +3141,7 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 		return;
 	}
 
-	/* filled should be set when there are ULAW_SAMPLE_SIZE or ADPCM_SAMPLE_SIZE
-	 * samples in the buffer.
+	/* filled should be set when there are ULAW_SAMPLE_SIZE samples in the buffer.
 	 * If we've got gpssync (VOTER clients) or using mix mode clients,
 	 * and we haven't set time_filled yet, do it and update system_time
 	 */
@@ -3716,10 +3293,10 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 			 * it sends back to us, which we read below when we set option_flags.
 			 *
 			 * Once we are connected, tosend becomes true (along with some other qualifiers), so then
-			 * we are ready to send either ulaw or ADPCM audio packets (with RSSI), as needed.
+			 * we are ready to send ulaw audio packets (with RSSI), as needed.
 			 *
-			 * If this is a voter master client, we idle and send either ulaw or ADPCM empty packets
-			 * on a continuous basis (because OPTION_FLAG_SENDALWAYS will be true), about every 20ms.
+			 * If this is a voter master client, we idle and send ulaw empty packets on a continuous
+			 * basis (because OPTION_FLAG_SENDALWAYS will be true), about every 20ms.
 			 *
 			 * We also send keepalive packets (with or without GPS), as noted below.
 			 */
@@ -3730,14 +3307,13 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 				strcpy((char *) audio_packet.vph.challenge, challenge);
 				audio_packet.vph.digest = htonl(resp_digest);
 				
-				/* If tosend is qualified (so, we are connected), set our payload type byte to either ADPCM or
-				 * ulaw, depending on what the host told us to send.
+				/* If tosend is qualified (so, we are connected), set our payload type byte to ulaw.
 				 *
 				 * Otherwise, we're not connected (yet), so we're still doing authentication. Set the payload
 				 * type to 0 (authentication).
 				 */
 				if (tosend) {
-					audio_packet.vph.payload_type = htons((option_flags & OPTION_FLAG_ADPCM) ? PAYLOAD_ADPCM : PAYLOAD_ULAW);
+					audio_packet.vph.payload_type = htons(PAYLOAD_ULAW);
 				} else {
 					audio_packet.vph.payload_type = htons(PAYLOAD_AUTH);
 				}
@@ -3748,15 +3324,6 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 				for (i = 0; i < sizeof(VOTER_PACKET_HEADER); i++) {
 					UDPPut(*cp++);
 				}
-
-				/* j will be the number of bytes we are going to fill with audio, based on
-				 * whether we are sending ADPCM or ulaw audio. j is going to put 163 bytes
-				 * of audio into the payload of the packet for ADPCM, or 160 bytes for ulaw
-				 *
-				 * c will be what silence pattern to fill with, for either ADPCM or ulaw
-				 */
-				j = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_FRAME_SIZE : ULAW_FRAME_SIZE;
-				c = (option_flags & OPTION_FLAG_ADPCM) ? ADPCM_SILENCE : ULAW_SILENCE;
 
 				/* If we have a valid signal (rssiheld > 0), put the RSSI (rssiheld) into 
 				 * the packet, then fill the rest with audio samples.
@@ -3772,15 +3339,15 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 					 */
 					if ((rssiheld > 0) && HasCOR() && HasCTCSS()) {
 						UDPPut(rssiheld);
-						for (i = 0; i < j; i++) {
+						for (i = 0; i < ULAW_FRAME_SIZE; i++) {
 							UDPPut(audio_buf[filling_buffer ^ 1][i]);
 						}
 						elketimer = 0;
 					} else {
 						/* Otherwise, put an RSSI of 0 and silence into the buffer. */
 						UDPPut(0);
-						for (i = 0; i < j; i++) {
-							UDPPut(c);
+						for (i = 0; i < ULAW_FRAME_SIZE; i++) {
+							UDPPut(ULAW_SILENCE);
 						}
 					}
 				} else {
@@ -4056,12 +3623,21 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 
 					/* Is this a ulaw or ADPCM audio packet we received on the wire to transmit on RF?
 					 *
+					 * ADPCM is no longer supported, so if we receive an ADPCM payload packet, throw
+					 * a console warning (every 10 seconds).
+					 *
 					 * When we get an audio packet from the host:
 					 * - set last_rxpacket_time to the time from the HOST (from the packet header)
 					 * - set last_packet_sys_time to OUR current time
 					 * This is used for calculating stuff to display on the Status (98) menu.
 					 */
-					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW) || (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM)) {
+					if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
+						if ((uptimer - adpcm_warn_uptimer) >= 100) {
+							gotadpcm = 1; /* printed in secondary_processing_loop */
+							adpcm_warn_uptimer = uptimer;
+						}
+					}
+					if ((ntohs(audio_packet.vph.payload_type) == PAYLOAD_ULAW)) {
 						long index, ndiff;
 						short mydiff;
 						last_rxpacket_time.vtime_sec = ntohl(audio_packet.vph.curtime.vtime_sec);
@@ -4101,19 +3677,11 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 							index += (ndiff / 125000);
 						}
 
-						/* Determine packet size based on payload type */
-						WORD packet_size;
-						if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
-							packet_size = ADPCM_SAMPLE_SIZE;
-						} else {
-							packet_size = ULAW_SAMPLE_SIZE;
-						}
-
-						index += AppConfig.TxBufferLength - packet_size;
+						index += AppConfig.TxBufferLength - ULAW_SAMPLE_SIZE;
 						last_rxpacket_index = index;
 			
 			            /* If in bounds */
-                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - packet_size))) {
+                        if ((index >= 0) && (index <= (AppConfig.TxBufferLength - ULAW_SAMPLE_SIZE))) {
 							last_rxpacket_inbounds = 1;
 						
 							if (!VOTER_CLIENT) { /* This is for mix mode clients */
@@ -4138,38 +3706,18 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 								index -= AppConfig.TxBufferLength;
 							}
 							mydiff = AppConfig.TxBufferLength;
-
-							/* ADPCM */
-							if (ntohs(audio_packet.vph.payload_type) == PAYLOAD_ADPCM) {
-					  			mydiff -= ((short) index + (ADPCM_SAMPLE_SIZE));
-								/* Get the predictor value from bytes 160 and 161 of the payload
-								 * and re-assemble them (high byte first).
-								 */
-								dec_valprev = (short)(((WORD) audio_packet.audio[160] << 8) | audio_packet.audio[161]);
-								/* Get the stepsizeTable index from byte 162 of the payload. */
-								dec_index = audio_packet.audio[162];
-								adpcm_decoder(audio_packet.audio);
-
-								if (mydiff >= 0) {
-									memcpy(txaudio + index, dec_buffer, ADPCM_SAMPLE_SIZE);
-								} else {
-									memcpy(txaudio + index, dec_buffer, (ADPCM_SAMPLE_SIZE) + mydiff);
-									memcpy(txaudio, dec_buffer + ((ADPCM_SAMPLE_SIZE) + mydiff), -mydiff);
-								}
-							} else { /* ulaw */
-					  			mydiff -= ((short) index + ULAW_SAMPLE_SIZE);
+							mydiff -= ((short) index + ULAW_SAMPLE_SIZE);
 	                            				
-								if (mydiff >= 0) {	
-									memcpy(txaudio + index, audio_packet.audio, ULAW_SAMPLE_SIZE);
-								} else {
-									memcpy(txaudio + index, audio_packet.audio, ULAW_SAMPLE_SIZE + mydiff);
-									memcpy(txaudio, audio_packet.audio + (ULAW_SAMPLE_SIZE + mydiff), -mydiff);
-								}
-							}
+							if (mydiff >= 0) {	
+								memcpy(txaudio + index, audio_packet.audio, ULAW_SAMPLE_SIZE);
+							} else {
+								memcpy(txaudio + index, audio_packet.audio, ULAW_SAMPLE_SIZE + mydiff);
+								memcpy(txaudio, audio_packet.audio + (ULAW_SAMPLE_SIZE + mydiff), -mydiff);
+							}					
                         } else {
 							/* Not in bounds */
-							if (index > (AppConfig.TxBufferLength - packet_size)) {
-								missed = index - (AppConfig.TxBufferLength - packet_size);
+							if (index > (AppConfig.TxBufferLength - ULAW_SAMPLE_SIZE)) {
+								missed = index - (AppConfig.TxBufferLength - ULAW_SAMPLE_SIZE);
 							} else {
 								missed = index;
 							}
@@ -5115,6 +4663,12 @@ void secondary_processing_loop(void)
 		}
 	}
 #endif
+
+	if (gotadpcm) {
+		printf(logtime()); /* Print current timestamp */
+		printf(badadpcm); /* Print "ADPCM is not supported in this version. Fix voter.conf!" */
+		gotadpcm = 0;
+	}
 
 	if (gotbadmix) {
 		printf(logtime()); /* Print current timestamp */
@@ -6409,7 +5963,7 @@ int main(void)
 	time_filled = 0;
 	connected = 0;
 	lastrxtimer = 0;
-	memclr((char *) audio_buf, 2 * ADPCM_FRAME_SIZE); /* Clear the entire audio buffer (326 bytes) */
+	memclr((char *) audio_buf, 2 * ULAW_FRAME_SIZE); /* Clear the entire audio buffer (320 bytes) */
 	gps_bufindex = 0;
 	TSIPwasdle = 0;
 	gps_state = GPS_STATE_IDLE;
@@ -6471,16 +6025,6 @@ int main(void)
 	indipsw = 0;
 	leddiag = 0;
 	diagstate = 0;
-	/* APCM variables begin */
-	dec_valprev = 0;
-	dec_index = 0;
-	enc_valprev = 0;
-	enc_index = 0;
-	enc_prev_valprev = 0;
-	enc_prev_index = 0;
-	enc_lastdelta = 0;
-	memset(dec_buffer, ULAW_SILENCE, (ADPCM_SAMPLE_SIZE)); /* Fill the ADPCM decoder buffer with ulaw silence */
-	/* ADPCM variables end */
 	txseqno = 0;
 	txseqno_ptt = 0;
 	elketimer = 0;
@@ -6524,6 +6068,7 @@ int main(void)
 	altchange1 = 0;
 	glasertimer = 0;
 	uptimer = 0;
+	adpcm_warn_uptimer = (DWORD)-100; /* Initialized to -100ms so the warning is printed immediately once */
 	pingtimer = 0;
 	secondtimer = 0;
 	missed = 0;
@@ -7196,7 +6741,7 @@ static void InitializeBoard(void)
 	 * For the DAC, it uses 256x oversampling, and it's clock will be Fosc. It is 
 	 * configured (below) for divide by 75. So, our sample rate becomes 
 	 * (153.6MHz / 256) / 75 = 8000 samples/sec, aka 8kHz sampling. ***This is 
-	 * critical for the ADPCM/uLAW encode/decode.*** This limits the available 
+	 * critical for the ulaw encode/decode.*** This limits the available 
 	 * oscillators we can use, since we need to be able to configure the PLL to 
 	 * give us Fosc of 153.6MHz. Note, 9.8304MHz SHOULD also work, with the correct 
 	 * PLL settings... this is aka CDMA 8x Chip in ex-CDMA GPSDO's... just 'sayin. 
