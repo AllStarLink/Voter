@@ -67,6 +67,7 @@
  * VE7FET               9/20/26 Add comments for VOTER compatibility,
  *                              add some v5.42.08 modifications, fix
  *                              changing MAC duplex based on fulldup.
+ *VE7FET                10/02/26 Add MACCheckRxOverflow() helper function.
 ********************************************************************/
 #define __ENC28J60_C
 
@@ -174,6 +175,27 @@ static WORD_VAL NextPacketLocation;
 static WORD_VAL CurrentPacketLocation;
 static BOOL WasDiscarded;
 static BYTE ENCRevID;
+
+/* Number of times an ENC28J60 RX overflow condition has been observed.
+ * This counts observed RXERIF conditions, not individual packets lost.
+ */
+DWORD macrxoverflowcount = 0;
+
+/* VOTER helper function to check the RXEIRIF RX buffer overflow flag,
+ * keep a running count if we find it set, then clear it if it was set. 
+ */
+void MACCheckRxOverflow(void)
+{
+    if(ReadETHReg(EIR).Val & EIR_RXERIF)
+    {
+        if(macrxoverflowcount != 0xFFFFFFFFul)
+            macrxoverflowcount++;
+
+        /* RXERIF is a sticky error flag. Clear it after observing the
+         * condition so a subsequent overflow can be detected separately. */
+        BFCReg(EIR, EIR_RXERIF);
+    }
+}
 
 /* VOTER helper function to ensure RX is enabled and TX/RX Pause is enabled 
  * each time StackTsk is serviced.

@@ -327,5 +327,8 @@ void MACFlush(void);
  */
 void MACBurp(void);
 
+/* VOTER RX overflow diagnostics/recovery. */
+extern DWORD macrxoverflowcount;
+void MACCheckRxOverflow(void);
 	
 #endif
