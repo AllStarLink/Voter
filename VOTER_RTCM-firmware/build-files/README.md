@@ -1,5 +1,22 @@
 # Firmware Changelog
 
+## 4.01 10/02/2026
+Version 4.01 is a bug fix for how we handle receive packets with the ENC28J60.
+
+### Bug Fixes
+See https://github.com/AllStarLink/Voter/issues/36 for details.
+
+Properly handle the ENG28J60 EIR_RXERIF to track receive buffer overflows. Expose it as Debug 2, which is an EVENT counter to indicate that an overflow event occurred (it isn't a counter of how many packets overflowed).
+
+We also add a limitation on the number of packets `StackTask()` can process each time it is called. If the traffic is VOTER related, it returns immediately after processing the packet (as it did before). The change limits the number of un-related packets we process to four. The reason for the change is that if the client is being flooded by unrelated UDP or broadcast traffic, we previously kept processing packets until the receive buffer is empty. 
+
+The previous behaviour could lead to a situation where we are processing packets (and discarding the ones we don't want), while `lastrxtimer` keeps getting incremented by the ADC ISR. If we are still processing packets, and don't get any VOTER-related ones to return us to the main processing loop, `lastrxtimer` can expire (after 6 seconds), causing us to think we've not heard from the host, and resetting the connection.
+
+The new behaviour puts a hard limit on the number of packets we can process, before returning to do other necessary work.
+
+The limit is set at four, as a somewhat arbitrary number, due to the small buffer in the ENC28J60. It could be changed, if required, based on field testing. It is a tradeoff between throughput and leaving packets in the receive buffer.
+
+
 ## 4.00 9/30/2026
 Version 4.00 is a major code change, focusing on updating the TCP/IP Stack, removing the (broken) ADPCM audio support, and changing the project to use the newer MPLAB X IDE and XC16 compiler.
 
