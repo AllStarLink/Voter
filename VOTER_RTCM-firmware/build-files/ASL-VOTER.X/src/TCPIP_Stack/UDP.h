@@ -49,6 +49,7 @@
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Nilesh Rajbharti     3/19/01  Original        (Rev 1.0)
  * VE7FET               9/18/26  Add compatibility macro for VOTER
+ * VE7FET               10/3/26  Change UDPFlush to return a BOOL
  ********************************************************************/
 #ifndef __UDP_H
 #define __UDP_H
@@ -165,7 +166,7 @@ WORD UDPIsPutReady(UDP_SOCKET s);
 BOOL UDPPut(BYTE v);
 WORD UDPPutArray(BYTE *cData, WORD wDataLen);
 BYTE* UDPPutString(BYTE *strData);
-void UDPFlush(void);
+BOOL UDPFlush(void);
 
 // ROM function variants for PIC18
 #if defined(__18CXX)

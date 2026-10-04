@@ -54,6 +54,7 @@
  * Howard Schlunder		11/29/04	Added Get/SetLEDConfig macros
  * VE7FET				9/20/26		Merge in 5.31->5.42.08 changes, 
  *									add comments for VOTER customizations
+ * VE7FET				10/3/26		Change MACFlus() to return a BOOL
  ********************************************************************/
 #ifndef __MAC_H
 #define __MAC_H
@@ -305,7 +306,7 @@ void MACPutHeader(MAC_ADDR *remote, BYTE type, WORD dataLen);
 BOOL MACIsTxReady(void);
 void MACPut(BYTE val);
 void MACPutArray(BYTE *val, WORD len);
-void MACFlush(void);
+BOOL MACFlush(void); /* VOTER Add return flag for success. */
 
 
 // ROM function variants for PIC18

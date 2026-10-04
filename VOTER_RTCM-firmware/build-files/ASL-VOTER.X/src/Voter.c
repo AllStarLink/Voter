@@ -177,10 +177,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "4.01 BEW 10/02/2026";
+	char	VERSION[] = "4.01 BEW 10/03/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "4.01 10/02/2026";
+	char	VERSION[] = "4.01 10/03/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -3369,9 +3369,14 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 					}
 				}
 
-			/* Send contents of transmit buffer, and free buffer */
-			UDPFlush();
-			attempttimer = 0;
+				/* attempttimer is only meaningful while disconnected, where this packet is an
+				 * authentication attempt. It is not an audio transmission timer. Reset it only
+				 * after a successful authentication transmission so a failed AUTH attempt can be
+				 * retried without unnecessarily waiting another ATTEMPT_TIME.
+				 */
+				if (UDPFlush() && !tosend) {
+					attempttimer = 0;
+				}
 			}
 		}
 #ifdef	DSPBEW
@@ -3391,6 +3396,14 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 			lastvnoise32[2] = vnoise32;
 		}
 #endif
+		/* Do not retain 'filled' when the transmission fails. The ADC ISR can complete
+		 * another frame before the next pass through this routine, advancing filling_buffer
+		 * and updating the timing information. Retaining the old frame would then risk
+		 * sending newer audio with the old frame's timestamp.
+		 *
+		 * A failed audio packet is therefore dropped rather than retried with potentially
+		 * mismatched audio/timestamp data.
+		 */
 		filled = 0;
 		time_filled = 0;
 	}
@@ -3446,14 +3459,22 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 					UDPPut(*cp++);
 				}
 			}
-		
-		UDPFlush();
-		/* Reset some flags and timers. */
-		sendgps = 0;
-		gpsforcetimer = 0;
+			/*
+			 * Only clear the GPS flags after the packet has actually completed transmission.
+			 * A failed GPS packet should remain pending so it can be sent on the next eligible
+			 * pass. Note that the gps_packet will get updated in the GPS processing routine, so
+			 * we won't be sending stale data.
+			 *
+			 * Previously, we cleared the flags regardless of if UDPFlush() successfully sent
+			 * the packet, since UDPFlush() had no return value. That meant we may not have been
+			 * sending all the keepalive packets we thought we were sending.
+			 */
+			if (UDPFlush()) {
+				sendgps = 0;
+				gpsforcetimer = 0;
+				memclr(&gps_packet, sizeof(gps_packet));
+			}
 		}
-
-		memclr(&gps_packet, sizeof(gps_packet));
 	}
 
 	/* We're done SENDING stuff to the host, now let's see if there is stuff for us to

@@ -1,10 +1,10 @@
 # Firmware Changelog
 
-## 4.01 10/02/2026
-Version 4.01 is a bug fix for how we handle receive packets with the ENC28J60.
+## 4.01 10/03/2026
+Version 4.01 is a bug fix for how we handle transmit/receive packets with the ENC28J60. There are a number of silicon errata with the ENC28J60 that need to be carefully handled, and we have some issues with how and even if those workarounds were applied.
 
 ### Bug Fixes
-See https://github.com/AllStarLink/Voter/issues/36 for details.
+See [Issue #36](https://github.com/AllStarLink/Voter/issues/36), [Issue #37](https://github.com/AllStarLink/Voter/issues/37),  and [Microchip ENC28J60 Errata](https://www.electrokit.com/upload/product/40362/40362860/80349a.pdf) for details.
 
 Properly handle the ENG28J60 EIR_RXERIF to track receive buffer overflows. Expose it as Debug 2, which is an EVENT counter to indicate that an overflow event occurred (it isn't a counter of how many packets overflowed).
 
@@ -15,6 +15,20 @@ The previous behaviour could lead to a situation where we are processing packets
 The new behaviour puts a hard limit on the number of packets we can process, before returning to do other necessary work.
 
 The limit is set at four, as a somewhat arbitrary number, due to the small buffer in the ENC28J60. It could be changed, if required, based on field testing. It is a tradeoff between throughput and leaving packets in the receive buffer.
+
+Add a return value to MACFlush(). MACFlush() now waits for a transmit result on all ENC28J60 revisions and only returns `TRUE` for a completed transmission with no `TXERIF` and no `TXABRT` flags. This is now consistent with how it should be handled per the Microchip errata.
+
+B5/B7 retries no longer treat `TXIF` alone as success, every retry checks the error/abort state. A false/late collision can abort a packet. If the transmit status vector identifies a late collision, retry the same packet. Every retry uses a bounded completion wait so the errata workaround itself cannot become an unbounded foreground loop.
+
+A stuck `TXRTS` is explicitly cleared.
+
+Add a return value to `UDPFlush()`. `UDPFlush()` now returns the embedded MAC transmit result.
+
+The GPS `keepalive` flags are only cleared after a successful transmit.
+
+Use the added return value for `UDPFlush()` to properly tell if we successfully transmitted GPS/keepalive packet, and only reset the flags on successful send. Previously, `UDPFlush()` had no return value, so it was "fire and forget", and we cleared the flags. If sending the packet failed, we had no idea, and we would wait the full `GPS_FORCE_TIME` before sending another one. So, we could have potentially been not sending the keepalives on the proper schedule. That could lead to timeouts on the host if the packet didn't send. Now, `gpsforcetimer` is untouched if the packet failed to send, so it will try again right away (without having to count up to `GPS_FORCE_TIME` again).
+
+Minor adjustment to how we reset `attempttimer`. That is only used during authentication. We were resetting it all the time, both when sending audio or sending auth. Now we gate it with the return value of `UDPFlush()` and `!tosend`, so that it is only reset when we are doing authentication AND the packet was sent successfully. If the packet failed to send, `attempttimer` will remain unchanged, so a new authentication packet will be sent right away (rather than counting up to `ATTEMPT_TIME` again).
 
 
 ## 4.00 9/30/2026

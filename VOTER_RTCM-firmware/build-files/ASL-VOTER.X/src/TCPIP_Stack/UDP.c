@@ -930,7 +930,7 @@ ROM BYTE* UDPPutROMString(ROM BYTE *strData)
 
 /*****************************************************************************
   Function:
-	void UDPFlush(void)
+	BOOL UDPFlush(void)
 
   Summary:
 	Transmits all pending data in a UDP socket.
@@ -949,17 +949,19 @@ ROM BYTE* UDPPutROMString(ROM BYTE *strData)
 	None
 	
   Returns:
-  	None
+  	TRUE: if the packet was actually sent (based on the result of MACFlush())
+	FALSE: Packet sending failed (error from MACFlush())
 
   Remarks:
 	Note that unlike TCPFlush, UDPFlush must be called before returning to 
 	the main stack loop.  There is no auto transmit for UDP segments.
   ***************************************************************************/
-void UDPFlush(void)
+BOOL UDPFlush(void)
 {
     UDP_HEADER      h;
     UDP_SOCKET_INFO *p;
     WORD			wUDPLength;
+	BOOL 			TxSuccess;
 
     p = &UDPSocketInfo[activeUDPSocket];
 
@@ -1014,11 +1016,13 @@ void UDPFlush(void)
 	#endif
     
 	// Transmit the packet
-    MACFlush();
+    TxSuccess = MACFlush();
 
 	// Reset packet size counter for the next TX operation
     UDPTxCount = 0;
 	LastPutSocket = INVALID_UDP_SOCKET;
+
+	return TxSuccess;
 }
 
 

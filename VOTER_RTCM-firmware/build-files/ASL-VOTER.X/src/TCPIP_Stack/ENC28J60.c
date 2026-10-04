@@ -67,7 +67,8 @@
  * VE7FET               9/20/26 Add comments for VOTER compatibility,
  *                              add some v5.42.08 modifications, fix
  *                              changing MAC duplex based on fulldup.
- *VE7FET                10/02/26 Add MACCheckRxOverflow() helper function.
+ * VE7FET               10/02/26 Add MACCheckRxOverflow() helper function.
+ * VE7FET               10/03/26 Revise MACFlush() to better handle B5/B7 errata.
 ********************************************************************/
 #define __ENC28J60_C
 
@@ -684,7 +685,7 @@ BOOL MACGetHeader(MAC_ADDR *remote, BYTE* type)
  *                        value to write into the Ethernet header's type field.
  *                  dataLen: Length of the Ethernet data payload
  *
- * Output:          None
+ * Output:
  *
  * Side Effects:    None
  *
@@ -723,14 +724,15 @@ void MACPutHeader(MAC_ADDR *remote, BYTE type, WORD dataLen)
 }
 
 /******************************************************************************
- * Function:        void MACFlush(void)
+ * Function:        BOOL MACFlush(void)
  *
  * PreCondition:    A packet has been created by calling MACPut() and
  *                  MACPutHeader().
  *
  * Input:           None
  *
- * Output:          None
+ * Output:          TRUE: The packet was sent successfully
+ *                  FALSE: Packet send failed (timeout, abort, or un-recovered error)
  *
  * Side Effects:    None
  *
@@ -745,85 +747,174 @@ void MACPutHeader(MAC_ADDR *remote, BYTE type, WORD dataLen)
  *                  called (in the TX data area), the data in the TX buffer
  *                  will not be corrupted.
  *****************************************************************************/
-void MACFlush(void)
+BOOL MACFlush(void)
 {
-    // Reset transmit logic if a TX Error has previously occured
-    // This is a silicon errata workaround
+    BOOL TxSuccess = FALSE;
+    BOOL TxError;
+    BOOL TxInterrupt;
+    BOOL TxAborted;
+    WORD AttemptCounter;
+    WORD_VAL ReadPtrSave;
+    WORD_VAL TXEnd;
+    TXSTATUS TXStatus;
+    BYTE i;
+
+    /*
+     * Reset the transmit state machine before every packet. This is required
+     * by the ENC28J60 transmit errata and also ensures stale transmit-error
+     * state cannot affect the result of the new attempt.
+     */
     BFSReg(ECON1, ECON1_TXRST);
     BFCReg(ECON1, ECON1_TXRST);
     BFCReg(EIR, EIR_TXERIF | EIR_TXIF);
+    BFCReg(ESTAT, ESTAT_TXABRT | ESTAT_LATECOL);
 
-    // Start the transmission
-    // After transmission completes (MACIsTxReady() returns TRUE), the packet
-    // can be modified and transmitted again by calling MACFlush() again.
-    // Until MACPutHeader() is called, the data in the TX buffer will not be
-    // corrupted.
+    /* Start the transmission. */
     BFSReg(ECON1, ECON1_TXRTS);
 
-    // Revision B5 and B7 silicon errata workaround
-    if(ENCRevID == 0x05u || ENCRevID == 0x06u)
+    /*
+     * Do not report success merely because TXRTS was accepted. TXIF is set
+     * when transmission ends, including an abort, so wait for the result and
+     * reject any attempt which reports TXERIF or TXABRT.
+     *
+     * The bounded wait is also required for B5/B7 errata cases where the
+     * transmit state machine can remain stuck with TXRTS asserted and TXIF
+     * clear.
+     */
+    AttemptCounter = 0u;
+    while(!(ReadETHReg(EIR).Val & (EIR_TXERIF | EIR_TXIF)) &&
+          (++AttemptCounter < 1000u));
+
+    if(AttemptCounter >= 1000u)
     {
-        WORD AttemptCounter = 0x0000;
-        while(!(ReadETHReg(EIR).Val & (EIR_TXERIF | EIR_TXIF)) && (++AttemptCounter < 1000u));
-        if(ReadETHReg(EIR).EIRbits.TXERIF || (AttemptCounter >= 1000u))
+        BFCReg(ECON1, ECON1_TXRTS);
+        BFCReg(EIR, EIR_TXERIF | EIR_TXIF);
+        BFCReg(ESTAT, ESTAT_TXABRT | ESTAT_LATECOL);
+        return FALSE;
+    }
+
+    TxError = ReadETHReg(EIR).EIRbits.TXERIF;
+    TxInterrupt = ReadETHReg(EIR).EIRbits.TXIF;
+    TxAborted = ReadETHReg(ESTAT).ESTATbits.TXABRT;
+
+    /*
+     * A normal completion has TXIF set without TXERIF or TXABRT. In
+     * particular, TXIF by itself is not sufficient because the ENC28J60 also
+     * sets TXIF when a transmission aborts.
+     */
+    if(TxInterrupt && !TxError && !TxAborted)
+    {
+        TxSuccess = TRUE;
+    }
+
+    /*
+     * Revisions B5/B7 require a software retry for a late collision. Only
+     * enter this path for an actual transmit error; a normal completion has
+     * already been accepted above.
+     */
+    if(!TxSuccess && (ENCRevID == 0x05u || ENCRevID == 0x06u) && TxError)
+    {
+        /* Save the application-controlled read pointer. */
+        ReadPtrSave.v[0] = ReadETHReg(ERDPTL).Val;
+        ReadPtrSave.v[1] = ReadETHReg(ERDPTH).Val;
+
+        /* The transmit status vector begins immediately after ETXND. */
+        TXEnd.v[0] = ReadETHReg(ETXNDL).Val;
+        TXEnd.v[1] = ReadETHReg(ETXNDH).Val;
+        TXEnd.Val++;
+
+        WriteReg(ERDPTL, TXEnd.v[0]);
+        WriteReg(ERDPTH, TXEnd.v[1]);
+        MACGetArray((BYTE*)&TXStatus, sizeof(TXStatus));
+
+        for(i = 0; i < 16u; i++)
         {
-            WORD_VAL ReadPtrSave;
-            WORD_VAL TXEnd;
-            TXSTATUS TXStatus;
-            BYTE i;
+            /*
+             * Retry only the specific B5/B7 failure covered by erratum 13.
+             * Other transmit errors are real failures and must be reported
+             * to the caller rather than silently discarding the packet.
+             */
+            if(!TXStatus.bits.LateCollision)
+            {
+                break;
+            }
 
-            // Cancel the previous transmission if it has become stuck set
+            /*
+             * Reset the transmit logic before each retry and clear all
+             * completion/error state so the retry result is unambiguous.
+             */
             BFCReg(ECON1, ECON1_TXRTS);
+            BFSReg(ECON1, ECON1_TXRST);
+            BFCReg(ECON1, ECON1_TXRST);
+            BFCReg(EIR, EIR_TXERIF | EIR_TXIF);
+            BFCReg(ESTAT, ESTAT_TXABRT | ESTAT_LATECOL);
 
-            // Save the current read pointer (controlled by application)
-            ReadPtrSave.v[0] = ReadETHReg(ERDPTL).Val;
-            ReadPtrSave.v[1] = ReadETHReg(ERDPTH).Val;
+            BFSReg(ECON1, ECON1_TXRTS);
 
-            // Get the location of the transmit status vector
-            TXEnd.v[0] = ReadETHReg(ETXNDL).Val;
-            TXEnd.v[1] = ReadETHReg(ETXNDH).Val;
-            TXEnd.Val++;
+            AttemptCounter = 0u;
+            while(!(ReadETHReg(EIR).Val & (EIR_TXERIF | EIR_TXIF)) &&
+                  (++AttemptCounter < 1000u));
 
-            // Read the transmit status vector
+            if(AttemptCounter >= 1000u)
+            {
+                BFCReg(ECON1, ECON1_TXRTS);
+                TxSuccess = FALSE;
+                break;
+            }
+
+            TxError = ReadETHReg(EIR).EIRbits.TXERIF;
+            TxInterrupt = ReadETHReg(EIR).EIRbits.TXIF;
+            TxAborted = ReadETHReg(ESTAT).ESTATbits.TXABRT;
+
+            /*
+             * Do not accept TXIF when the retry also reports an error/abort.
+             * TXIF is an end-of-attempt indication, not a success indication.
+             */
+            if(TxInterrupt && !TxError && !TxAborted)
+            {
+                TxSuccess = TRUE;
+                break;
+            }
+
+            TxSuccess = FALSE;
+
+            /*
+             * A retry can itself fail with another late collision.  Read the
+             * new status vector before deciding whether another retry is
+             * warranted. A missing TXIF means the transmit state machine did
+             * not complete; TXRTS is explicitly cleared below before exit.
+             */
+            if(!TxError)
+            {
+                break;
+            }
+
             WriteReg(ERDPTL, TXEnd.v[0]);
             WriteReg(ERDPTH, TXEnd.v[1]);
             MACGetArray((BYTE*)&TXStatus, sizeof(TXStatus));
-
-            // Implement retransmission if a late collision occured (this can
-            // happen on B5 when certain link pulses arrive at the same time
-            // as the transmission)
-            for(i = 0; i < 16u; i++)
-            {
-                if(ReadETHReg(EIR).EIRbits.TXERIF && TXStatus.bits.LateCollision)
-                {
-                    // Reset the TX logic
-                    BFSReg(ECON1, ECON1_TXRST);
-                    BFCReg(ECON1, ECON1_TXRST);
-                    BFCReg(EIR, EIR_TXERIF | EIR_TXIF);
-
-                    // Transmit the packet again
-                    BFSReg(ECON1, ECON1_TXRTS);
-                    while(!(ReadETHReg(EIR).Val & (EIR_TXERIF | EIR_TXIF)));
-
-                    // Cancel the previous transmission if it has become stuck set
-                    BFCReg(ECON1, ECON1_TXRTS);
-
-                    // Read transmit status vector
-                    WriteReg(ERDPTL, TXEnd.v[0]);
-                    WriteReg(ERDPTH, TXEnd.v[1]);
-                    MACGetArray((BYTE*)&TXStatus, sizeof(TXStatus));
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // Restore the current read pointer
-            WriteReg(ERDPTL, ReadPtrSave.v[0]);
-            WriteReg(ERDPTH, ReadPtrSave.v[1]);
         }
+
+        /* Restore the application-controlled read pointer. */
+        WriteReg(ERDPTL, ReadPtrSave.v[0]);
+        WriteReg(ERDPTH, ReadPtrSave.v[1]);
     }
+
+    /*
+     * Always leave TXRTS clear when the result was not a successful
+     * transmission. This is essential for the B5/B7 stuck-transmit errata
+     * case and prevents UDPIsPutReady() from being permanently blocked.
+     */
+    if(!TxSuccess)
+    {
+        BFCReg(ECON1, ECON1_TXRTS);
+    }
+
+    /* Clear the completion/error state after the result has been consumed. */
+    BFCReg(EIR, EIR_TXERIF | EIR_TXIF);
+    BFCReg(ESTAT, ESTAT_TXABRT | ESTAT_LATECOL);
+
+    return TxSuccess;
+
 }
 
 
