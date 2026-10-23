@@ -52,6 +52,15 @@
  * (INCLUDING NEGLIGENCE), BREACH OF WARRANTY, OR OTHERWISE.
  *
  *
+ * ENC28J60 Hardware Revisions (EREVID Register)
+ * Hardware     EREVID
+ * Revision     Value (hex)
+ *
+ * Rev B1       0x01
+ * Rev B4       0x04
+ * Rev B5       0x05
+ * Rev B7       0x06    (Microchip goofed and mismatched their docs/silicon)
+ *
  * Author               Date        Comment
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Howard Schlunder     6/28/04 Original
