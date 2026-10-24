@@ -40,7 +40,7 @@
  *
  * Debug values:
  * 1 - Alt/Main Host change notifications
- * 2 - not currently used
+ * 2 - ENC28J60 RX overflow diagnostic monitor
  * 4 - not currently used
  * 8 - not currently used
  * 16 - Disable IP TOS Class for Ubiquiti
@@ -177,10 +177,10 @@
 
 /* Update the version number for the firmware here */
 #ifdef DSPBEW
-	char	VERSION[] = "4.00 BEW 9/30/2026";
+	char	VERSION[] = "4.01 BEW 10/03/2026";
 	#define ROMNOBEW /* Move where in memory we store some menu items */
 #else
-	char	VERSION[] = "4.00 9/30/2026";
+	char	VERSION[] = "4.01 10/03/2026";
 	#define ROMNOBEW ROM
 #endif
 
@@ -457,6 +457,9 @@ extern BOOL sqled;		/* Squelch LED output */
 extern BOOL write_eeprom_cali;	/* Flag to write calibration values back to EEPROM */
 extern BYTE noise_gain;	/* Noise gain sent to digital pot */
 extern WORD caldiode;	/* Diode voltage (used for temperature compensation) */
+
+/* Local variables scoped only for use in this file. */
+static DWORD lastMacRxOverflowCount = 0; /* Counter for ENC28J60 RX overflow events. */
 
 /****************************************************************************/
 //									     									//
@@ -3366,9 +3369,14 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 					}
 				}
 
-			/* Send contents of transmit buffer, and free buffer */
-			UDPFlush();
-			attempttimer = 0;
+				/* attempttimer is only meaningful while disconnected, where this packet is an
+				 * authentication attempt. It is not an audio transmission timer. Reset it only
+				 * after a successful authentication transmission so a failed AUTH attempt can be
+				 * retried without unnecessarily waiting another ATTEMPT_TIME.
+				 */
+				if (UDPFlush() && !tosend) {
+					attempttimer = 0;
+				}
 			}
 		}
 #ifdef	DSPBEW
@@ -3388,6 +3396,14 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 			lastvnoise32[2] = vnoise32;
 		}
 #endif
+		/* Do not retain 'filled' when the transmission fails. The ADC ISR can complete
+		 * another frame before the next pass through this routine, advancing filling_buffer
+		 * and updating the timing information. Retaining the old frame would then risk
+		 * sending newer audio with the old frame's timestamp.
+		 *
+		 * A failed audio packet is therefore dropped rather than retried with potentially
+		 * mismatched audio/timestamp data.
+		 */
 		filled = 0;
 		time_filled = 0;
 	}
@@ -3443,14 +3459,22 @@ void process_udp(UDP_SOCKET *udpSocketUser)
 					UDPPut(*cp++);
 				}
 			}
-		
-		UDPFlush();
-		/* Reset some flags and timers. */
-		sendgps = 0;
-		gpsforcetimer = 0;
+			/*
+			 * Only clear the GPS flags after the packet has actually completed transmission.
+			 * A failed GPS packet should remain pending so it can be sent on the next eligible
+			 * pass. Note that the gps_packet will get updated in the GPS processing routine, so
+			 * we won't be sending stale data.
+			 *
+			 * Previously, we cleared the flags regardless of if UDPFlush() successfully sent
+			 * the packet, since UDPFlush() had no return value. That meant we may not have been
+			 * sending all the keepalive packets we thought we were sending.
+			 */
+			if (UDPFlush()) {
+				sendgps = 0;
+				gpsforcetimer = 0;
+				memclr(&gps_packet, sizeof(gps_packet));
+			}
 		}
-
-		memclr(&gps_packet, sizeof(gps_packet));
 	}
 
 	/* We're done SENDING stuff to the host, now let's see if there is stuff for us to
@@ -3929,7 +3953,8 @@ void secondary_processing_loop(void)
 		dnsusing[] = "  Connection Using Voter Host (%d.%d.%d.%d)\n",
 		miss_str[] = "  Inbound (Eth Rx) packet out of bounds by: %ld\n",
 		gothost[] = "  Host Connection established (%s) (%d.%d.%d.%d)\n",
-		losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n";
+		losthost[] = "  Host Connection Lost (%s) (%d.%d.%d.%d)\n",
+		rxoverflow[] = "  MAC RX overflow event count: %lu\n";
 	
 	static ROM char ipinfo[] = "\nIP Configuration Info: \n",
 		ipwithdhcp[] = "Configured With DHCP\n",
@@ -4802,6 +4827,20 @@ void secondary_processing_loop(void)
 		if (altchange1) {
 			printf(logtime());
 			printf(dnsusing, CurVoterAddr.v[0], CurVoterAddr.v[1], CurVoterAddr.v[2], CurVoterAddr.v[3]);
+		}
+	}
+
+	/* When enabled, this prints the number of events (NOT the number of packets) where the ENC28J60
+	 * receive buffer was full/overflowed. Buffer overflows can result in missed packets from the
+	 * host, as the ENC28J60 will DROP packets when the receive buffer is full. If this counter is
+	 * incrementing, the device is being flooded by packets faster than it can process them. This can
+	 * lead to disconnects/timeouts with the host connection (due to lastrxtimer watchdog expiry).
+	 */
+	if (AppConfig.DebugLevel & 2) {
+		if (lastMacRxOverflowCount != macrxoverflowcount) {
+			printf(logtime());
+			printf(rxoverflow, macrxoverflowcount); /* Print "MAC RX overflow event count: " */
+			lastMacRxOverflowCount = macrxoverflowcount;
 		}
 	}
 

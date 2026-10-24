@@ -105,6 +105,11 @@ extern void SetDhcpProgressState(void);
 UINT32 g_DhcpRetryTimer = 0;
 #endif
 
+/* VOTER Define the max number of RX packets we process each
+ * time StackTask() is called. Prevents getting stuck processing
+ * unrelated traffic, stalling the host's main loop.
+ */
+#define STACKTASK_MAX_RX_PACKETS 4u
 
 /*********************************************************************
  * Function:        void StackInit(BOOL fulldup)
@@ -238,11 +243,21 @@ void StackTask(void)
     IP_ADDR tempLocalIP;
 	BYTE cFrameType;
 	BYTE cIPFrameType;
+	BYTE rxPacketCount; /* VOTER Track how many RX packets we have processed. */
 
 	/* VOTER/RTCM-specific ENC28J60 receive-path recovery routine. */
 	MACBurp();
 
-   
+	/* VOTER Record and clear any RX overflow reported by the ENC28J60 before
+	 * processing the next batch of packets. The flag is sticky, so this
+	 * records that an overflow occurred since the previous StackTask()
+	 * service, it does not represent an exact packet-loss count.
+	 */
+	MACCheckRxOverflow();
+
+	/* VOTER Reset the packet counter. */
+	rxPacketCount = 0;
+
     #if defined( WF_CS_TRIS )
         // This task performs low-level MAC processing specific to the MRF24W
         MACProcess();
@@ -336,9 +351,15 @@ void StackTask(void)
 	UDPTask();
 	#endif
 
-	// Process as many incomming packets as we can
-	while(1)
+	/* Limit the amount of foreground time consumed by unrelated incoming
+	 * Ethernet traffic. A VOTER UDP packet still causes StackTask() to
+	 * return immediately through UDPProcess(), as before.
+	 */
+	while(rxPacketCount < STACKTASK_MAX_RX_PACKETS)
 	{
+		/* VOTER Increment our packet counter. */
+		rxPacketCount++;
+
 		//if using the random module, generate entropy
 		#if defined(STACK_USE_RANDOM)
 			RandomAdd(remoteNode.MACAddr.v[5]);
@@ -436,13 +457,21 @@ void StackTask(void)
 				{
 					// Stop processing packets if we came upon a UDP frame with application data in it
 					if(UDPProcess(&remoteNode, &tempLocalIP, dataCount))
+					{
+						/* VOTER Check for the RX buffer overflow condition, and reset it appropriately,
+						 * before we return.
+						 */
+						MACCheckRxOverflow();
 						return;
+					}
 				}
 				#endif
 
 				break;
 		}
 	}
+	/* VOTER Catch an overflow that occurred while this receive batch was being serviced. */
+	MACCheckRxOverflow();
 }
 
 /*********************************************************************
